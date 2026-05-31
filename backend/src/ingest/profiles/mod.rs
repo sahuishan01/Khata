@@ -1,3 +1,4 @@
+pub mod axis;
 pub mod generic;
 pub mod hdfc;
 pub mod icici;
@@ -24,6 +25,7 @@ pub fn registry() -> Vec<BankProfile> {
         hdfc::profile(),
         icici::profile(),
         sbi::profile(),
-        generic::profile(),
+        axis::profile(),
+        generic::profile(), // must be last — fallback
     ]
 }

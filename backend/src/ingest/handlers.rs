@@ -2,6 +2,7 @@ use axum::{
     extract::{Multipart, State},
     Json,
 };
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
@@ -14,6 +15,79 @@ use super::{
     profiles::registry,
     store::store_transactions,
 };
+
+#[derive(Serialize)]
+pub struct DebugHeadersResponse {
+    pub filename: String,
+    pub bank_detected: String,
+    pub header_row: Vec<String>,
+    pub first_data_rows: Vec<Vec<String>>,
+    pub col_map: serde_json::Value,
+    pub sample_normalized: usize,
+}
+
+pub async fn debug_headers_handler(
+    _: CurrentUser,
+    mut multipart: Multipart,
+) -> Result<Json<DebugHeadersResponse>, AppError> {
+    let profiles = registry();
+
+    while let Some(field) = multipart.next_field().await? {
+        let filename = field.file_name().unwrap_or("upload").to_string();
+        let bytes = field.bytes().await?;
+        let kind = detect_file_kind(&filename);
+
+        let (raw_rows, headers) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+        let header_strs: Vec<String> = headers.iter().map(|h| h.to_string()).collect();
+        let profile = detect_bank(&profiles, &header_strs, "");
+
+        let (raw_rows2, headers2) = parse_file(&bytes, kind, profile)
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+        // Build col_map showing what index each canonical column mapped to
+        let col = |aliases: &[&str]| -> serde_json::Value {
+            for a in aliases {
+                if let Some(i) = headers2.iter().position(|h| h.contains(a)) {
+                    return serde_json::json!({ "alias": a, "col_index": i, "header": &headers2[i] });
+                }
+            }
+            serde_json::json!(null)
+        };
+
+        let col_map = serde_json::json!({
+            "txn_date":   col(profile.txn_date_aliases),
+            "value_date": col(profile.value_date_aliases),
+            "description":col(profile.description_aliases),
+            "debit":      col(profile.debit_aliases),
+            "credit":     col(profile.credit_aliases),
+            "balance":    col(profile.balance_aliases),
+            "ref":        col(profile.ref_aliases),
+        });
+
+        let first_data_rows: Vec<Vec<String>> = raw_rows2.iter().take(5)
+            .map(|r| vec![
+                r.txn_date.clone(), r.description.clone(),
+                r.debit.map(|d| d.to_string()).unwrap_or_default(),
+                r.credit.map(|c| c.to_string()).unwrap_or_default(),
+            ])
+            .collect();
+
+        use uuid::Uuid;
+        let sample = normalize(raw_rows2, Uuid::nil(), Uuid::nil(), profile, "").len();
+
+        return Ok(Json(DebugHeadersResponse {
+            filename,
+            bank_detected: profile.name.to_string(),
+            header_row: headers2,
+            first_data_rows,
+            col_map,
+            sample_normalized: sample,
+        }));
+    }
+    Err(AppError::BadRequest("no file".into()))
+}
 
 pub async fn upload_handler(
     State(state): State<AppState>,

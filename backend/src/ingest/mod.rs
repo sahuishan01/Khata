@@ -12,5 +12,7 @@ use axum::{routing::post, Router};
 use crate::AppState;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/upload", post(handlers::upload_handler))
+    Router::new()
+        .route("/upload", post(handlers::upload_handler))
+        .route("/debug-headers", post(handlers::debug_headers_handler))
 }
