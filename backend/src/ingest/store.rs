@@ -67,7 +67,7 @@ mod tests {
         }
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[sqlx::test(migrations = "./migrations")]
     async fn dedup_same_txn(pool: PgPool) {
         let (user_id,): (Uuid,) = sqlx::query_as(
             "INSERT INTO users (email, password_hash) VALUES ('a@b.com','x') RETURNING id",
