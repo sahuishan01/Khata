@@ -16,78 +16,7 @@ use super::{
     store::store_transactions,
 };
 
-#[derive(Serialize)]
-pub struct DebugHeadersResponse {
-    pub filename: String,
-    pub bank_detected: String,
-    pub header_row: Vec<String>,
-    pub first_data_rows: Vec<Vec<String>>,
-    pub col_map: serde_json::Value,
-    pub sample_normalized: usize,
-}
-
-pub async fn debug_headers_handler(
-    _: CurrentUser,
-    mut multipart: Multipart,
-) -> Result<Json<DebugHeadersResponse>, AppError> {
-    let profiles = registry();
-
-    while let Some(field) = multipart.next_field().await? {
-        let filename = field.file_name().unwrap_or("upload").to_string();
-        let bytes = field.bytes().await?;
-        let kind = detect_file_kind(&filename);
-
-        let (raw_rows, headers) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
-            .map_err(|e| AppError::BadRequest(e.to_string()))?;
-
-        let header_strs: Vec<String> = headers.iter().map(|h| h.to_string()).collect();
-        let profile = detect_bank(&profiles, &header_strs, "");
-
-        let (raw_rows2, headers2) = parse_file(&bytes, kind, profile)
-            .map_err(|e| AppError::BadRequest(e.to_string()))?;
-
-        // Build col_map showing what index each canonical column mapped to
-        let col = |aliases: &[&str]| -> serde_json::Value {
-            for a in aliases {
-                if let Some(i) = headers2.iter().position(|h| h.contains(a)) {
-                    return serde_json::json!({ "alias": a, "col_index": i, "header": &headers2[i] });
-                }
-            }
-            serde_json::json!(null)
-        };
-
-        let col_map = serde_json::json!({
-            "txn_date":   col(profile.txn_date_aliases),
-            "value_date": col(profile.value_date_aliases),
-            "description":col(profile.description_aliases),
-            "debit":      col(profile.debit_aliases),
-            "credit":     col(profile.credit_aliases),
-            "balance":    col(profile.balance_aliases),
-            "ref":        col(profile.ref_aliases),
-        });
-
-        let first_data_rows: Vec<Vec<String>> = raw_rows2.iter().take(5)
-            .map(|r| vec![
-                r.txn_date.clone(), r.description.clone(),
-                r.debit.map(|d| d.to_string()).unwrap_or_default(),
-                r.credit.map(|c| c.to_string()).unwrap_or_default(),
-            ])
-            .collect();
-
-        use uuid::Uuid;
-        let sample = normalize(raw_rows2, Uuid::nil(), Uuid::nil(), profile, "").len();
-
-        return Ok(Json(DebugHeadersResponse {
-            filename,
-            bank_detected: profile.name.to_string(),
-            header_row: headers2,
-            first_data_rows,
-            col_map,
-            sample_normalized: sample,
-        }));
-    }
-    Err(AppError::BadRequest("no file".into()))
-}
+// ── Upload ────────────────────────────────────────────────────────────────────
 
 pub async fn upload_handler(
     State(state): State<AppState>,
@@ -99,16 +28,14 @@ pub async fn upload_handler(
     while let Some(field) = multipart.next_field().await? {
         let filename = field.file_name().unwrap_or("upload").to_string();
         let bytes = field.bytes().await?;
-
         let sha = hex::encode(Sha256::digest(&bytes));
 
-        // All DB work in one transaction so SET LOCAL covers every query
+        // All DB ops in one transaction so SET LOCAL covers every query
         let mut tx = state.db.begin().await?;
         sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
             .execute(&mut *tx)
             .await?;
 
-        // Reject re-upload of identical file
         let exists: Option<(uuid::Uuid,)> = sqlx::query_as(
             "SELECT id FROM statements WHERE user_id = $1 AND file_sha256 = $2",
         )
@@ -119,32 +46,27 @@ pub async fn upload_handler(
 
         if exists.is_some() {
             tx.rollback().await?;
-            return Err(AppError::Conflict(format!(
-                "{filename} has already been imported"
-            )));
+            return Err(AppError::Conflict(format!("{filename} has already been imported")));
         }
 
         let kind = detect_file_kind(&filename);
 
-        // First pass with generic profile to discover headers and detect bank
-        let (_, headers) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
+        // First pass: generic profile → get full file hint text for bank detection
+        let (_, _, file_hint) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
-        let header_strs: Vec<String> = headers.iter().map(|h| h.to_string()).collect();
-        let profile = detect_bank(&profiles, &header_strs, "");
 
-        // Second pass with the matched profile
-        let (raw_rows, _) = parse_file(&bytes, kind, profile)
+        let profile = detect_bank(&profiles, &file_hint);
+
+        // Second pass: correct profile
+        let (raw_rows, _, _) = parse_file(&bytes, kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let rows_parsed = raw_rows.len();
         if rows_parsed == 0 {
             tx.rollback().await?;
-            return Err(AppError::BadRequest(
-                "No transaction rows found in file".into(),
-            ));
+            return Err(AppError::BadRequest("No transaction rows found in file".into()));
         }
 
-        // Insert statement record (within same transaction / RLS context)
         let (stmt_id,): (uuid::Uuid,) = sqlx::query_as(
             "INSERT INTO statements (user_id, bank, file_name, file_sha256, row_count) \
              VALUES ($1,$2,$3,$4,$5) RETURNING id",
@@ -163,8 +85,6 @@ pub async fn upload_handler(
         let normalized = txns.len();
 
         if normalized == 0 {
-            // Roll back the statement insert — nothing usable in the file
-            // (already committed above, so just warn via response)
             return Ok(Json(UploadResponse {
                 bank_detected: profile.name.to_string(),
                 rows_parsed,
@@ -187,4 +107,79 @@ pub async fn upload_handler(
     }
 
     Err(AppError::BadRequest("No file in upload".into()))
+}
+
+// ── Debug headers ─────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct DebugHeadersResponse {
+    pub filename: String,
+    pub bank_detected: String,
+    pub header_row: Vec<String>,
+    pub first_data_rows: Vec<Vec<String>>,
+    pub col_map: serde_json::Value,
+    pub sample_normalized: usize,
+}
+
+pub async fn debug_headers_handler(
+    _: CurrentUser,
+    mut multipart: Multipart,
+) -> Result<Json<DebugHeadersResponse>, AppError> {
+    let profiles = registry();
+
+    while let Some(field) = multipart.next_field().await? {
+        let filename = field.file_name().unwrap_or("upload").to_string();
+        let bytes = field.bytes().await?;
+        let kind = detect_file_kind(&filename);
+
+        let (_, _, file_hint) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+        let profile = detect_bank(&profiles, &file_hint);
+
+        let (raw_rows, headers, _) = parse_file(&bytes, kind, profile)
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+        let col = |aliases: &[&str]| -> serde_json::Value {
+            for a in aliases {
+                if let Some(i) = headers.iter().position(|h| h.contains(a)) {
+                    return serde_json::json!({ "alias": a, "col_index": i, "header": &headers[i] });
+                }
+            }
+            serde_json::json!(null)
+        };
+
+        let col_map = serde_json::json!({
+            "txn_date":    col(profile.txn_date_aliases),
+            "value_date":  col(profile.value_date_aliases),
+            "description": col(profile.description_aliases),
+            "debit":       col(profile.debit_aliases),
+            "credit":      col(profile.credit_aliases),
+            "balance":     col(profile.balance_aliases),
+            "ref":         col(profile.ref_aliases),
+        });
+
+        let first_data_rows: Vec<Vec<String>> = raw_rows.iter().take(5)
+            .map(|r| vec![
+                r.txn_date.clone(),
+                r.description.clone(),
+                r.debit.map(|d| d.to_string()).unwrap_or_default(),
+                r.credit.map(|c| c.to_string()).unwrap_or_default(),
+            ])
+            .collect();
+
+        use uuid::Uuid;
+        let sample_normalized =
+            normalize(raw_rows, Uuid::nil(), Uuid::nil(), profile, "").len();
+
+        return Ok(Json(DebugHeadersResponse {
+            filename,
+            bank_detected: profile.name.to_string(),
+            header_row: headers,
+            first_data_rows,
+            col_map,
+            sample_normalized,
+        }));
+    }
+    Err(AppError::BadRequest("no file".into()))
 }

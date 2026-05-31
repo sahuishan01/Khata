@@ -11,8 +11,8 @@ pub fn profile() -> BankProfile {
         credit_aliases: &["deposit amt", "credit amount", "cr", "credit"],
         amount_aliases: &[],
         balance_aliases: &["closing balance", "balance", "running balance"],
-        ref_aliases: &["cheque no", "chq no", "ref no", "reference number", "chq/ref number"],
-        date_formats: &["%d/%m/%y", "%d/%m/%Y", "%d-%m-%Y", "%d-%b-%Y"],
+        ref_aliases: &["chq./ref.no.", "chq/ref number", "cheque no", "chq no", "ref no", "reference number"],
+        date_formats: &["%d/%m/%y", "%d/%m/%Y", "%d-%m-%Y", "%d-%b-%Y", "%d %b %Y"],
         skip_rows: 0,
     }
 }

@@ -4,14 +4,20 @@ use std::io::Cursor;
 
 use super::{detect::FileKind, models::RawRow, profiles::BankProfile};
 
-pub fn parse_file(bytes: &[u8], kind: FileKind, profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>)> {
+/// Returns (raw_rows, column_headers, full_file_text_for_bank_detection)
+/// The third value is all row text joined — used to detect the bank from preamble rows.
+pub fn parse_file(
+    bytes: &[u8],
+    kind: FileKind,
+    profile: &BankProfile,
+) -> Result<(Vec<RawRow>, Vec<String>, String)> {
     match kind {
         FileKind::Excel => parse_excel(bytes, profile),
         FileKind::Csv => parse_csv(bytes, profile),
     }
 }
 
-fn parse_excel(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>)> {
+fn parse_excel(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>, String)> {
     let cursor = Cursor::new(bytes);
     let mut wb = open_workbook_auto_from_rs(cursor).context("open excel")?;
     let sheet_name = wb.sheet_names().first().cloned().unwrap_or_default();
@@ -31,10 +37,12 @@ fn parse_excel(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<
                 .collect()
         })
         .collect();
-    extract_rows(rows, profile)
+    // Include sheet name in hint so keywords embedded there are found too
+    let hint_prefix = format!("{sheet_name} ");
+    extract_rows(rows, profile, &hint_prefix)
 }
 
-fn parse_csv(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>)> {
+fn parse_csv(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>, String)> {
     let mut rdr = csv::ReaderBuilder::new()
         .flexible(true)
         .trim(csv::Trim::All)
@@ -47,10 +55,14 @@ fn parse_csv(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<St
     for rec in rdr.records().flatten() {
         rows.push(rec.iter().map(|s| s.to_string()).collect());
     }
-    extract_rows(rows, profile)
+    extract_rows(rows, profile, "")
 }
 
-fn extract_rows(rows: Vec<Vec<String>>, profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>)> {
+fn extract_rows(
+    rows: Vec<Vec<String>>,
+    profile: &BankProfile,
+    hint_prefix: &str,
+) -> Result<(Vec<RawRow>, Vec<String>, String)> {
     let header_idx = rows
         .iter()
         .position(|r| {
@@ -58,6 +70,17 @@ fn extract_rows(rows: Vec<Vec<String>>, profile: &BankProfile) -> Result<(Vec<Ra
             profile.description_aliases.iter().any(|a| joined.contains(a))
         })
         .unwrap_or(0);
+
+    // Full file hint = sheet name + all rows up to and including the header row
+    let file_hint = format!(
+        "{hint_prefix}{}",
+        rows.iter()
+            .take(header_idx + 1)
+            .map(|r| r.join(" "))
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
+    .to_lowercase();
 
     let headers: Vec<String> = rows
         .get(header_idx)
@@ -124,5 +147,5 @@ fn extract_rows(rows: Vec<Vec<String>>, profile: &BankProfile) -> Result<(Vec<Ra
         });
     }
 
-    Ok((raw_rows, headers))
+    Ok((raw_rows, headers, file_hint))
 }
