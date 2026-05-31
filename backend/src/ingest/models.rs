@@ -21,8 +21,9 @@ pub struct NormalizedTxn {
 #[derive(Debug, Serialize)]
 pub struct UploadResponse {
     pub bank_detected: String,
-    pub rows_parsed: usize,
-    pub inserted: usize,
+    pub rows_parsed: usize,     // raw rows found in file
+    pub normalized: usize,      // rows that passed date+amount parsing
+    pub inserted: usize,        // new unique transactions stored
     pub skipped_duplicates: usize,
 }
 

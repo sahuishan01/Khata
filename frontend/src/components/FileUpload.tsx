@@ -4,6 +4,7 @@ import { api } from '../api/client'
 interface UploadResult {
   bank_detected: string
   rows_parsed: number
+  normalized: number
   inserted: number
   skipped_duplicates: number
 }
@@ -23,12 +24,14 @@ export function FileUpload({ onSuccess }: { onSuccess: () => void }) {
       setResult(data)
       onSuccess()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string } } }
-      setError(err.response?.data?.error ?? 'Upload failed')
+      const err = e as { response?: { data?: { error?: string } }; message?: string }
+      setError(err.response?.data?.error ?? err.message ?? 'Upload failed')
     } finally {
       setLoading(false)
     }
   }
+
+  const parseFailed = result && result.normalized === 0 && result.rows_parsed > 0
 
   return (
     <div style={{ border: '2px dashed #ccc', padding: 24, borderRadius: 8, marginBottom: 24 }}>
@@ -37,13 +40,26 @@ export function FileUpload({ onSuccess }: { onSuccess: () => void }) {
       <button onClick={() => ref.current?.click()} disabled={loading}>
         {loading ? 'Uploading…' : '+ Upload Bank Statement (CSV / Excel)'}
       </button>
-      {result && (
+
+      {result && !parseFailed && (
         <p style={{ color: 'green', marginTop: 8 }}>
-          ✓ {result.bank_detected} — {result.rows_parsed} rows parsed,{' '}
-          <strong>{result.inserted} added</strong>,{' '}
-          {result.skipped_duplicates} duplicates skipped
+          ✓ <strong>{result.bank_detected}</strong> — {result.rows_parsed} rows found,{' '}
+          {result.normalized} valid transactions,{' '}
+          <strong>{result.inserted} new</strong>,{' '}
+          {result.skipped_duplicates} already imported
         </p>
       )}
+
+      {parseFailed && (
+        <div style={{ marginTop: 8, color: '#b45309', background: '#fef3c7', padding: 12, borderRadius: 6 }}>
+          <strong>⚠ {result.rows_parsed} rows found but 0 could be parsed.</strong>
+          <br />
+          The date or amount columns may not have been recognised.
+          Check that the file is a real bank statement export (not a filtered/edited copy).
+          Bank detected: <strong>{result.bank_detected}</strong>
+        </div>
+      )}
+
       {error && <p style={{ color: 'red', marginTop: 8 }}>✗ {error}</p>}
     </div>
   )

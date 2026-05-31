@@ -85,14 +85,28 @@ pub async fn upload_handler(
 
         tx.commit().await?;
 
-        // store_transactions starts its own transaction with SET LOCAL
         let txns = normalize(raw_rows, user_id, stmt_id, profile, "default");
+        let normalized = txns.len();
+
+        if normalized == 0 {
+            // Roll back the statement insert — nothing usable in the file
+            // (already committed above, so just warn via response)
+            return Ok(Json(UploadResponse {
+                bank_detected: profile.name.to_string(),
+                rows_parsed,
+                normalized: 0,
+                inserted: 0,
+                skipped_duplicates: 0,
+            }));
+        }
+
         let (inserted, skipped_duplicates) =
             store_transactions(&state.db, user_id, &txns).await?;
 
         return Ok(Json(UploadResponse {
             bank_detected: profile.name.to_string(),
             rows_parsed,
+            normalized,
             inserted,
             skipped_duplicates,
         }));
