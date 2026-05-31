@@ -24,6 +24,9 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Try ../.env first (when running `cargo run` from the backend/ subdir),
+    // then .env in the current dir so a local override still wins.
+    dotenvy::from_path("../.env").ok();
     dotenvy::dotenv().ok();
     fmt().with_env_filter(EnvFilter::from_default_env()).init();
 
