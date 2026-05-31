@@ -7,9 +7,10 @@ pub mod parse;
 pub mod profiles;
 pub mod store;
 
-use axum::Router;
+use axum::{routing::post, Router};
+
 use crate::AppState;
 
 pub fn router() -> Router<AppState> {
-    Router::new()
+    Router::new().route("/upload", post(handlers::upload_handler))
 }

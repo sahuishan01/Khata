@@ -1,9 +1,25 @@
 use anyhow::Result;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use super::{fingerprint::compute_fingerprint, models::NormalizedTxn};
 
-pub async fn store_transactions(pool: &PgPool, txns: &[NormalizedTxn]) -> Result<(usize, usize)> {
+pub async fn store_transactions(
+    pool: &PgPool,
+    user_id: Uuid,
+    txns: &[NormalizedTxn],
+) -> Result<(usize, usize)> {
+    if txns.is_empty() {
+        return Ok((0, 0));
+    }
+
+    let mut tx = pool.begin().await?;
+
+    // Scope RLS policy to this user for the transaction
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx)
+        .await?;
+
     let mut inserted = 0usize;
     let mut skipped = 0usize;
 
@@ -29,7 +45,7 @@ pub async fn store_transactions(pool: &PgPool, txns: &[NormalizedTxn]) -> Result
         .bind(t.balance)
         .bind(&t.bank_ref)
         .bind(&fp)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
         if result.rows_affected() == 1 {
@@ -38,7 +54,38 @@ pub async fn store_transactions(pool: &PgPool, txns: &[NormalizedTxn]) -> Result
             skipped += 1;
         }
     }
+
+    tx.commit().await?;
     Ok((inserted, skipped))
+}
+
+/// Insert a statement record with RLS context set
+pub async fn insert_statement(
+    pool: &PgPool,
+    user_id: Uuid,
+    bank: &str,
+    file_name: &str,
+    file_sha256: &str,
+    row_count: i32,
+) -> Result<Uuid> {
+    let mut tx = pool.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx)
+        .await?;
+
+    let (stmt_id,): (Uuid,) = sqlx::query_as(
+        "INSERT INTO statements (user_id, bank, file_name, file_sha256, row_count) VALUES ($1,$2,$3,$4,$5) RETURNING id",
+    )
+    .bind(user_id)
+    .bind(bank)
+    .bind(file_name)
+    .bind(file_sha256)
+    .bind(row_count)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+    Ok(stmt_id)
 }
 
 #[cfg(test)]
@@ -69,6 +116,7 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn dedup_same_txn(pool: PgPool) {
+        // Users table has no RLS — insert directly
         let (user_id,): (Uuid,) = sqlx::query_as(
             "INSERT INTO users (email, password_hash) VALUES ('a@b.com','x') RETURNING id",
         )
@@ -76,22 +124,19 @@ mod tests {
         .await
         .unwrap();
 
-        let (stmt_id,): (Uuid,) = sqlx::query_as(
-            "INSERT INTO statements (user_id, bank, file_name, file_sha256, row_count) VALUES ($1,'HDFC','f.csv','abc123',1) RETURNING id",
-        )
-        .bind(user_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let stmt_id = insert_statement(&pool, user_id, "HDFC", "f.csv", "abc123", 1)
+            .await
+            .unwrap();
 
         let txns = vec![make_txn(user_id, stmt_id)];
 
-        let (ins1, skip1) = store_transactions(&pool, &txns).await.unwrap();
-        assert_eq!(ins1, 1);
+        let (ins1, skip1) = store_transactions(&pool, user_id, &txns).await.unwrap();
+        assert_eq!(ins1, 1, "first insert should add 1 row");
         assert_eq!(skip1, 0);
 
-        let (ins2, skip2) = store_transactions(&pool, &txns).await.unwrap();
-        assert_eq!(ins2, 0);
+        // Re-store identical transactions (simulate overlapping re-upload)
+        let (ins2, skip2) = store_transactions(&pool, user_id, &txns).await.unwrap();
+        assert_eq!(ins2, 0, "duplicate must be skipped");
         assert_eq!(skip2, 1);
     }
 }
