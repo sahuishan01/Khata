@@ -24,7 +24,15 @@ pub async fn do_register(pool: &PgPool, email: &str, password: &str, cfg: &Confi
     .bind(&hash)
     .fetch_one(pool)
     .await
-    .map_err(|_| anyhow::anyhow!("email already in use"))?;
+    .map_err(|e| {
+        // Postgres unique-violation code is 23505
+        if let sqlx::Error::Database(ref db) = e {
+            if db.code().as_deref() == Some("23505") {
+                return anyhow::anyhow!("An account with that email already exists");
+            }
+        }
+        anyhow::anyhow!("Registration failed — please try again")
+    })?;
 
     issue_token(user.0, cfg)
 }
@@ -65,9 +73,15 @@ pub async fn register_handler(
     State(state): State<AppState>,
     Json(req): Json<RegisterReq>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    let token = do_register(&state.db, &req.email, &req.password, &state.config)
+    if req.email.trim().is_empty() {
+        return Err(AppError::BadRequest("Email is required".into()));
+    }
+    if req.password.len() < 8 {
+        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
+    }
+    let token = do_register(&state.db, &req.email.trim(), &req.password, &state.config)
         .await
-        .map_err(|e| AppError::Conflict(e.to_string()))?;
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
     Ok(Json(AuthResponse { token }))
 }
 

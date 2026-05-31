@@ -14,8 +14,15 @@ export function LoginPage() {
     try {
       await login(email, password)
       navigate('/')
-    } catch {
-      setError('Invalid email or password')
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number }; message?: string }
+      if (e.response?.status === 401) {
+        setError('Invalid email or password')
+      } else if (e.message === 'Network Error') {
+        setError('Cannot reach server — make sure the backend is running')
+      } else {
+        setError('Login failed — please try again')
+      }
     }
   }
 

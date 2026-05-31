@@ -15,8 +15,14 @@ export function RegisterPage() {
       await register(email, password)
       navigate('/')
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Registration failed')
+      const e = err as { response?: { data?: { error?: string } }; message?: string }
+      if (e.response?.data?.error) {
+        setError(e.response.data.error)
+      } else if (e.message === 'Network Error') {
+        setError('Cannot reach server — make sure the backend is running')
+      } else {
+        setError(e.message ?? 'Registration failed')
+      }
     }
   }
 
