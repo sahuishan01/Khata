@@ -2,6 +2,33 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// ── Category editing ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateCategoryReq {
+    pub category: String,
+    /// How broadly to apply the change
+    pub scope: UpdateScope,
+    /// Required when scope is Contains; the substring to match in description
+    pub keyword: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateScope {
+    /// Only this transaction
+    Single,
+    /// All transactions with the exact same description
+    SameDescription,
+    /// All transactions whose description contains `keyword`
+    Contains,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UpdateCategoryResponse {
+    pub updated: u64,
+}
+
 #[derive(Debug, sqlx::FromRow, Serialize)]
 pub struct TxnRow {
     pub id: Uuid,

@@ -1,7 +1,8 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     Json,
 };
+use uuid::Uuid;
 
 use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
 
@@ -206,4 +207,91 @@ pub async fn get_analysis(
         largest_expense: largest,
         total_transactions: total_txns,
     }))
+}
+
+// ── Category management ───────────────────────────────────────────────────────
+
+/// Return all distinct categories for this user (used to populate dropdown).
+pub async fn list_categories(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+) -> Result<Json<Vec<String>>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT category FROM transactions WHERE user_id = $1 ORDER BY category"
+    )
+    .bind(user_id)
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    Ok(Json(rows.into_iter().map(|(c,)| c).collect()))
+}
+
+/// Update a transaction's category, optionally applying to similar ones.
+pub async fn update_category(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Path(txn_id): Path<Uuid>,
+    Json(req): Json<UpdateCategoryReq>,
+) -> Result<Json<UpdateCategoryResponse>, AppError> {
+    let category = req.category.trim().to_string();
+    if category.is_empty() {
+        return Err(AppError::BadRequest("category cannot be empty".into()));
+    }
+
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let updated = match req.scope {
+        UpdateScope::Single => {
+            sqlx::query(
+                "UPDATE transactions SET category = $1 WHERE id = $2 AND user_id = $3"
+            )
+            .bind(&category).bind(txn_id).bind(user_id)
+            .execute(&mut *tx).await?.rows_affected()
+        }
+
+        UpdateScope::SameDescription => {
+            // Get the description of this transaction first
+            let row: Option<(String,)> = sqlx::query_as(
+                "SELECT description FROM transactions WHERE id = $1 AND user_id = $2"
+            )
+            .bind(txn_id).bind(user_id)
+            .fetch_optional(&mut *tx).await?;
+
+            let desc = row
+                .ok_or_else(|| AppError::NotFound)?
+                .0;
+
+            sqlx::query(
+                "UPDATE transactions SET category = $1 WHERE user_id = $2 AND description = $3"
+            )
+            .bind(&category).bind(user_id).bind(&desc)
+            .execute(&mut *tx).await?.rows_affected()
+        }
+
+        UpdateScope::Contains => {
+            let kw = req.keyword
+                .as_deref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| AppError::BadRequest("keyword required for 'contains' scope".into()))?;
+
+            // Parameterised LIKE — safe
+            let pattern = format!("%{kw}%");
+            sqlx::query(
+                "UPDATE transactions SET category = $1 WHERE user_id = $2 AND upper(description) LIKE upper($3)"
+            )
+            .bind(&category).bind(user_id).bind(&pattern)
+            .execute(&mut *tx).await?.rows_affected()
+        }
+    };
+
+    tx.commit().await?;
+    Ok(Json(UpdateCategoryResponse { updated }))
 }
