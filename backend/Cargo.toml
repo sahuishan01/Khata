@@ -29,8 +29,4 @@ thiserror = "1"
 dotenvy = "0.15"
 
 [dev-dependencies]
-sqlx = { version = "0.8", default-features = false, features = [
-  "runtime-tokio", "tls-rustls", "postgres",
-  "uuid", "chrono", "macros", "migrate", "test-utils"
-] }
 tokio = { version = "1", features = ["full"] }
