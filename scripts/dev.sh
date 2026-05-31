@@ -14,7 +14,7 @@ set -a; [ -f .env ] && source .env; set +a
 export DATABASE_URL="${DATABASE_URL:-postgresql://khata:khata@127.0.0.1:5433/khata}"
 export RO_DATABASE_URL="${RO_DATABASE_URL:-postgresql://khata_ro:khata_ro@127.0.0.1:5433/khata}"
 export JWT_SECRET="${JWT_SECRET:-change-me-in-.env}"
-export BIND_ADDR="${BIND_ADDR:-127.0.0.1:8080}"
+export BIND_ADDR="${BIND_ADDR:-127.0.0.1:8090}"
 export RUST_LOG="${RUST_LOG:-info}"
 
 echo "Starting backend on $BIND_ADDR ..."
