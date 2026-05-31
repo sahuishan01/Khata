@@ -13,6 +13,7 @@ pub struct TxnRow {
     pub balance: Option<f64>,
     pub bank: String,
     pub bank_ref: Option<String>,
+    pub category: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -21,6 +22,7 @@ pub struct ListParams {
     pub per_page: Option<i64>,
     pub direction: Option<String>,
     pub search: Option<String>,
+    pub category: Option<String>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
 }
@@ -32,6 +34,8 @@ pub struct TxnListResponse {
     pub page: i64,
     pub per_page: i64,
 }
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct MonthBucket {
@@ -53,4 +57,31 @@ pub struct DashboardStats {
 pub struct TopMerchant {
     pub description: String,
     pub total: f64,
+}
+
+// ── Analysis ──────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct CategoryBucket {
+    pub category: String,
+    pub amount: f64,
+    pub txn_count: i64,
+    pub pct: f64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct MonthComparison {
+    pub this_month: f64,
+    pub last_month: f64,
+    pub change_pct: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnalysisStats {
+    pub category_breakdown: Vec<CategoryBucket>,
+    pub savings_rate_pct: f64,        // (earned - spent) / earned * 100
+    pub avg_daily_spend: f64,         // total_spent / distinct days with debits
+    pub month_comparison: MonthComparison,
+    pub largest_expense: Option<TxnRow>,
+    pub total_transactions: i64,
 }

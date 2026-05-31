@@ -4,7 +4,7 @@ import { api } from '../api/client'
 
 interface TxnRow {
   id: string; value_date: string; description: string
-  amount: number; direction: string; bank: string
+  amount: number; direction: string; bank: string; category: string
 }
 interface TxnList { data: TxnRow[]; total: number; page: number; per_page: number }
 
@@ -33,19 +33,23 @@ export function TransactionsPage() {
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>Date</th>
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>Description</th>
                 <th style={{ textAlign: 'right', padding: '8px 4px' }}>Amount</th>
-                <th style={{ textAlign: 'left', padding: '8px 4px' }}>Bank</th>
+                <th style={{ textAlign: 'left', padding: '8px 4px' }}>Category</th>
               </tr>
             </thead>
             <tbody>
               {list.data.map(t => (
                 <tr key={t.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                  <td style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>{t.value_date}</td>
-                  <td style={{ padding: '6px 4px' }}>{t.description}</td>
+                  <td style={{ padding: '6px 4px', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{t.value_date}</td>
+                  <td style={{ padding: '6px 4px', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</td>
                   <td style={{ padding: '6px 4px', textAlign: 'right',
-                    color: t.direction === 'debit' ? '#dc2626' : '#16a34a', fontVariantNumeric: 'tabular-nums' }}>
+                    color: t.direction === 'debit' ? '#dc2626' : '#16a34a', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                     {t.direction === 'debit' ? '-' : '+'}{fmt(t.amount)}
                   </td>
-                  <td style={{ padding: '6px 4px', color: '#666' }}>{t.bank}</td>
+                  <td style={{ padding: '6px 4px' }}>
+                    <span style={{ background: '#f3f4f6', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: '#374151' }}>
+                      {t.category}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

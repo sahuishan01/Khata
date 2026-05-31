@@ -57,6 +57,7 @@ mod tests {
             direction: "debit".into(),
             balance: Some(10000.0),
             bank_ref: None,
+            category: "Shopping".into(),
         }
     }
 

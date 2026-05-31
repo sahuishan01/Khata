@@ -16,14 +16,15 @@ pub struct NormalizedTxn {
     pub direction: String,
     pub balance: Option<f64>,
     pub bank_ref: Option<String>,
+    pub category: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UploadResponse {
     pub bank_detected: String,
-    pub rows_parsed: usize,     // raw rows found in file
-    pub normalized: usize,      // rows that passed date+amount parsing
-    pub inserted: usize,        // new unique transactions stored
+    pub rows_parsed: usize,
+    pub normalized: usize,
+    pub inserted: usize,
     pub skipped_duplicates: usize,
 }
 

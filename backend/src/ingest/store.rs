@@ -28,8 +28,8 @@ pub async fn store_transactions(
         let result = sqlx::query(
             r#"INSERT INTO transactions
                (user_id, statement_id, bank, account_label, txn_date, value_date,
-                description, raw_description, amount, direction, balance, bank_ref, fingerprint)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+                description, raw_description, amount, direction, balance, bank_ref, fingerprint, category)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
                ON CONFLICT (user_id, fingerprint) DO NOTHING"#,
         )
         .bind(t.user_id)
@@ -45,6 +45,7 @@ pub async fn store_transactions(
         .bind(t.balance)
         .bind(&t.bank_ref)
         .bind(&fp)
+        .bind(&t.category)
         .execute(&mut *tx)
         .await?;
 
@@ -111,6 +112,7 @@ mod tests {
             direction: "debit".into(),
             balance: Some(10000.0),
             bank_ref: None,
+            category: "Shopping".into(),
         }
     }
 

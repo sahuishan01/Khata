@@ -1,3 +1,4 @@
+pub mod categorize;
 pub mod detect;
 pub mod fingerprint;
 pub mod handlers;

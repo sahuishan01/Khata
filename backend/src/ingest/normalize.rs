@@ -2,6 +2,7 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 use super::{
+    categorize::categorize,
     models::{NormalizedTxn, RawRow},
     profiles::BankProfile,
 };
@@ -38,6 +39,7 @@ pub fn normalize(
                 direction: direction.to_string(),
                 balance: r.balance,
                 bank_ref: r.bank_ref.filter(|s| !s.is_empty()),
+                category: categorize(r.description.trim(), direction).to_string(),
             })
         })
         .collect()

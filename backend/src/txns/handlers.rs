@@ -16,8 +16,6 @@ pub async fn list_txns(
     let per_page = params.per_page.unwrap_or(50).min(200);
     let offset = (page - 1) * per_page;
 
-    // Set RLS context on the main pool connection
-    // We use a transaction to scope SET LOCAL
     let mut tx = state.db.begin().await?;
     sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
         .execute(&mut *tx)
@@ -32,7 +30,7 @@ pub async fn list_txns(
 
     let data = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref
+                  amount::float8, direction, balance::float8, bank, bank_ref, category
            FROM transactions
            WHERE user_id = $1
            ORDER BY value_date DESC, created_at DESC
@@ -46,12 +44,7 @@ pub async fn list_txns(
 
     tx.commit().await?;
 
-    Ok(Json(TxnListResponse {
-        data,
-        total,
-        page,
-        per_page,
-    }))
+    Ok(Json(TxnListResponse { data, total, page, per_page }))
 }
 
 pub async fn get_dashboard(
@@ -103,5 +96,114 @@ pub async fn get_dashboard(
         net: total_earned - total_spent,
         monthly,
         top_debits,
+    }))
+}
+
+pub async fn get_analysis(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+) -> Result<Json<AnalysisStats>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx)
+        .await?;
+
+    // Total spent/earned for savings rate
+    let (total_spent, total_earned, total_txns): (f64, f64, i64) = sqlx::query_as(
+        r#"SELECT
+             COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8,
+             COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8,
+             COUNT(*)::bigint
+           FROM transactions WHERE user_id = $1"#,
+    )
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Category breakdown (debits only — spending categories)
+    let cat_rows: Vec<(String, f64, i64)> = sqlx::query_as(
+        r#"SELECT category, SUM(amount)::float8, COUNT(*)::bigint
+           FROM transactions
+           WHERE user_id = $1 AND direction = 'debit'
+           GROUP BY category
+           ORDER BY SUM(amount) DESC"#,
+    )
+    .bind(user_id)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let category_breakdown = cat_rows
+        .into_iter()
+        .map(|(category, amount, txn_count)| CategoryBucket {
+            category,
+            amount,
+            txn_count,
+            pct: if total_spent > 0.0 { amount / total_spent * 100.0 } else { 0.0 },
+        })
+        .collect();
+
+    // Average daily spend (days with at least one debit)
+    let (active_days,): (i64,) = sqlx::query_as(
+        "SELECT COUNT(DISTINCT value_date)::bigint FROM transactions WHERE user_id = $1 AND direction='debit'"
+    )
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    let avg_daily_spend = if active_days > 0 {
+        total_spent / active_days as f64
+    } else {
+        0.0
+    };
+
+    // Month comparison: current calendar month vs previous
+    let (this_month, last_month): (f64, f64) = sqlx::query_as(
+        r#"SELECT
+             COALESCE(SUM(amount) FILTER (
+               WHERE value_date >= date_trunc('month', CURRENT_DATE)
+             ), 0)::float8,
+             COALESCE(SUM(amount) FILTER (
+               WHERE value_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+                 AND value_date  < date_trunc('month', CURRENT_DATE)
+             ), 0)::float8
+           FROM transactions WHERE user_id = $1 AND direction = 'debit'"#,
+    )
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    let change_pct = if last_month > 0.0 {
+        (this_month - last_month) / last_month * 100.0
+    } else {
+        0.0
+    };
+
+    // Largest single expense
+    let largest = sqlx::query_as::<_, TxnRow>(
+        r#"SELECT id, txn_date, value_date, description,
+                  amount::float8, direction, balance::float8, bank, bank_ref, category
+           FROM transactions
+           WHERE user_id = $1 AND direction = 'debit'
+           ORDER BY amount DESC LIMIT 1"#,
+    )
+    .bind(user_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    let savings_rate_pct = if total_earned > 0.0 {
+        (total_earned - total_spent).max(0.0) / total_earned * 100.0
+    } else {
+        0.0
+    };
+
+    Ok(Json(AnalysisStats {
+        category_breakdown,
+        savings_rate_pct,
+        avg_daily_spend,
+        month_comparison: MonthComparison { this_month, last_month, change_pct },
+        largest_expense: largest,
+        total_transactions: total_txns,
     }))
 }
