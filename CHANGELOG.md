@@ -5,6 +5,14 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-06-01] — Add setup.sh / setup.bat (one-shot setup + start)
+
+### Added
+- `setup.sh` — single script for Termux/Linux/macOS that handles everything: checks prerequisites (cargo, psql, node, claude), copies `.env.example` if no `.env` exists, installs `sqlx-cli` if missing, initialises the Postgres cluster on first run, handles stale PID file, runs migrations, installs npm deps, then starts backend + frontend. Safe to re-run — every step is idempotent.
+- `setup.bat` — Windows equivalent: same flow, opens backend and frontend in separate cmd windows, loads `.env` variables into the session.
+
+---
+
 ## [2026-06-01] — Fix: Postgres connection (wrong port in .env) + POSTGRES.md docs
 
 ### Fixed
