@@ -1,6 +1,7 @@
 pub mod claude_cli;
 pub mod handlers;
 pub mod models;
+pub mod predefined;
 pub mod sql_validator;
 
 use axum::{routing::{get, post}, Router};

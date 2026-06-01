@@ -1,8 +1,9 @@
 use axum::{extract::State, Json};
+use uuid::Uuid;
 
 use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
 
-use super::{claude_cli, models::*, sql_validator::validate_select_sql};
+use super::{claude_cli, models::*, predefined, sql_validator::validate_select_sql};
 
 pub async fn ask_handler(
     State(state): State<AppState>,
@@ -13,50 +14,73 @@ pub async fn ask_handler(
         return Err(AppError::BadRequest("question is empty".into()));
     }
 
-    // Step 1: generate SQL via claude CLI
-    let sql_raw = claude_cli::generate_sql(&state.config.claude_bin, &req.question)
-        .await
-        .map_err(|e| AppError::BadRequest(format!("SQL generation failed: {e}")))?;
+    // Fetch user's categories — used for predefined category-spend matching
+    // and as context when we do fall back to Claude.
+    let categories: Vec<String> = {
+        let mut tx = state.db.begin().await?;
+        sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+            .execute(&mut *tx)
+            .await?;
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT DISTINCT category FROM transactions WHERE user_id = $1 ORDER BY category",
+        )
+        .bind(user_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        rows.into_iter().map(|(c,)| c).collect()
+    };
 
-    // Step 2: parse JSON output from claude
-    let sql_gen: SqlGenOutput = serde_json::from_str(&sql_raw)
-        .map_err(|_| AppError::BadRequest(format!("Unexpected SQL gen response: {sql_raw}")))?;
+    let (sql, answer) =
+        if let Some(pre) = predefined::match_question(&req.question, &categories) {
+            // ── Predefined path: no Claude call at all ────────────────────────
+            let rows_json = execute_safe(&state.db_ro, user_id, &pre.sql).await?;
+            let rows: Vec<serde_json::Value> =
+                serde_json::from_str(&rows_json).unwrap_or_default();
+            let answer = predefined::format_predefined(pre.kind, &rows, &pre.label);
+            (pre.sql, answer)
+        } else {
+            // ── Claude fallback: one call to generate SQL ─────────────────────
+            let sql_raw =
+                claude_cli::generate_sql(&state.config.claude_bin, &req.question, &categories)
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("SQL generation failed: {e}")))?;
 
-    // Step 3: validate — reject non-SELECT, multi-statement, DML/DDL
-    validate_select_sql(&sql_gen.sql)
-        .map_err(|e| AppError::BadRequest(format!("Unsafe SQL rejected: {e}")))?;
+            let sql_gen: SqlGenOutput = serde_json::from_str(&sql_raw).map_err(|_| {
+                AppError::BadRequest(format!("Unexpected SQL gen response: {sql_raw}"))
+            })?;
 
-    // Step 4: execute under RLS with read-only role
-    let rows_json = execute_safe(&state.db_ro, user_id, &sql_gen.sql).await?;
+            validate_select_sql(&sql_gen.sql)
+                .map_err(|e| AppError::BadRequest(format!("Unsafe SQL rejected: {e}")))?;
 
-    // Step 5: phrase answer via claude CLI
-    let answer = claude_cli::phrase_answer(&state.config.claude_bin, &req.question, &rows_json)
-        .await
-        .map_err(|e| AppError::BadRequest(format!("Answer phrasing failed: {e}")))?;
+            let rows_json = execute_safe(&state.db_ro, user_id, &sql_gen.sql).await?;
+            let rows: Vec<serde_json::Value> =
+                serde_json::from_str(&rows_json).unwrap_or_default();
+            let answer = predefined::format_generic(&rows);
+            (sql_gen.sql, answer)
+        };
 
     // Persist Q + A
     let mut tx = state.db.begin().await?;
     sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
         .execute(&mut *tx)
         .await?;
-    sqlx::query(
-        "INSERT INTO chat_messages (user_id, role, content) VALUES ($1, 'user', $2)",
-    )
-    .bind(user_id)
-    .bind(&req.question)
-    .execute(&mut *tx)
-    .await?;
+    sqlx::query("INSERT INTO chat_messages (user_id, role, content) VALUES ($1, 'user', $2)")
+        .bind(user_id)
+        .bind(&req.question)
+        .execute(&mut *tx)
+        .await?;
     sqlx::query(
         "INSERT INTO chat_messages (user_id, role, content, sql_used) VALUES ($1, 'assistant', $2, $3)",
     )
     .bind(user_id)
     .bind(&answer)
-    .bind(&sql_gen.sql)
+    .bind(&sql)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
 
-    Ok(Json(AskResponse { answer, sql_used: sql_gen.sql }))
+    Ok(Json(AskResponse { answer, sql_used: sql }))
 }
 
 pub async fn history_handler(
@@ -80,12 +104,10 @@ pub async fn history_handler(
 
 async fn execute_safe(
     db_ro: &sqlx::PgPool,
-    user_id: uuid::Uuid,
+    user_id: Uuid,
     sql: &str,
 ) -> Result<String, AppError> {
     let mut tx = db_ro.begin().await?;
-
-    // Scope RLS to this user
     sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
         .execute(&mut *tx)
         .await?;
@@ -93,8 +115,9 @@ async fn execute_safe(
         .execute(&mut *tx)
         .await?;
 
-    // Wrap in row_to_json and cap at 200 rows
-    let capped = format!("SELECT row_to_json(q) FROM ({sql} LIMIT 200) q");
+    // Wrap in a subselect so we can cap at 200 without conflicting with any
+    // LIMIT already present in the inner SQL (e.g. predefined queries with LIMIT 5/10).
+    let capped = format!("SELECT row_to_json(q) FROM (SELECT * FROM ({sql}) _raw LIMIT 200) q");
     let rows: Vec<(serde_json::Value,)> = sqlx::query_as(&capped)
         .fetch_all(&mut *tx)
         .await
@@ -115,7 +138,6 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn rls_isolates_users(pool: PgPool) {
-        // Create two users
         let (uid_a,): (Uuid,) = sqlx::query_as(
             "INSERT INTO users (email,password_hash) VALUES ('a@rls.com','x') RETURNING id",
         )
@@ -130,7 +152,6 @@ mod tests {
         .await
         .unwrap();
 
-        // Insert a transaction for user A
         let sid_a = insert_statement(&pool, uid_a, "HDFC", "a.csv", "sha_a", 1)
             .await
             .unwrap();
@@ -152,7 +173,6 @@ mod tests {
         .unwrap();
         tx.commit().await.unwrap();
 
-        // Query as user B — must see 0 rows
         let mut tx_b = pool.begin().await.unwrap();
         sqlx::query(&format!("SET LOCAL app.current_user_id = '{uid_b}'"))
             .execute(&mut *tx_b)

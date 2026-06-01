@@ -6,11 +6,14 @@ export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const register = useAuth(s => s.register)
   const navigate = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoading(true)
+    setError('')
     try {
       await register(email, password)
       navigate('/')
@@ -23,23 +26,61 @@ export function RegisterPage() {
       } else {
         setError(e.message ?? 'Registration failed')
       }
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '80px auto', padding: 24 }}>
-      <h2>Create Khata account</h2>
-      <form onSubmit={submit}>
-        <input type="email" placeholder="Email" value={email}
-          onChange={e => setEmail(e.target.value)} required
-          style={{ display: 'block', width: '100%', marginBottom: 12, padding: 8, boxSizing: 'border-box' }} />
-        <input type="password" placeholder="Password (min 8 chars)" value={password}
-          onChange={e => setPassword(e.target.value)} required minLength={8}
-          style={{ display: 'block', width: '100%', marginBottom: 12, padding: 8, boxSizing: 'border-box' }} />
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" style={{ width: '100%', padding: 10 }}>Register</button>
-      </form>
-      <p><Link to="/login">Already have an account?</Link></p>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div className="sidebar-logo" style={{ width: 40, height: 40, fontSize: 18 }}>₹</div>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.4px' }}>Khata</span>
+        </div>
+
+        <h2 style={{ fontSize: 18, textAlign: 'center', marginBottom: 6 }}>Create your account</h2>
+        <p className="text-muted" style={{ textAlign: 'center', marginBottom: 24 }}>Start tracking your finances</p>
+
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input
+              type="email"
+              className="form-input"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input
+              type="password"
+              className="form-input"
+              placeholder="Min. 8 characters"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
+          </div>
+
+          {error && <p className="text-error mb-3">{error}</p>}
+
+          <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
+            {loading ? 'Creating account…' : 'Create account'}
+          </button>
+        </form>
+
+        <p className="text-muted" style={{ textAlign: 'center', marginTop: 20, fontSize: 13 }}>
+          Already have an account?{' '}
+          <Link to="/login" style={{ fontWeight: 500 }}>Sign in</Link>
+        </p>
+      </div>
     </div>
   )
 }

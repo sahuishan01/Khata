@@ -4,40 +4,38 @@ use tokio::process::Command;
 
 const TIMEOUT_SECS: u64 = 90;
 
-// Embedded directly in the user prompt so Claude cannot ignore it
-const SQL_PROMPT_PREFIX: &str = r#"You are a SQL assistant for a personal finance app.
+pub async fn generate_sql(claude_bin: &str, question: &str, categories: &[String]) -> Result<String> {
+    let cat_line = if categories.is_empty() {
+        String::new()
+    } else {
+        format!("\nKnown categories: {}.", categories.join(", "))
+    };
+
+    let prompt = format!(
+        r#"You are a SQL assistant for a personal finance app.
 
 RULES (MUST follow):
 1. Respond ONLY with a JSON object — no preamble, no markdown, no explanation outside JSON.
 2. The JSON must have exactly two keys: "sql" and "explanation".
 3. "sql" must be a single read-only SELECT query for PostgreSQL (no semicolon).
 4. "explanation" is a one-sentence description of what the query does.
-5. Row-Level Security is active: do NOT add WHERE user_id = ... — it is automatic.
+5. Row-Level Security is active: do NOT add WHERE user_id = ... — it is enforced automatically.
 
 Table: transactions
 Columns: value_date DATE, txn_date DATE, description TEXT,
          amount NUMERIC (always positive), direction TEXT ('debit'|'credit'),
-         balance NUMERIC nullable, bank TEXT, account_label TEXT, bank_ref TEXT nullable
+         balance NUMERIC nullable, bank TEXT, account_label TEXT,
+         bank_ref TEXT nullable, category TEXT{cat_line}
 
-Example response (output this exact format, no other text):
-{"sql":"SELECT SUM(amount) FROM transactions WHERE direction='debit'","explanation":"Total amount debited"}
+Example:
+{{"sql":"SELECT category, SUM(amount) FROM transactions WHERE direction='debit' GROUP BY category ORDER BY SUM(amount) DESC","explanation":"Spending by category"}}
 
-User question: "#;
+User question: {question}"#
+    );
 
-pub async fn generate_sql(claude_bin: &str, question: &str) -> Result<String> {
-    let prompt = format!("{SQL_PROMPT_PREFIX}{question}");
     let raw = run_claude(claude_bin, &prompt).await?;
     extract_json_object(&raw)
         .ok_or_else(|| anyhow::anyhow!("Claude did not return valid JSON.\nRaw response:\n{raw}"))
-}
-
-pub async fn phrase_answer(claude_bin: &str, question: &str, rows_json: &str) -> Result<String> {
-    let prompt = format!(
-        "The user asked: \"{question}\"\n\nQuery results (JSON array):\n{rows_json}\n\n\
-         Answer in plain English, 1-3 sentences. Be specific with numbers and dates. \
-         Use ₹ for rupee amounts (e.g. ₹1,500). If the results array is empty, say no matching data was found."
-    );
-    run_claude(claude_bin, &prompt).await
 }
 
 async fn run_claude(bin: &str, prompt: &str) -> Result<String> {

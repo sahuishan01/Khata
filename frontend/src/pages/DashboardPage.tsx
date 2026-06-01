@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import {
+  TrendingDown, TrendingUp, Wallet, Percent, Calendar, Hash,
+} from 'lucide-react'
 import { api } from '../api/client'
 import { FileUpload } from '../components/FileUpload'
 import { SpendEarnChart } from '../components/charts/SpendEarnChart'
 import { CategoryChart } from '../components/charts/CategoryChart'
-import { useAuth } from '../store/auth'
 
 interface DashboardStats {
   total_spent: number; total_earned: number; net: number
@@ -21,13 +23,13 @@ interface AnalysisStats {
   total_transactions: number
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+const fmt    = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 const fmtDec = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [stats, setStats]       = useState<DashboardStats | null>(null)
   const [analysis, setAnalysis] = useState<AnalysisStats | null>(null)
-  const logout = useAuth(s => s.logout)
+  const navigate = useNavigate()
 
   const fetchAll = () => {
     api.get<DashboardStats>('/txns/dashboard').then(r => setStats(r.data)).catch(() => {})
@@ -39,85 +41,116 @@ export function DashboardPage() {
   const hasData = stats && (stats.total_spent > 0 || stats.total_earned > 0)
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '20px 16px', fontFamily: 'system-ui, sans-serif' }}>
-
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Khata</h1>
-        <nav style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 14 }}>
-          <Link to="/transactions" style={{ color: '#6366f1', textDecoration: 'none' }}>Transactions</Link>
-          <Link to="/chat" style={{ color: '#6366f1', textDecoration: 'none' }}>Ask Claude</Link>
-          <button onClick={logout} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 13 }}>Logout</button>
-        </nav>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="page-title">Dashboard</h1>
       </div>
 
-      {/* Upload */}
       <FileUpload onSuccess={fetchAll} />
 
       {!hasData ? (
-        <p style={{ color: '#9ca3af', textAlign: 'center', marginTop: 40 }}>Upload a bank statement to see your analysis.</p>
+        <div style={{ textAlign: 'center', padding: '48px 0' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
+          <p style={{ color: 'var(--text-2)', fontSize: 15 }}>Upload a bank statement to see your analysis.</p>
+        </div>
       ) : (
         <>
-          {/* Row 1: Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-            <StatCard label="Total Spent"    value={fmt(stats!.total_spent)}   color="#fee2e2" valueColor="#dc2626" />
-            <StatCard label="Total Earned"   value={fmt(stats!.total_earned)}  color="#dcfce7" valueColor="#16a34a" />
-            <StatCard label="Net Balance"    value={fmt(stats!.net)}
-              color={stats!.net >= 0 ? '#eff6ff' : '#fff7ed'}
-              valueColor={stats!.net >= 0 ? '#1d4ed8' : '#ea580c'} />
+          {/* Stat cards */}
+          <div className="grid grid-stats mb-4">
+            <StatCard
+              label="Total Spent" value={fmt(stats!.total_spent)}
+              icon={<TrendingDown size={16} />}
+              iconBg="var(--red-dim)" iconColor="var(--red)"
+              valueColor="var(--red)"
+            />
+            <StatCard
+              label="Total Earned" value={fmt(stats!.total_earned)}
+              icon={<TrendingUp size={16} />}
+              iconBg="var(--green-dim)" iconColor="var(--green)"
+              valueColor="var(--green)"
+            />
+            <StatCard
+              label="Net Balance" value={fmt(stats!.net)}
+              icon={<Wallet size={16} />}
+              iconBg={stats!.net >= 0 ? 'var(--blue-dim)' : 'var(--amber-dim)'}
+              iconColor={stats!.net >= 0 ? 'var(--blue)' : 'var(--amber)'}
+              valueColor={stats!.net >= 0 ? 'var(--blue)' : 'var(--amber)'}
+            />
             {analysis && (
               <>
-                <StatCard label="Savings Rate"
+                <StatCard
+                  label="Savings Rate"
                   value={`${analysis.savings_rate_pct.toFixed(1)}%`}
-                  color={analysis.savings_rate_pct >= 20 ? '#f0fdf4' : '#fefce8'}
-                  valueColor={analysis.savings_rate_pct >= 20 ? '#15803d' : '#a16207'} />
-                <StatCard label="Avg Daily Spend" value={fmt(analysis.avg_daily_spend)} color="#f5f3ff" valueColor="#7c3aed" />
-                <StatCard label="Transactions"     value={String(analysis.total_transactions)} color="#f0f9ff" valueColor="#0369a1" />
+                  icon={<Percent size={16} />}
+                  iconBg={analysis.savings_rate_pct >= 20 ? 'var(--green-dim)' : 'var(--amber-dim)'}
+                  iconColor={analysis.savings_rate_pct >= 20 ? 'var(--green)' : 'var(--amber)'}
+                  valueColor={analysis.savings_rate_pct >= 20 ? 'var(--green)' : 'var(--amber)'}
+                />
+                <StatCard
+                  label="Avg Daily Spend" value={fmt(analysis.avg_daily_spend)}
+                  icon={<Calendar size={16} />}
+                  iconBg="var(--accent-dim)" iconColor="var(--accent-text)"
+                />
+                <StatCard
+                  label="Transactions" value={String(analysis.total_transactions)}
+                  icon={<Hash size={16} />}
+                  iconBg="var(--blue-dim)" iconColor="var(--blue)"
+                />
               </>
             )}
           </div>
 
-          {/* Row 2: Month comparison banner */}
+          {/* Month comparison */}
           {analysis && analysis.month_comparison.last_month > 0 && (
             <MonthBanner mc={analysis.month_comparison} />
           )}
 
-          {/* Row 3: Monthly chart + Category donut */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-            <Panel title="Monthly Spend vs Earn">
+          {/* Charts row */}
+          <div className="grid grid-2 mb-4">
+            <div className="panel">
+              <div className="panel-title">Monthly Spend vs Earn</div>
               <SpendEarnChart data={stats!.monthly} />
-            </Panel>
-            <Panel title="Spending by Category">
+            </div>
+            <div className="panel">
+              <div className="panel-title">Spending by Category</div>
               {analysis && analysis.category_breakdown.length > 0
-                ? <CategoryChart data={analysis.category_breakdown} />
-                : <p style={{ color: '#9ca3af', fontSize: 13 }}>No debit data yet.</p>
-              }
-            </Panel>
+                ? <CategoryChart
+                    data={analysis.category_breakdown}
+                    onCategoryClick={cat => navigate(`/transactions?category=${encodeURIComponent(cat)}`)}
+                  />
+                : <p className="text-muted">No debit data yet.</p>}
+            </div>
           </div>
 
-          {/* Row 4: Largest expense + Top merchants */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Bottom row */}
+          <div className="grid grid-2">
             {analysis?.largest_expense && (
-              <Panel title="Largest Single Expense">
-                <div style={{ fontSize: 28, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>
+              <div className="panel">
+                <div className="panel-title">Largest Expense</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--red)', marginBottom: 6, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>
                   {fmtDec(analysis.largest_expense.amount)}
                 </div>
-                <div style={{ fontSize: 14, color: '#374151' }}>{analysis.largest_expense.description}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{analysis.largest_expense.value_date}</div>
-              </Panel>
+                <div style={{ fontSize: 13.5, color: 'var(--text-heading)', marginBottom: 4 }}>
+                  {analysis.largest_expense.description}
+                </div>
+                <div className="text-muted" style={{ fontSize: 12 }}>{analysis.largest_expense.value_date}</div>
+              </div>
             )}
-            <Panel title="Top Spending">
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <div className="panel">
+              <div className="panel-title">Top Spending</div>
+              <table className="data-table">
                 <tbody>
                   {stats!.top_debits.slice(0, 7).map(d => (
                     <tr key={d.description}>
-                      <td style={{ padding: '4px 0', borderBottom: '1px solid #f3f4f6', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.description}</td>
-                      <td style={{ padding: '4px 0', borderBottom: '1px solid #f3f4f6', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#dc2626' }}>{fmtDec(d.total)}</td>
+                      <td className="truncate" style={{ maxWidth: 160, color: 'var(--text-heading)' }}>{d.description}</td>
+                      <td className="text-right" style={{ color: 'var(--red)', fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {fmtDec(d.total)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </Panel>
+            </div>
           </div>
         </>
       )}
@@ -125,22 +158,23 @@ export function DashboardPage() {
   )
 }
 
-function StatCard({ label, value, color, valueColor }: {
-  label: string; value: string; color: string; valueColor?: string
+function StatCard({ label, value, icon, iconBg, iconColor, valueColor }: {
+  label: string; value: string
+  icon: React.ReactNode
+  iconBg: string; iconColor: string
+  valueColor?: string
 }) {
   return (
-    <div style={{ background: color, borderRadius: 10, padding: '12px 14px' }}>
-      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: valueColor ?? '#111827' }}>{value}</div>
-    </div>
-  )
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 16 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</div>
-      {children}
+    <div className="stat-card">
+      <div className="stat-icon" style={{ background: iconBg, color: iconColor }}>
+        {icon}
+      </div>
+      <div>
+        <div className="stat-label">{label}</div>
+        <div className="stat-value" style={valueColor ? { color: valueColor } : {}}>
+          {value}
+        </div>
+      </div>
     </div>
   )
 }
@@ -148,16 +182,13 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function MonthBanner({ mc }: { mc: { this_month: number; last_month: number; change_pct: number } }) {
   const up = mc.change_pct > 0
   return (
-    <div style={{
-      background: up ? '#fff7ed' : '#f0fdf4',
-      border: `1px solid ${up ? '#fed7aa' : '#bbf7d0'}`,
-      borderRadius: 8, padding: '10px 16px', marginBottom: 16,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13
-    }}>
-      <span style={{ color: '#374151' }}>
-        This month: <strong>{fmt(mc.this_month)}</strong> &nbsp;·&nbsp; Last month: <strong>{fmt(mc.last_month)}</strong>
+    <div className={`month-banner ${up ? 'month-banner-up' : 'month-banner-down'} mb-4`}>
+      <span style={{ color: 'var(--text)' }}>
+        This month: <strong style={{ color: 'var(--text-heading)' }}>{fmt(mc.this_month)}</strong>
+        &nbsp;·&nbsp;
+        Last month: <strong style={{ color: 'var(--text-heading)' }}>{fmt(mc.last_month)}</strong>
       </span>
-      <span style={{ fontWeight: 700, color: up ? '#ea580c' : '#15803d' }}>
+      <span style={{ fontWeight: 700, color: up ? 'var(--red)' : 'var(--green)' }}>
         {up ? '▲' : '▼'} {Math.abs(mc.change_pct).toFixed(1)}% {up ? 'more' : 'less'} than last month
       </span>
     </div>

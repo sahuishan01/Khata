@@ -22,7 +22,7 @@ impl Config {
             claude_bin: std::env::var("CLAUDE_BIN")
                 .unwrap_or_else(|_| "claude".to_string()),
             bind_addr: std::env::var("BIND_ADDR")
-                .unwrap_or_else(|_| "127.0.0.1:8080".to_string()),
+                .unwrap_or_else(|_| "127.0.0.1:8090".to_string()),
             cors_origins: std::env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:5173".to_string())
                 .split(',')

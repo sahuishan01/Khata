@@ -52,6 +52,10 @@ pub struct ListParams {
     pub category: Option<String>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
+    /// Column to sort by: "date" | "amount" | "description" | "category"
+    pub sort_by: Option<String>,
+    /// Sort direction: "asc" | "desc"
+    pub sort_dir: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -17,31 +17,54 @@ pub async fn list_txns(
     let per_page = params.per_page.unwrap_or(50).min(200);
     let offset = (page - 1) * per_page;
 
+    let category_filter = params.category.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let date_from = params.from;
+    let date_to   = params.to;
+
     let mut tx = state.db.begin().await?;
     sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
         .execute(&mut *tx)
         .await?;
 
     let (total,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM transactions WHERE user_id = $1",
+        r#"SELECT COUNT(*) FROM transactions
+           WHERE user_id = $1
+             AND ($2::text IS NULL OR category = $2)
+             AND ($3::date IS NULL OR value_date >= $3)
+             AND ($4::date IS NULL OR value_date <= $4)"#,
     )
-    .bind(user_id)
-    .fetch_one(&mut *tx)
-    .await?;
+    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to)
+    .fetch_one(&mut *tx).await?;
 
-    let data = sqlx::query_as::<_, TxnRow>(
+    // Whitelist-validated sort — safe to interpolate
+    let sort_col = match params.sort_by.as_deref().unwrap_or("date") {
+        "amount"      => "amount",
+        "description" => "description",
+        "category"    => "category",
+        _             => "value_date",
+    };
+    let sort_dir = if params.sort_dir.as_deref() == Some("asc") { "ASC" } else { "DESC" };
+    let secondary = if sort_col == "value_date" {
+        format!(", created_at {sort_dir}")
+    } else {
+        String::new()
+    };
+
+    let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
                   amount::float8, direction, balance::float8, bank, bank_ref, category
            FROM transactions
            WHERE user_id = $1
-           ORDER BY value_date DESC, created_at DESC
-           LIMIT $2 OFFSET $3"#,
-    )
-    .bind(user_id)
-    .bind(per_page)
-    .bind(offset)
-    .fetch_all(&mut *tx)
-    .await?;
+             AND ($2::text IS NULL OR category = $2)
+             AND ($3::date IS NULL OR value_date >= $3)
+             AND ($4::date IS NULL OR value_date <= $4)
+           ORDER BY {sort_col} {sort_dir}{secondary}
+           LIMIT $5 OFFSET $6"#
+    );
+    let data = sqlx::query_as::<_, TxnRow>(&sql)
+        .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to)
+        .bind(per_page).bind(offset)
+        .fetch_all(&mut *tx).await?;
 
     tx.commit().await?;
 

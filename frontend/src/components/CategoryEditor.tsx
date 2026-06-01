@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, Plus, ArrowLeft, Check } from 'lucide-react'
 import { api } from '../api/client'
 
 interface Props {
@@ -16,16 +17,32 @@ const SCOPE_LABELS = {
 }
 
 export function CategoryEditor({ txnId, current, description, allCategories, onUpdated }: Props) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]         = useState(false)
   const [category, setCategory] = useState(current)
-  const [scope, setScope] = useState<'single' | 'same_description' | 'contains'>('single')
-  const [keyword, setKeyword] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [updated, setUpdated] = useState<number | null>(null)
-  const [isNew, setIsNew] = useState(false)
-  const popRef = useRef<HTMLDivElement>(null)
+  const [scope, setScope]       = useState<'single' | 'same_description' | 'contains'>('single')
+  const [keyword, setKeyword]   = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [updated, setUpdated]   = useState<number | null>(null)
+  const [isNew, setIsNew]       = useState(false)
+  const [popPos, setPopPos]     = useState({ top: 0, left: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popRef     = useRef<HTMLDivElement>(null)
 
-  // Auto-suggest keyword from description (first meaningful token)
+  const openEditor = () => {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      // Keep popup within right edge of viewport
+      const popWidth = 280
+      const left = Math.min(r.left, window.innerWidth - popWidth - 8)
+      setPopPos({ top: r.bottom + 4, left })
+    }
+    setOpen(o => !o)
+    setCategory(current)
+    setScope('single')
+    setUpdated(null)
+    setIsNew(false)
+  }
+
   useEffect(() => {
     if (scope === 'contains') {
       const first = description.split(/[/\-\s]+/).find(w => w.length > 3) ?? ''
@@ -36,11 +53,26 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
   // Close on outside click
   useEffect(() => {
     if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false)
+    const onDown = (e: MouseEvent) => {
+      if (
+        popRef.current && !popRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  // Close on scroll or resize (position would be stale)
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, { passive: true, capture: true })
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, { capture: true })
+      window.removeEventListener('resize', close)
+    }
   }, [open])
 
   const save = async () => {
@@ -65,96 +97,125 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
     : [...new Set([...allCategories, category])].sort()
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }} ref={popRef}>
+    <>
       <button
-        onClick={() => { setOpen(o => !o); setCategory(current); setScope('single'); setUpdated(null) }}
-        style={{
-          background: '#f3f4f6', border: 'none', borderRadius: 4,
-          padding: '2px 8px', fontSize: 11, color: '#374151',
-          cursor: 'pointer', whiteSpace: 'nowrap',
-        }}
-        title="Click to change category"
+        ref={triggerRef}
+        onClick={openEditor}
+        className="badge badge-gray"
+        style={{ cursor: 'pointer', gap: 4, border: 'none', background: 'var(--surface-2)' }}
+        title="Change category"
       >
-        {current} ✏
+        {current}
+        <ChevronDown size={10} style={{ opacity: 0.6 }} />
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute', zIndex: 100, top: '110%', left: 0,
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12)', padding: 14, minWidth: 280,
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Change Category</div>
+        <div
+          ref={popRef}
+          style={{
+            position: 'fixed',
+            zIndex: 9999,
+            top: popPos.top,
+            left: popPos.left,
+            width: 280,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)',
+            boxShadow: 'var(--shadow-lg)',
+            padding: 14,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+            Change Category
+          </div>
 
-          {/* Category input */}
           {isNew ? (
             <input
               autoFocus
+              className="form-input"
               placeholder="New category name…"
               value={category}
               onChange={e => setCategory(e.target.value)}
-              style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13, boxSizing: 'border-box', marginBottom: 6 }}
+              style={{ marginBottom: 6 }}
             />
           ) : (
             <select
+              className="form-input"
               value={category}
               onChange={e => setCategory(e.target.value)}
-              style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13, marginBottom: 6 }}
+              style={{ marginBottom: 6 }}
             >
               {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           )}
 
           <button
-            onClick={() => { setIsNew(n => !n); setCategory('') }}
-            style={{ fontSize: 11, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 10 }}
+            onClick={() => {
+              if (isNew) {
+                setIsNew(false)
+                setCategory(current) // restore original when going back to existing
+              } else {
+                setIsNew(true)
+                setCategory('')
+              }
+            }}
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--accent-text)', marginBottom: 10, padding: '2px 0' }}
           >
-            {isNew ? '← Choose existing' : '+ Create new category'}
+            {isNew ? <><ArrowLeft size={12} /> Choose existing</> : <><Plus size={12} /> Create new category</>}
           </button>
 
-          {/* Scope */}
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Apply to</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>
+            Apply to
+          </div>
+
           {(['single', 'same_description', 'contains'] as const).map(s => (
-            <label key={s} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5, cursor: 'pointer', fontSize: 12 }}>
-              <input type="radio" name="scope" value={s} checked={scope === s} onChange={() => setScope(s)} style={{ marginTop: 2 }} />
-              <span style={{ color: '#374151' }}>{SCOPE_LABELS[s]}</span>
+            <label key={s} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 6, cursor: 'pointer', fontSize: 12.5 }}>
+              <input
+                type="radio"
+                name={`scope-${txnId}`}
+                value={s}
+                checked={scope === s}
+                onChange={() => setScope(s)}
+                style={{ marginTop: 1, accentColor: 'var(--accent)' }}
+              />
+              <span style={{ color: 'var(--text-heading)' }}>{SCOPE_LABELS[s]}</span>
             </label>
           ))}
 
           {scope === 'contains' && (
             <input
+              className="form-input"
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
               placeholder="keyword to match…"
-              style={{ width: '100%', padding: '4px 8px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 12, marginTop: 4, boxSizing: 'border-box' }}
+              style={{ marginTop: 4 }}
             />
           )}
 
           {scope !== 'single' && (
-            <p style={{ fontSize: 11, color: '#9ca3af', margin: '6px 0 0' }}>
+            <p className="text-muted" style={{ fontSize: 11, marginTop: 5 }}>
               {scope === 'same_description'
-                ? `Will update all: "${description.slice(0, 40)}${description.length > 40 ? '…' : ''}"`
-                : keyword ? `Will update all descriptions containing "${keyword}"` : ''}
+                ? `Updates all: "${description.slice(0, 35)}${description.length > 35 ? '…' : ''}"`
+                : keyword ? `Updates all containing "${keyword}"` : ''}
             </p>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <div className="flex gap-2 mt-3">
             <button
               onClick={save}
               disabled={saving || !category.trim()}
-              style={{ flex: 1, padding: '6px 0', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer' }}
+              className="btn btn-primary btn-sm"
+              style={{ flex: 1 }}
             >
-              {saving ? 'Saving…' : updated !== null ? `✓ Updated ${updated}` : 'Save'}
+              {saving ? 'Saving…' : updated !== null ? <><Check size={12} /> {updated} updated</> : 'Save'}
             </button>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ padding: '6px 10px', background: '#f3f4f6', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer' }}
-            >
+            <button onClick={() => setOpen(false)} className="btn btn-secondary btn-sm">
               Cancel
             </button>
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
