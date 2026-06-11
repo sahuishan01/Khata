@@ -4,9 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.khata.app.api.AnalysisStats
-import com.khata.app.api.DashboardStats
-import com.khata.app.api.MeResponse
+import com.khata.app.api.*
 import com.khata.app.data.KhataRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -31,8 +29,21 @@ data class DashboardUiState(
     val error: String? = null
 )
 
+data class TxnUiState(
+    val txns: TxnListResponse? = null,
+    val categories: List<String> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+data class ChatUiState(
+    val messages: List<ChatHistoryResponse> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
 data class UsersUiState(
-    val users: List<com.khata.app.api.UserResponse> = emptyList(),
+    val users: List<UserResponse> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val success: String? = null
@@ -49,14 +60,16 @@ class MainViewModel @Inject constructor(
     private val _dashboardState = MutableStateFlow(DashboardUiState())
     val dashboardState: StateFlow<DashboardUiState> = _dashboardState.asStateFlow()
 
+    private val _txnState = MutableStateFlow(TxnUiState())
+    val txnState: StateFlow<TxnUiState> = _txnState.asStateFlow()
+
+    private val _chatState = MutableStateFlow(ChatUiState())
+    val chatState: StateFlow<ChatUiState> = _chatState.asStateFlow()
+
     private val _usersState = MutableStateFlow(UsersUiState())
     val usersState: StateFlow<UsersUiState> = _usersState.asStateFlow()
 
-    init {
-        checkAuth()
-    }
-
-    private fun checkAuth() {
+    fun checkAuth() {
         viewModelScope.launch {
             try {
                 val setupRequired = repository.checkSetupStatus()
@@ -124,6 +137,74 @@ class MainViewModel @Inject constructor(
                 _dashboardState.value = DashboardUiState(stats = stats, analysis = analysis)
             } catch (e: Exception) {
                 _dashboardState.value = _dashboardState.value.copy(
+                    isLoading = false,
+                    error = e.message
+                )
+            }
+        }
+    }
+
+    fun loadTransactions() {
+        viewModelScope.launch {
+            _txnState.value = _txnState.value.copy(isLoading = true, error = null)
+            try {
+                val txns = repository.listTxns()
+                val cats = repository.listCategories()
+                _txnState.value = TxnUiState(txns = txns, categories = cats)
+            } catch (e: Exception) {
+                _txnState.value = _txnState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load transactions"
+                )
+            }
+        }
+    }
+
+    fun loadChatHistory() {
+        viewModelScope.launch {
+            _chatState.value = _chatState.value.copy(isLoading = true, error = null)
+            try {
+                val messages = repository.getChatHistory()
+                _chatState.value = ChatUiState(messages = messages)
+            } catch (e: Exception) {
+                _chatState.value = _chatState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load chat"
+                )
+            }
+        }
+    }
+
+    fun sendChatMessage(question: String) {
+        viewModelScope.launch {
+            val tempMsg = ChatHistoryResponse(
+                id = System.currentTimeMillis().toString(),
+                role = "user", content = question, sqlUsed = null
+            )
+            _chatState.value = _chatState.value.copy(
+                messages = _chatState.value.messages + tempMsg,
+                isLoading = true,
+                error = null
+            )
+            try {
+                val response = repository.askChat(question)
+                val reply = ChatHistoryResponse(
+                    id = (System.currentTimeMillis() + 1).toString(),
+                    role = "assistant", content = response.answer, sqlUsed = response.sqlUsed
+                )
+                _chatState.value = _chatState.value.copy(
+                    messages = _chatState.value.messages + reply,
+                    isLoading = false
+                )
+            } catch (e: Exception) {
+                val errMsg = ChatHistoryResponse(
+                    id = (System.currentTimeMillis() + 1).toString(),
+                    role = "assistant",
+                    content = "Error: ${e.message ?: "Failed to get response"}",
+                    sqlUsed = null
+                )
+                _chatState.value = _chatState.value.copy(
+                    messages = _chatState.value.messages + errMsg,
                     isLoading = false,
                     error = e.message
                 )

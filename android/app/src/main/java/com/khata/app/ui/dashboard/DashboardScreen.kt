@@ -3,6 +3,8 @@ package com.khata.app.ui.dashboard
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,15 +20,13 @@ import com.khata.app.ui.components.StatCard
 private fun fmt(n: Double) = "₹${String.format("%,.0f", n)}"
 private fun fmtDec(n: Double) = "₹${String.format("%,.2f", n)}"
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     stats: DashboardStats?,
     analysis: AnalysisStats?,
     isLoading: Boolean,
     error: String?,
-    onRefresh: () -> Unit,
-    onNavigateToTransactions: (String) -> Unit
+    onRefresh: () -> Unit
 ) {
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -63,14 +63,14 @@ fun DashboardScreen(
                     StatCard(
                         label = "Net Balance",
                         value = fmt(stats.net),
-                        icon = { Text("₹", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+                        icon = { Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
                     )
                     StatCard(
                         label = "Total Spent",
                         value = fmt(stats.totalSpent),
-                        icon = { Text("↓", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+                        icon = { Icon(Icons.Default.TrendingDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f)
                     )
@@ -82,7 +82,7 @@ fun DashboardScreen(
                     StatCard(
                         label = "Total Earned",
                         value = fmt(stats.totalEarned),
-                        icon = { Text("↑", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary) },
+                        icon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.secondary,
                         subtitle = "${analysis?.totalTransactions ?: 0} transactions",
                         modifier = Modifier.weight(1f)
@@ -90,7 +90,7 @@ fun DashboardScreen(
                     StatCard(
                         label = "Savings Rate",
                         value = "${"%.1f".format(analysis?.savingsRatePct ?: 0.0)}%",
-                        icon = { Text("%", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                        icon = { Icon(Icons.Default.Savings, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = if ((analysis?.savingsRatePct ?: 0.0) >= 20) MaterialTheme.colorScheme.secondary
                             else MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.weight(1f)

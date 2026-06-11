@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.launch
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -25,9 +24,12 @@ import com.khata.app.ui.admin.AdminUsersScreen
 import com.khata.app.ui.auth.LoginScreen
 import com.khata.app.ui.auth.ResetPasswordScreen
 import com.khata.app.ui.auth.SetupScreen
+import com.khata.app.ui.chat.ChatScreen
 import com.khata.app.ui.dashboard.DashboardScreen
 import com.khata.app.ui.theme.ThemeManager
+import com.khata.app.ui.transactions.TransactionsScreen
 import com.khata.app.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val label: String = "", val icon: @Composable () -> Unit = {}) {
     data object Setup : Screen("setup")
@@ -40,43 +42,51 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object ResetPassword : Screen("reset_password")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KhataNavHost(themeManager: ThemeManager) {
     val navController = rememberNavController()
     val viewModel: MainViewModel = hiltViewModel()
     val authState by viewModel.authState.collectAsState()
     val dashboardState by viewModel.dashboardState.collectAsState()
+    val txnState by viewModel.txnState.collectAsState()
+    val chatState by viewModel.chatState.collectAsState()
     val usersState by viewModel.usersState.collectAsState()
     val context = LocalContext.current
 
     val isDark by themeManager.isDarkFlow.collectAsState(initial = false)
-
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val scope = rememberCoroutineScope()
 
     val bottomNavItems = listOf(Screen.Dashboard, Screen.Upload, Screen.Transactions, Screen.Chat)
     val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
 
     var uploadResult by remember { mutableStateOf<String?>(null) }
+    var startChecked by remember { mutableStateOf(false) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.uploadStatement(context, it) { result ->
-                uploadResult = result
-            }
+            viewModel.uploadStatement(context, it) { result -> uploadResult = result }
         }
     }
 
-    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        viewModel.checkAuth()
+    }
 
-    LaunchedEffect(authState.isLoggedIn, authState.setupRequired) {
-        when {
-            authState.setupRequired -> navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
-            !authState.isLoggedIn -> navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
-            else -> navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+    LaunchedEffect(authState.setupRequired, authState.isLoggedIn) {
+        if (startChecked) return@LaunchedEffect
+        if (authState.isLoggedIn) {
+            navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+            startChecked = true
+        } else if (authState.setupRequired) {
+            navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
+            startChecked = true
+        } else if (authState.setupRequired == false && authState.isLoggedIn == false) {
+            navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+            startChecked = true
         }
     }
 
@@ -123,6 +133,16 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 )
             }
 
+            composable(Screen.Dashboard.route) {
+                DashboardScreen(
+                    stats = dashboardState.stats,
+                    analysis = dashboardState.analysis,
+                    isLoading = dashboardState.isLoading,
+                    error = dashboardState.error,
+                    onRefresh = { viewModel.refreshDashboard() }
+                )
+            }
+
             composable(Screen.Upload.route) {
                 UploadScreen(
                     isDark = isDark,
@@ -134,27 +154,24 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 )
             }
 
-            composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                    stats = dashboardState.stats,
-                    analysis = dashboardState.analysis,
-                    isLoading = dashboardState.isLoading,
-                    error = dashboardState.error,
-                    onRefresh = { viewModel.refreshDashboard() },
-                    onNavigateToTransactions = {}
+            composable(Screen.Transactions.route) {
+                TransactionsScreen(
+                    txnState = txnState.txns,
+                    categories = txnState.categories,
+                    isLoading = txnState.isLoading,
+                    error = txnState.error,
+                    onLoad = { viewModel.loadTransactions() }
                 )
             }
 
-            composable(Screen.Transactions.route) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    Text("Transactions", style = MaterialTheme.typography.headlineSmall)
-                }
-            }
-
             composable(Screen.Chat.route) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    Text("Ask Claude", style = MaterialTheme.typography.headlineSmall)
-                }
+                ChatScreen(
+                    messages = chatState.messages,
+                    isLoading = chatState.isLoading,
+                    error = chatState.error,
+                    onLoad = { viewModel.loadChatHistory() },
+                    onSend = { question -> viewModel.sendChatMessage(question) }
+                )
             }
 
             composable(Screen.AdminUsers.route) {
@@ -207,20 +224,21 @@ private fun UploadScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
             }
         )
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text("Upload Statement", style = MaterialTheme.typography.headlineSmall)
@@ -234,9 +252,14 @@ private fun UploadScreen(
             }
         }
 
-        Card(
+        Surface(
             onClick = onPickFile,
-            modifier = Modifier.fillMaxWidth().height(200.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp
         ) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -244,8 +267,7 @@ private fun UploadScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    Icons.Default.UploadFile,
-                    contentDescription = null,
+                    Icons.Default.UploadFile, contentDescription = null,
                     modifier = Modifier.size(48.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -254,8 +276,6 @@ private fun UploadScreen(
                 Text("CSV, XLS, XLSX", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-
-        Spacer(Modifier.weight(1f))
 
         OutlinedButton(
             onClick = { showClearDialog = true },
@@ -267,22 +287,21 @@ private fun UploadScreen(
             Text("Clear All Data")
         }
 
+        Spacer(Modifier.weight(1f))
+
         resultMessage?.let { msg ->
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (msg.startsWith("Error"))
-                        MaterialTheme.colorScheme.errorContainer
-                    else
-                        MaterialTheme.colorScheme.secondaryContainer
-                )
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = if (msg.startsWith("Error"))
+                    MaterialTheme.colorScheme.errorContainer
+                else
+                    MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Text(msg, modifier = Modifier.padding(12.dp), fontSize = 13.sp)
             }
             if (!msg.startsWith("Error")) {
                 Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onClearResult) {
-                    Text("Dismiss")
-                }
+                TextButton(onClick = onClearResult) { Text("Dismiss") }
             }
         }
     }
