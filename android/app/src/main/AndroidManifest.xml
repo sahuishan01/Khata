@@ -8,6 +8,7 @@
     <application
         android:name=".KhataApp"
         android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
         android:label="Khata"
         android:supportsRtl="true"
         android:theme="@style/Theme.Khata"

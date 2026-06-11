@@ -31,6 +31,9 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
         working-directory: ./android
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Get version from tag
         id: version

@@ -14,8 +14,8 @@ android {
         applicationId = "com.khata.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionName = System.getenv("GITHUB_REF_NAME")?.removePrefix("v") ?: "1.0"
 
         buildConfigField("String", "API_BASE_URL", "\"https://khata.algosculptor.com\"")
     }

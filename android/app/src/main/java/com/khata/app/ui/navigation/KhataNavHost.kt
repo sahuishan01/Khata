@@ -62,7 +62,6 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
 
     var uploadResult by remember { mutableStateOf<String?>(null) }
-    var startChecked by remember { mutableStateOf(false) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -76,17 +75,15 @@ fun KhataNavHost(themeManager: ThemeManager) {
         viewModel.checkAuth()
     }
 
-    LaunchedEffect(authState.setupRequired, authState.isLoggedIn) {
-        if (startChecked) return@LaunchedEffect
-        if (authState.isLoggedIn) {
-            navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
-            startChecked = true
-        } else if (authState.setupRequired) {
-            navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
-            startChecked = true
-        } else if (authState.setupRequired == false && authState.isLoggedIn == false) {
-            navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
-            startChecked = true
+    LaunchedEffect(authState.isLoggedIn, authState.setupRequired) {
+        val dest = navController.currentDestination?.route
+        when {
+            authState.isLoggedIn && dest != Screen.Dashboard.route ->
+                navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+            authState.setupRequired && dest != Screen.Setup.route ->
+                navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
+            !authState.isLoggedIn && !authState.setupRequired && dest != Screen.Login.route ->
+                navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
         }
     }
 
