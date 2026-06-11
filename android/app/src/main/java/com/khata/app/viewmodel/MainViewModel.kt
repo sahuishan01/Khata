@@ -147,12 +147,14 @@ class MainViewModel @Inject constructor(
     fun loadTransactions(
         sortBy: String = "date",
         sortDir: String = "desc",
-        category: String? = null
+        category: String? = null,
+        from: String? = null,
+        to: String? = null
     ) {
         viewModelScope.launch {
             _txnState.value = _txnState.value.copy(isLoading = true, error = null)
             try {
-                val txns = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category)
+                val txns = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to)
                 val cats = repository.listCategories()
                 _txnState.value = TxnUiState(txns = txns, categories = cats)
             } catch (e: Exception) {
