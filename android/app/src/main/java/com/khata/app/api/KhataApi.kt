@@ -44,7 +44,9 @@ interface KhataApi {
         @Query("per_page") perPage: Int = 50,
         @Query("sort_by") sortBy: String = "date",
         @Query("sort_dir") sortDir: String = "desc",
-        @Query("category") category: String? = null
+        @Query("category") category: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null
     ): TxnListResponse
 
     @GET("api/txns/categories")

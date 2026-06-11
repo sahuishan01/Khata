@@ -46,8 +46,14 @@ class KhataRepository @Inject constructor(
         page: Int = 1,
         category: String? = null,
         sortBy: String = "date",
-        sortDir: String = "desc"
-    ): TxnListResponse = api.listTxns(page = page, category = category, sortBy = sortBy, sortDir = sortDir)
+        sortDir: String = "desc",
+        from: String? = null,
+        to: String? = null
+    ): TxnListResponse = api.listTxns(
+        page = page, category = category,
+        sortBy = sortBy, sortDir = sortDir,
+        from = from, to = to
+    )
 
     suspend fun listCategories(): List<String> = api.listCategories()
 
