@@ -1,0 +1,192 @@
+package com.khata.app.ui.dashboard
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.khata.app.api.AnalysisStats
+import com.khata.app.api.DashboardStats
+import com.khata.app.ui.components.StatCard
+
+private fun fmt(n: Double) = "₹${String.format("%,.0f", n)}"
+private fun fmtDec(n: Double) = "₹${String.format("%,.2f", n)}"
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreen(
+    stats: DashboardStats?,
+    analysis: AnalysisStats?,
+    isLoading: Boolean,
+    error: String?,
+    onRefresh: () -> Unit,
+    onNavigateToTransactions: (String) -> Unit
+) {
+    LaunchedEffect(Unit) { onRefresh() }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text("Dashboard", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+            Text("Your financial overview", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (error != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Text(error, modifier = Modifier.padding(12.dp), fontSize = 13.sp)
+                }
+            }
+        }
+
+        if (stats == null && isLoading) {
+            item {
+                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+
+        if (stats != null) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    StatCard(
+                        label = "Net Balance",
+                        value = fmt(stats.net),
+                        icon = { Text("₹", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        label = "Total Spent",
+                        value = fmt(stats.totalSpent),
+                        icon = { Text("↓", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+                        accentColor = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    StatCard(
+                        label = "Total Earned",
+                        value = fmt(stats.totalEarned),
+                        icon = { Text("↑", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary) },
+                        accentColor = MaterialTheme.colorScheme.secondary,
+                        subtitle = "${analysis?.totalTransactions ?: 0} transactions",
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        label = "Savings Rate",
+                        value = "${"%.1f".format(analysis?.savingsRatePct ?: 0.0)}%",
+                        icon = { Text("%", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                        accentColor = if ((analysis?.savingsRatePct ?: 0.0) >= 20) MaterialTheme.colorScheme.secondary
+                            else MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            if (analysis != null && analysis.monthComparison.lastMonth > 0) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (analysis.monthComparison.changePct > 0)
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                            else
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("This month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(fmt(analysis.monthComparison.thisMonth), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("vs last month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "${if (analysis.monthComparison.changePct > 0) "↑" else "↓"} ${"%.1f".format(kotlin.math.abs(analysis.monthComparison.changePct))}%",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (analysis.monthComparison.changePct > 0)
+                                        MaterialTheme.colorScheme.error
+                                    else
+                                        MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (analysis?.largestExpense != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("LARGEST EXPENSE", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                letterSpacing = 0.8.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text(fmtDec(analysis.largestExpense!!.amount), fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            Text(analysis.largestExpense!!.description, fontSize = 13.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onBackground)
+                            Text(analysis.largestExpense!!.valueDate, fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("TOP SPENDING", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            letterSpacing = 0.8.sp)
+                        Spacer(Modifier.height(8.dp))
+                        stats.topDebits.take(7).forEach { t ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(t.description, fontSize = 13.sp, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text(fmtDec(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.error)
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 2.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
