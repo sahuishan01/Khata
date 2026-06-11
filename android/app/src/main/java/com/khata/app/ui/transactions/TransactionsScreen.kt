@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,19 +22,102 @@ import com.khata.app.api.TxnRow
 
 private fun fmt(n: Double) = "₹${String.format("%,.2f", n)}"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     txnState: TxnListResponse?,
     categories: List<String>,
     isLoading: Boolean,
     error: String?,
-    onLoad: () -> Unit
+    onLoad: (sortBy: String, sortDir: String, category: String?) -> Unit
 ) {
-    LaunchedEffect(Unit) { onLoad() }
+    var sortBy by remember { mutableStateOf("date") }
+    var sortDir by remember { mutableStateOf("desc") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var showSortMenu by remember { mutableStateOf(false) }
+    var showCatFilter by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { onLoad(sortBy, sortDir, selectedCategory) }
+    LaunchedEffect(sortBy, sortDir, selectedCategory) { onLoad(sortBy, sortDir, selectedCategory) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Transactions", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
+
+        // Filters row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Sort button
+            Box {
+                FilledTonalButton(
+                    onClick = { showSortMenu = true },
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Icon(Icons.Default.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        when (sortBy) {
+                            "amount" -> if (sortDir == "desc") "Amount ↓" else "Amount ↑"
+                            else -> if (sortDir == "desc") "Date ↓" else "Date ↑"
+                        },
+                        fontSize = 12.sp
+                    )
+                }
+                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Date: newest first") },
+                        onClick = { sortBy = "date"; sortDir = "desc"; showSortMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Date: oldest first") },
+                        onClick = { sortBy = "date"; sortDir = "asc"; showSortMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Amount: highest first") },
+                        onClick = { sortBy = "amount"; sortDir = "desc"; showSortMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Amount: lowest first") },
+                        onClick = { sortBy = "amount"; sortDir = "asc"; showSortMenu = false }
+                    )
+                }
+            }
+
+            // Category filter button
+            if (categories.isNotEmpty()) {
+                Box {
+                    FilledTonalButton(
+                        onClick = { showCatFilter = true },
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            selectedCategory ?: "All categories",
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    DropdownMenu(expanded = showCatFilter, onDismissRequest = { showCatFilter = false }) {
+                        DropdownMenuItem(
+                            text = { Text("All categories") },
+                            onClick = { selectedCategory = null; showCatFilter = false }
+                        )
+                        categories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = { selectedCategory = cat; showCatFilter = false }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         if (error != null) {
             Card(

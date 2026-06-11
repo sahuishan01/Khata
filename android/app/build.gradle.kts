@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -20,9 +23,22 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"https://khata.algosculptor.com\"")
     }
 
+    signingConfigs {
+        create("khata") {
+            storeFile = file("debug.keystore")
+            storePassword = "khata2024"
+            keyAlias = "khata"
+            keyPassword = "khata2024"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("khata")
+        }
         release {
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("khata")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

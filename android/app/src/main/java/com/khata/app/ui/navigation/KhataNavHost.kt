@@ -157,7 +157,9 @@ fun KhataNavHost(themeManager: ThemeManager) {
                     categories = txnState.categories,
                     isLoading = txnState.isLoading,
                     error = txnState.error,
-                    onLoad = { viewModel.loadTransactions() }
+                    onLoad = { sortBy, sortDir, category ->
+                        viewModel.loadTransactions(sortBy, sortDir, category)
+                    }
                 )
             }
 
