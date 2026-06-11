@@ -24,6 +24,7 @@ import com.khata.app.ui.admin.AdminUsersScreen
 import com.khata.app.ui.auth.LoginScreen
 import com.khata.app.ui.auth.ResetPasswordScreen
 import com.khata.app.ui.auth.SetupScreen
+import com.khata.app.ui.analytics.AnalyticsScreen
 import com.khata.app.ui.chat.ChatScreen
 import com.khata.app.ui.dashboard.DashboardScreen
 import com.khata.app.ui.theme.ThemeManager
@@ -38,6 +39,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Transactions : Screen("transactions", "Transactions", { Icon(Icons.Default.Receipt, contentDescription = null) })
     data object Chat : Screen("chat", "Ask Claude", { Icon(Icons.Default.Chat, contentDescription = null) })
     data object Upload : Screen("upload", "Upload", { Icon(Icons.Default.UploadFile, contentDescription = null) })
+    data object Analytics : Screen("analytics", "Analytics", { Icon(Icons.Default.Analytics, contentDescription = null) })
     data object AdminUsers : Screen("admin_users")
     data object ResetPassword : Screen("reset_password")
 }
@@ -58,7 +60,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
 
-    val bottomNavItems = listOf(Screen.Dashboard, Screen.Upload, Screen.Transactions, Screen.Chat)
+    val bottomNavItems = listOf(Screen.Dashboard, Screen.Upload, Screen.Transactions, Screen.Analytics, Screen.Chat)
     val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
 
     var uploadResult by remember { mutableStateOf<String?>(null) }
@@ -170,6 +172,15 @@ fun KhataNavHost(themeManager: ThemeManager) {
                     error = chatState.error,
                     onLoad = { viewModel.loadChatHistory() },
                     onSend = { question -> viewModel.sendChatMessage(question) }
+                )
+            }
+
+            composable(Screen.Analytics.route) {
+                AnalyticsScreen(
+                    stats = dashboardState.stats,
+                    analysis = dashboardState.analysis,
+                    isLoading = dashboardState.isLoading,
+                    onRefresh = { viewModel.refreshDashboard() }
                 )
             }
 

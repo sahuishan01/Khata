@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.AnalysisStats
 import com.khata.app.api.DashboardStats
+import com.khata.app.ui.charts.CategoryPieChart
+import com.khata.app.ui.charts.MonthlyBarChart
 import com.khata.app.ui.components.StatCard
 
 private fun fmt(n: Double) = "₹${String.format("%,.0f", n)}"
@@ -131,6 +133,34 @@ fun DashboardScreen(
                                         MaterialTheme.colorScheme.secondary
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            // Monthly bar chart
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("MONTHLY TREND", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            letterSpacing = 0.8.sp)
+                        Spacer(Modifier.height(12.dp))
+                        MonthlyBarChart(data = stats.monthly)
+                    }
+                }
+            }
+
+            // Category pie chart
+            if (analysis != null && analysis.categoryBreakdown.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("SPENDING BY CATEGORY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                letterSpacing = 0.8.sp)
+                            Spacer(Modifier.height(12.dp))
+                            CategoryPieChart(data = analysis.categoryBreakdown)
                         }
                     }
                 }
