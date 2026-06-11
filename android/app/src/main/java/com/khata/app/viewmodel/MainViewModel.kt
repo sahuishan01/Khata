@@ -1,5 +1,7 @@
 package com.khata.app.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.khata.app.api.AnalysisStats
@@ -9,6 +11,9 @@ import com.khata.app.data.KhataRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 data class AuthUiState(
@@ -185,6 +190,27 @@ class MainViewModel @Inject constructor(
                     isLoading = false,
                     error = e.message ?: "Failed to reset password"
                 )
+            }
+        }
+    }
+
+    fun uploadStatement(context: Context, uri: Uri, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                    ?: return@launch onResult("Error: Cannot read file")
+                val bytes = inputStream.readBytes()
+                inputStream.close()
+
+                val fileName = "upload_" + System.currentTimeMillis()
+                val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+
+                repository.uploadStatement(part)
+                onResult("Statement uploaded successfully!")
+            } catch (e: Exception) {
+                onResult("Error: ${e.message ?: "Upload failed"}")
             }
         }
     }

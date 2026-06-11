@@ -1,6 +1,7 @@
 package com.khata.app.data
 
 import com.khata.app.api.*
+import okhttp3.MultipartBody
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,4 +54,6 @@ class KhataRepository @Inject constructor(
     suspend fun getChatHistory(): List<ChatHistoryResponse> = api.chatHistory()
 
     suspend fun askChat(question: String): ChatAskResponse = api.chatAsk(ChatAskRequest(question))
+
+    suspend fun uploadStatement(part: MultipartBody.Part) = api.uploadStatement(part)
 }
