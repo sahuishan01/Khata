@@ -56,4 +56,6 @@ class KhataRepository @Inject constructor(
     suspend fun askChat(question: String): ChatAskResponse = api.chatAsk(ChatAskRequest(question))
 
     suspend fun uploadStatement(part: MultipartBody.Part) = api.uploadStatement(part)
+
+    suspend fun clearAllData() = api.clearAllData()
 }

@@ -2,7 +2,7 @@ use axum::{
     extract::{Multipart, State},
     Json,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
@@ -182,4 +182,49 @@ pub async fn debug_headers_handler(
         }));
     }
     Err(AppError::BadRequest("no file".into()))
+}
+
+#[derive(Deserialize)]
+pub struct ClearDataReq {
+    pub confirm: bool,
+}
+
+pub async fn clear_all_data_handler(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Json(req): Json<ClearDataReq>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if !req.confirm {
+        return Err(AppError::BadRequest("confirm must be true".into()));
+    }
+
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx)
+        .await?;
+
+    let deleted = sqlx::query("DELETE FROM transactions WHERE user_id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::BadRequest("Failed to delete transactions".into()))?;
+
+    sqlx::query("DELETE FROM statements WHERE user_id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::BadRequest("Failed to delete statements".into()))?;
+
+    sqlx::query("DELETE FROM chat_messages WHERE user_id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+
+    tx.commit().await?;
+
+    Ok(Json(serde_json::json!({
+        "message": "All data cleared",
+        "deleted_transactions": deleted.rows_affected()
+    })))
 }

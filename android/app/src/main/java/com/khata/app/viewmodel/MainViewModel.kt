@@ -202,15 +202,37 @@ class MainViewModel @Inject constructor(
                 val bytes = inputStream.readBytes()
                 inputStream.close()
 
-                val fileName = "upload_" + System.currentTimeMillis()
-                val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                val fileName = getFileName(context, uri) ?: "upload_${System.currentTimeMillis()}"
+                val requestBody = bytes.toRequestBody("application/octet-stream".toMediaTypeOrNull())
                 val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
 
                 repository.uploadStatement(part)
                 onResult("Statement uploaded successfully!")
             } catch (e: Exception) {
                 onResult("Error: ${e.message ?: "Upload failed"}")
+            }
+        }
+    }
+
+    private fun getFileName(context: Context, uri: Uri): String? {
+        var name: String? = null
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) name = it.getString(idx)
+            }
+        }
+        return name
+    }
+
+    fun clearAllData(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.clearAllData()
+                onResult("All data cleared successfully!")
+            } catch (e: Exception) {
+                onResult("Error: ${e.message ?: "Failed to clear data"}")
             }
         }
     }

@@ -55,6 +55,9 @@ interface KhataApi {
     @POST("api/ingest/upload")
     suspend fun uploadStatement(@Part file: MultipartBody.Part): Map<String, Any>
 
+    @HTTP(method = "DELETE", path = "api/ingest/clear", hasBody = true)
+    suspend fun clearAllData(@Body body: Map<String, Boolean> = mapOf("confirm" to true)): MessageResponse
+
     // Chat
     @GET("api/chat/history")
     suspend fun chatHistory(): List<ChatHistoryResponse>

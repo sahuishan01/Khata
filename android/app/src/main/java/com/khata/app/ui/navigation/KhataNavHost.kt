@@ -129,7 +129,8 @@ fun KhataNavHost(themeManager: ThemeManager) {
                     onToggleDark = { scope.launch { themeManager.setDark(!isDark) } },
                     resultMessage = uploadResult,
                     onPickFile = { filePickerLauncher.launch("*/*") },
-                    onClearResult = { uploadResult = null }
+                    onClearResult = { uploadResult = null },
+                    onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }
                 )
             }
 
@@ -190,8 +191,29 @@ private fun UploadScreen(
     onToggleDark: () -> Unit,
     resultMessage: String?,
     onPickFile: () -> Unit,
-    onClearResult: () -> Unit
+    onClearResult: () -> Unit,
+    onClearAllData: () -> Unit
 ) {
+    var showClearDialog by remember { mutableStateOf(false) }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear All Data?") },
+            text = { Text("This will permanently delete all your transactions, statements, and chat history. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = { showClearDialog = false; onClearAllData() }) {
+                    Text("Clear Everything", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -231,6 +253,18 @@ private fun UploadScreen(
                 Text("Tap to select a file", style = MaterialTheme.typography.titleMedium)
                 Text("CSV, XLS, XLSX", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        OutlinedButton(
+            onClick = { showClearDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Clear All Data")
         }
 
         resultMessage?.let { msg ->
