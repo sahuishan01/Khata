@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../store/auth'
+import { api } from '../api/client'
 
 export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const register = useAuth(s => s.register)
   const navigate = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
@@ -15,8 +14,8 @@ export function RegisterPage() {
     setLoading(true)
     setError('')
     try {
-      await register(email, password)
-      navigate('/')
+      await api.post('/auth/register', { email, password })
+      navigate('/login')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } }; message?: string }
       if (e.response?.data?.error) {

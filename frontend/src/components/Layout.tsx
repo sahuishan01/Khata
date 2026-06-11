@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Receipt, MessageSquare, LogOut } from 'lucide-react'
+import { LayoutDashboard, Receipt, MessageSquare, LogOut, Shield, KeyRound } from 'lucide-react'
 import { useAuth } from '../store/auth'
+import { useEffect } from 'react'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -10,7 +11,11 @@ const NAV = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const logout = useAuth(s => s.logout)
+  const user = useAuth(s => s.user)
+  const fetchMe = useAuth(s => s.fetchMe)
   const navigate = useNavigate()
+
+  useEffect(() => { fetchMe() }, [fetchMe])
 
   const doLogout = () => { logout(); navigate('/login') }
 
@@ -34,8 +39,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {label}
             </NavLink>
           ))}
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}
+            >
+              <Shield size={16} />
+              Manage Users
+            </NavLink>
+          )}
         </nav>
         <div className="sidebar-footer">
+          <button
+            className="btn btn-ghost btn-full"
+            style={{ justifyContent: 'flex-start', gap: 10 }}
+            onClick={() => navigate('/reset-password')}
+          >
+            <KeyRound size={15} />
+            Reset Password
+          </button>
           <button
             className="btn btn-ghost btn-full"
             style={{ justifyContent: 'flex-start', gap: 10 }}
@@ -77,6 +99,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {label}
             </NavLink>
           ))}
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}
+            >
+              <Shield size={21} />
+              Users
+            </NavLink>
+          )}
+          <NavLink
+            to="/reset-password"
+            className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}
+          >
+            <KeyRound size={21} />
+            Password
+          </NavLink>
         </nav>
       </div>
     </div>

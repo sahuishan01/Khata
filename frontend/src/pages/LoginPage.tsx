@@ -76,8 +76,7 @@ export function LoginPage() {
         </form>
 
         <p className="text-muted" style={{ textAlign: 'center', marginTop: 20, fontSize: 13 }}>
-          No account?{' '}
-          <Link to="/register" style={{ fontWeight: 500 }}>Create one</Link>
+          <Link to="/reset-password" style={{ fontWeight: 500 }}>Forgot password?</Link>
         </p>
       </div>
     </div>
