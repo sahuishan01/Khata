@@ -1,0 +1,51 @@
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.9
+        working-directory: ./android
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: ./android
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Khata ${{ steps.version.outputs.version }}
+          body: |
+            ## Khata Android App v${{ steps.version.outputs.version }}
+
+            ### Installation
+            Download the APK below and install it on your Android device.
+            You may need to enable "Install from unknown sources" in Settings.
+
+            ### Changelog
+            See the commits in this release for details.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
