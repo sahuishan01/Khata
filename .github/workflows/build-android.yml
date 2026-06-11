@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -48,4 +50,3 @@ jobs:
             ### Changelog
             See the commits in this release for details.
           files: android/app/build/outputs/apk/debug/app-debug.apk
-          generate_release_notes: true
