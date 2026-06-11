@@ -69,6 +69,8 @@ fun KhataNavHost(themeManager: ThemeManager) {
         }
     }
 
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(authState.isLoggedIn, authState.setupRequired) {
         when {
             authState.setupRequired -> navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
@@ -123,7 +125,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Upload.route) {
                 UploadScreen(
                     isDark = isDark,
-                    onToggleDark = { themeManager.setDark(!isDark) },
+                    onToggleDark = { scope.launch { themeManager.setDark(!isDark) } },
                     resultMessage = uploadResult,
                     onPickFile = { filePickerLauncher.launch("*/*") },
                     onClearResult = { uploadResult = null }
