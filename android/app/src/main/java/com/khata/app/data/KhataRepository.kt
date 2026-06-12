@@ -38,6 +38,7 @@ class KhataRepository @Inject constructor(
     suspend fun toggleTransfer(id: String, v: Boolean) = api.toggleTransfer(id, ToggleTransferReq(v))
     suspend fun toggleInvestment(id: String, v: Boolean) = api.toggleInvestment(id, ToggleInvestmentReq(v))
     suspend fun updateNotes(id: String, notes: String) = api.updateNotes(id, UpdateNotesReq(notes))
+    suspend fun updateCategory(id: String, category: String) = api.updateCategory(id, mapOf("category" to category, "scope" to "single"))
 
     suspend fun listAccounts() = api.listAccounts()
     suspend fun createAccount(label: String, identifier: String) = api.createAccount(CreateAccountReq(label, identifier))
