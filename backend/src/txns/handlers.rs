@@ -279,11 +279,35 @@ pub async fn update_category(
 
     let updated = match req.scope {
         UpdateScope::Single => {
-            sqlx::query(
+            let result = sqlx::query(
                 "UPDATE transactions SET category = $1 WHERE id = $2 AND user_id = $3"
             )
             .bind(&category).bind(txn_id).bind(user_id)
-            .execute(&mut *tx).await?.rows_affected()
+            .execute(&mut *tx).await?.rows_affected();
+
+            // Create a rule for this payee
+            if result > 0 {
+                let desc: Option<(String,)> = sqlx::query_as(
+                    "SELECT description FROM transactions WHERE id = $1 AND user_id = $2"
+                )
+                .bind(txn_id).bind(user_id)
+                .fetch_optional(&mut *tx).await?;
+
+                if let Some((desc_text,)) = desc {
+                    let words: Vec<&str> = desc_text.split_whitespace().collect();
+                    let pattern = if words.len() >= 3 {
+                        format!("{} {}", words[0], words[1])
+                    } else {
+                        desc_text.clone()
+                    };
+                    let _ = sqlx::query(
+                        "INSERT INTO category_rules (user_id, pattern, category) VALUES ($1, UPPER($2), $3) ON CONFLICT DO NOTHING"
+                    )
+                    .bind(user_id).bind(&pattern).bind(&category)
+                    .execute(&mut *tx).await;
+                }
+            }
+            result
         }
 
         UpdateScope::SameDescription => {
