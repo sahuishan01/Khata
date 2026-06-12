@@ -126,7 +126,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Upload.route) { UploadScreen(isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }) }
 
-            composable(Screen.Transactions.route) { TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onToggleInvestment = { id, v -> viewModel.toggleInvestment(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }) }
+            composable(Screen.Transactions.route) { TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onToggleInvestment = { id, v -> viewModel.toggleInvestment(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }, onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) }) }
 
             composable(Screen.Chat.route) { ChatScreen(messages = chatState.messages, isLoading = chatState.isLoading, error = chatState.error, onLoad = { viewModel.loadChatHistory() }, onSend = { q -> viewModel.sendChatMessage(q) }) }
 

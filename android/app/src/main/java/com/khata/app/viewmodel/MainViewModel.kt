@@ -78,6 +78,7 @@ class MainViewModel @Inject constructor(
     fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleTransfer(id, v); loadTransactions() } catch (_: Exception) {} }}
     fun toggleInvestment(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleInvestment(id, v); loadTransactions() } catch (_: Exception) {} }}
     fun updateNotes(id: String, notes: String) { viewModelScope.launch { try { repository.updateNotes(id, notes); loadTransactions() } catch (_: Exception) {} }}
+    fun updateCategory(id: String, category: String) { viewModelScope.launch { try { repository.updateCategory(id, category); loadTransactions() } catch (_: Exception) {} }}
     fun createTxn(req: CreateTxnReq) { viewModelScope.launch { try { repository.createTxn(req); loadTransactions() } catch (_: Exception) {} }}
 
     fun loadChatHistory() { viewModelScope.launch { try {

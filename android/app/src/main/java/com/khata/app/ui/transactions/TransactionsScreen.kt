@@ -301,7 +301,7 @@ fun TransactionsScreen(
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes) }
+            items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory) }
         }
     }
     }
@@ -313,7 +313,8 @@ private fun TransactionCard(
     allCategories: List<String> = emptyList(),
     onToggleTransfer: (String, Boolean) -> Unit,
     onToggleInvestment: (String, Boolean) -> Unit,
-    onUpdateNotes: (String, String) -> Unit
+    onUpdateNotes: (String, String) -> Unit,
+    onUpdateCategory: ((String, String) -> Unit)? = null
 ) {
     var showNotes by remember { mutableStateOf(false) }
     var notesText by remember { mutableStateOf(txn.notes) }
@@ -368,10 +369,13 @@ private fun TransactionCard(
                     FilterChip(selected = false, onClick = { showCatMenu = true }, label = { Text(txn.category.take(8), fontSize = 9.sp, maxLines = 1) }, modifier = Modifier.height(28.dp))
                     DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }) {
                         allCategories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat, fontSize = 12.sp) }, onClick = { showCatMenu = false })
+                            DropdownMenuItem(text = { Text(cat, fontSize = 12.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false })
                         }
                         HorizontalDivider()
-                        OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New category…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))
+                        OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))
+                        if (newCat.isNotBlank()) {
+                            DropdownMenuItem(text = { Text("Create \"$newCat\"", fontSize = 12.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, newCat); showCatMenu = false; newCat = "" })
+                        }
                     }
                 }
             }
