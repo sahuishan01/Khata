@@ -59,7 +59,10 @@ fun TransactionsScreen(
     categories: List<String>,
     isLoading: Boolean,
     error: String?,
-    onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit
+    onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit,
+    onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
+    onToggleInvestment: (String, Boolean) -> Unit = { _, _ -> },
+    onUpdateNotes: (String, String) -> Unit = { _, _ -> }
 ) {
     var sortBy by remember { mutableStateOf("date") }
     var sortDir by remember { mutableStateOf("desc") }
@@ -282,46 +285,95 @@ fun TransactionsScreen(
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(txns, key = { it.id }) { txn -> TransactionCard(txn) }
+            items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes) }
         }
     }
 }
 
 @Composable
-private fun TransactionCard(txn: TxnRow) {
+private fun TransactionCard(
+    txn: TxnRow,
+    onToggleTransfer: (String, Boolean) -> Unit,
+    onToggleInvestment: (String, Boolean) -> Unit,
+    onUpdateNotes: (String, String) -> Unit
+) {
+    var showNotes by remember { mutableStateOf(false) }
+    var notesText by remember { mutableStateOf(txn.notes) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (txn.direction == "debit") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (txn.direction == "debit") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                        contentDescription = null, modifier = Modifier.size(18.dp),
-                        tint = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-                    )
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(txn.valueDate, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(8.dp))
-                    Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Text(txn.category, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (txn.direction == "debit") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            if (txn.direction == "debit") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                            contentDescription = null, modifier = Modifier.size(18.dp),
+                            tint = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+                        )
                     }
                 }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(txn.valueDate, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        if (txn.isTransfer) { Spacer(Modifier.width(4.dp)); Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiaryContainer) { Text("↔", fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) } }
+                        if (txn.isInvestment) { Spacer(Modifier.width(4.dp)); Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Text("I", fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.secondary) } }
+                        Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Text(txn.category, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Text(fmt(txn.amount), fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                    color = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
             }
-            Text(fmt(txn.amount), fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                color = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+
+            // Action buttons
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FilterChip(
+                    selected = txn.isTransfer,
+                    onClick = { onToggleTransfer(txn.id, !txn.isTransfer) },
+                    label = { Text("↔", fontSize = 10.sp) },
+                    modifier = Modifier.height(28.dp)
+                )
+                FilterChip(
+                    selected = txn.isInvestment,
+                    onClick = { onToggleInvestment(txn.id, !txn.isInvestment) },
+                    label = { Text("I", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    modifier = Modifier.height(28.dp)
+                )
+                FilterChip(
+                    selected = showNotes,
+                    onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes },
+                    label = { Text("📝", fontSize = 10.sp) },
+                    modifier = Modifier.height(28.dp)
+                )
+            }
+
+            if (showNotes) {
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    OutlinedTextField(
+                        value = notesText, onValueChange = { notesText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Add notes…", fontSize = 12.sp) },
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
+                    IconButton(onClick = { onUpdateNotes(txn.id, notesText); showNotes = false }) { Icon(Icons.Default.Check, contentDescription = "Save") }
+                }
+            }
         }
     }
 }
