@@ -30,24 +30,10 @@ pub async fn upload_handler(
         let bytes = field.bytes().await?;
         let sha = hex::encode(Sha256::digest(&bytes));
 
-        // All DB ops in one transaction so SET LOCAL covers every query
         let mut tx = state.db.begin().await?;
         sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
             .execute(&mut *tx)
             .await?;
-
-        let exists: Option<(uuid::Uuid,)> = sqlx::query_as(
-            "SELECT id FROM statements WHERE user_id = $1 AND file_sha256 = $2",
-        )
-        .bind(user_id)
-        .bind(&sha)
-        .fetch_optional(&mut *tx)
-        .await?;
-
-        if exists.is_some() {
-            tx.rollback().await?;
-            return Err(AppError::Conflict(format!("{filename} has already been imported")));
-        }
 
         let kind = detect_file_kind(&filename);
 
