@@ -191,16 +191,12 @@ fun AnalyticsScreen(
                                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             val idx = analysis.categoryBreakdown.indexOf(c)
-                                            Box(Modifier.size(10.dp).padding(0.dp)) {
-                                                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                                                    drawCircle(color = listOf(
-                                                        Color(0xFF6C5CE7), Color(0xFF00B894), Color(0xFFE17055),
-                                                        Color(0xFFFDCB6E), Color(0xFF74B9FF), Color(0xFFA29BFE),
-                                                        Color(0xFF55EFC4), Color(0xFFFF7675), Color(0xFFFD79A8),
-                                                        Color(0xFF81ECEC), Color(0xFFFAB1A0), Color(0xFF636E72),
-                                                    )[idx % 12])
-                                                }
-                                            }
+                                            Box(Modifier.size(10.dp).padding(0.dp).clip(androidx.compose.foundation.shape.CircleShape).background(listOf(
+                                                Color(0xFF6C5CE7), Color(0xFF00B894), Color(0xFFE17055),
+                                                Color(0xFFFDCB6E), Color(0xFF74B9FF), Color(0xFFA29BFE),
+                                                Color(0xFF55EFC4), Color(0xFFFF7675), Color(0xFFFD79A8),
+                                                Color(0xFF81ECEC), Color(0xFFFAB1A0), Color(0xFF636E72),
+                                            )[idx % 12]))
                                             Spacer(Modifier.width(6.dp))
                                             Text(c.category, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                         }
