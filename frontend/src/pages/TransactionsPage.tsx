@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, TrendingUp, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { CategoryEditor } from '../components/CategoryEditor'
 
 interface TxnRow {
   id: string; value_date: string; description: string
   amount: number; direction: string; bank: string; category: string
+  is_transfer: boolean; is_investment: boolean; notes: string
 }
 interface TxnList { data: TxnRow[]; total: number; page: number; per_page: number }
 
@@ -59,6 +60,8 @@ export function TransactionsPage() {
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
+  const [editingNotes, setEditingNotes] = useState<string | null>(null)
+  const [noteText, setNoteText]     = useState('')
 
   const categoryFilter = searchParams.get('category') ?? ''
 
@@ -99,6 +102,28 @@ export function TransactionsPage() {
     setList(l => l ? { ...l, data: l.data.map(t => t.id === txnId ? { ...t, category: newCat } : t) } : l)
     api.get<string[]>('/txns/categories').then(r => setCategories(r.data))
     setTimeout(() => fetchPage(page), 1500)
+  }
+
+  const toggleTransfer = async (id: string, val: boolean) => {
+    try {
+      await api.patch(`/txns/${id}/transfer`, { is_transfer: val })
+      setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, is_transfer: val } : t) } : l)
+    } catch {}
+  }
+
+  const toggleInvestment = async (id: string, val: boolean) => {
+    try {
+      await api.patch(`/txns/${id}/investment`, { is_investment: val })
+      setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, is_investment: val } : t) } : l)
+    } catch {}
+  }
+
+  const saveNotes = async (id: string) => {
+    try {
+      await api.patch(`/txns/${id}/notes`, { notes: noteText })
+      setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, notes: noteText } : t) } : l)
+      setEditingNotes(null)
+    } catch {}
   }
 
   const totalPages = list ? Math.ceil(list.total / list.per_page) : 1
@@ -214,6 +239,7 @@ export function TransactionsPage() {
                           : <span style={{ opacity: 0.3 }}>↕</span>}
                       </th>
                     ))}
+                    <th style={{ whiteSpace: 'nowrap' }}>Flags</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -222,8 +248,9 @@ export function TransactionsPage() {
                       <td style={{ whiteSpace: 'nowrap', color: 'var(--text-2)', fontSize: 12 }}>
                         {t.value_date}
                       </td>
-                      <td className="truncate" style={{ maxWidth: 260, color: 'var(--text-heading)' }}>
+                      <td className="truncate" style={{ maxWidth: 220, color: 'var(--text-heading)' }}>
                         {t.description}
+                        {t.notes && <span style={{ fontSize: 11, color: 'var(--text-2)', marginLeft: 6 }}>📝</span>}
                       </td>
                       <td style={{
                         textAlign: 'right', fontVariantNumeric: 'tabular-nums',
@@ -237,6 +264,27 @@ export function TransactionsPage() {
                           txnId={t.id} current={t.category} description={t.description}
                           allCategories={categories} onUpdated={handleCategoryUpdate}
                         />
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          {t.is_transfer && <span className="badge badge-amber" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => toggleTransfer(t.id, false)}>↔</span>}
+                          {t.is_investment && <span className="badge badge-blue" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => toggleInvestment(t.id, false)}>I</span>}
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px' }} onClick={() => { setEditingNotes(editingNotes === t.id ? null : t.id); setNoteText(t.notes || '') }} title="Notes">
+                            <FileText size={12} />
+                          </button>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_transfer ? 'var(--amber)' : 'var(--text-2)' }} onClick={() => toggleTransfer(t.id, !t.is_transfer)} title="Toggle transfer">
+                            <Repeat size={12} />
+                          </button>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_investment ? 'var(--blue)' : 'var(--text-2)' }} onClick={() => toggleInvestment(t.id, !t.is_investment)} title="Toggle investment">
+                            <TrendingUp size={12} />
+                          </button>
+                        </div>
+                        {editingNotes === t.id && (
+                          <div style={{ marginTop: 4 }}>
+                            <input className="form-input" style={{ fontSize: 11, padding: '3px 6px' }} value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add notes…" />
+                            <button className="btn btn-primary btn-sm" style={{ fontSize: 10, marginTop: 2 }} onClick={() => saveNotes(t.id)}>Save</button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

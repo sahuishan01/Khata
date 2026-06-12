@@ -6,8 +6,13 @@ import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
 import { TransactionsPage } from './pages/TransactionsPage'
+import { AddTransactionPage } from './pages/AddTransactionPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
+import { AccountsPage } from './pages/AccountsPage'
+import { RulesPage } from './pages/RulesPage'
+import { BudgetsPage } from './pages/BudgetsPage'
+import { PortfolioPage } from './pages/PortfolioPage'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -26,7 +31,12 @@ export function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/"             element={<AppLayout><DashboardPage /></AppLayout>} />
         <Route path="/transactions" element={<AppLayout><TransactionsPage /></AppLayout>} />
+        <Route path="/add"          element={<AppLayout><AddTransactionPage /></AppLayout>} />
         <Route path="/chat"         element={<AppLayout><ChatPage /></AppLayout>} />
+        <Route path="/accounts"     element={<AppLayout><AccountsPage /></AppLayout>} />
+        <Route path="/rules"        element={<AppLayout><RulesPage /></AppLayout>} />
+        <Route path="/budgets"      element={<AppLayout><BudgetsPage /></AppLayout>} />
+        <Route path="/portfolio"    element={<AppLayout><PortfolioPage /></AppLayout>} />
         <Route path="/admin/users"  element={<AppLayout><AdminUsersPage /></AppLayout>} />
         <Route path="*"             element={<Navigate to="/" replace />} />
       </Routes>
