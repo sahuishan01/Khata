@@ -477,3 +477,52 @@ pub async fn update_notes(
 
     Ok(Json(serde_json::json!({ "message": "Notes updated" })))
 }
+
+use chrono::NaiveDate;
+
+pub async fn create_txn(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Json(req): Json<CreateTxnReq>,
+) -> Result<Json<TxnRow>, AppError> {
+    if req.description.trim().is_empty() {
+        return Err(AppError::BadRequest("Description is required".into()));
+    }
+    if req.direction != "debit" && req.direction != "credit" {
+        return Err(AppError::BadRequest("Direction must be debit or credit".into()));
+    }
+
+    let txn_date = NaiveDate::parse_from_str(&req.txn_date, "%Y-%m-%d")
+        .map_err(|_| AppError::BadRequest("Invalid txn_date format (use YYYY-MM-DD)".into()))?;
+    let value_date = NaiveDate::parse_from_str(&req.value_date, "%Y-%m-%d")
+        .map_err(|_| AppError::BadRequest("Invalid value_date format (use YYYY-MM-DD)".into()))?;
+
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let row = sqlx::query_as::<_, TxnRow>(
+        r#"INSERT INTO transactions
+           (user_id, bank, account_label, txn_date, value_date, description, raw_description,
+            amount, direction, category, bank_ref, notes, fingerprint)
+           VALUES ($1, 'Manual', 'Manual', $2, $3, $4, $4, $5, $6, $7, $8, $9, gen_random_uuid()::text)
+           RETURNING id, txn_date, value_date, description,
+                     amount::float8, direction, balance::float8, bank, bank_ref, category,
+                     is_transfer, is_investment, notes"#,
+    )
+    .bind(user_id)
+    .bind(txn_date)
+    .bind(value_date)
+    .bind(req.description.trim())
+    .bind(req.amount)
+    .bind(&req.direction)
+    .bind(req.category.trim())
+    .bind(req.bank_ref)
+    .bind(req.notes.unwrap_or_default())
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|_| AppError::BadRequest("Failed to create transaction".into()))?;
+
+    tx.commit().await?;
+    Ok(Json(row))
+}

@@ -52,6 +52,18 @@ pub struct UpdateNotesReq {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct CreateTxnReq {
+    pub txn_date: String,
+    pub value_date: String,
+    pub description: String,
+    pub amount: f64,
+    pub direction: String,
+    pub category: String,
+    pub bank_ref: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ListParams {
     pub page: Option<i64>,
     pub per_page: Option<i64>,

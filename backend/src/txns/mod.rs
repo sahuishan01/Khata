@@ -7,7 +7,7 @@ use crate::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/", get(handlers::list_txns))
+        .route("/", get(handlers::list_txns).post(handlers::create_txn))
         .route("/dashboard", get(handlers::get_dashboard))
         .route("/analysis", get(handlers::get_analysis))
         .route("/categories", get(handlers::list_categories))
