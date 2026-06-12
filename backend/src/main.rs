@@ -5,6 +5,7 @@ mod config;
 mod db;
 mod error;
 mod ingest;
+mod rules;
 mod txns;
 
 use std::sync::Arc;
@@ -64,6 +65,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/auth", auth::router())
         .nest("/api/accounts", accounts::router())
         .nest("/api/ingest", ingest::router())
+        .nest("/api/rules", rules::router())
         .nest("/api/txns", txns::router())
         .nest("/api/chat", chat::router())
         .layer(cors)
