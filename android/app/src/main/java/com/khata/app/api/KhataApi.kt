@@ -34,7 +34,7 @@ interface KhataApi {
     @PATCH("api/txns/{id}/transfer") suspend fun toggleTransfer(@Path("id") id: String, @Body body: ToggleTransferReq): MessageResponse
     @PATCH("api/txns/{id}/investment") suspend fun toggleInvestment(@Path("id") id: String, @Body body: ToggleInvestmentReq): MessageResponse
     @PATCH("api/txns/{id}/notes") suspend fun updateNotes(@Path("id") id: String, @Body body: UpdateNotesReq): MessageResponse
-    @PUT("api/txns/{id}/category") suspend fun updateCategory(@Path("id") id: String, @Body body: Map<String, Any>): Map<String, Any>
+    @PUT("api/txns/{id}/category") suspend fun updateCategory(@Path("id") id: String, @Body body: Map<String, String>): Map<String, Any>
 
     @GET("api/accounts") suspend fun listAccounts(): List<UserAccount>
     @POST("api/accounts") suspend fun createAccount(@Body body: CreateAccountReq): UserAccount
