@@ -27,6 +27,7 @@ class KhataRepository @Inject constructor(
     suspend fun createUser(e: String, p: String) = api.createUser(mapOf("email" to e, "password" to p))
     suspend fun deleteUser(id: String) = api.deleteUser(id)
     suspend fun resetPassword(c: String, n: String) = api.resetPassword(mapOf("current_password" to c, "new_password" to n))
+    suspend fun updateEmail(email: String) = api.updateEmail(mapOf("email" to email))
 
     suspend fun getDashboard(): DashboardStats = api.dashboard()
     suspend fun getAnalysis(): AnalysisStats = api.analysis()

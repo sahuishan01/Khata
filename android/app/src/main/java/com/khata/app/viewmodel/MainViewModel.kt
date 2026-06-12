@@ -114,6 +114,7 @@ class MainViewModel @Inject constructor(
     fun deleteUser(id: String) { viewModelScope.launch { try { repository.deleteUser(id); loadUsers() } catch (_: Exception) {} }}
 
     fun resetPassword(c: String, n: String, onSuccess: () -> Unit) { viewModelScope.launch { try { repository.resetPassword(c, n); onSuccess() } catch (e: Exception) { _authState.value = _authState.value.copy(error = e.message) } }}
+    fun updateEmail(email: String) { viewModelScope.launch { try { repository.updateEmail(email); val u = repository.getMe(); _authState.value = _authState.value.copy(user = u) } catch (_: Exception) {} }}
 
     fun loadAccounts() { viewModelScope.launch { try { _accountsState.value = AccountsUiState(accounts = repository.listAccounts()) } catch (e: Exception) { _accountsState.value = _accountsState.value.copy(error = e.message) } }}
     fun createAccount(l: String, i: String) { viewModelScope.launch { try { repository.createAccount(l, i); loadAccounts() } catch (e: Exception) { _accountsState.value = _accountsState.value.copy(error = e.message) } }}

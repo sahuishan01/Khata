@@ -4,6 +4,7 @@ use argon2::{
 };
 use axum::{extract::Path, extract::State, Json};
 use jsonwebtoken::{encode, EncodingKey, Header};
+use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -282,6 +283,38 @@ pub async fn register_handler(
     _req: Json<RegisterReq>,
 ) -> Result<Json<AuthResponse>, AppError> {
     Err(AppError::NotFound)
+}
+
+#[derive(Deserialize)]
+pub struct UpdateEmailReq {
+    pub email: String,
+}
+
+pub async fn update_email_handler(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Json(req): Json<UpdateEmailReq>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let email = req.email.trim().to_string();
+    if email.is_empty() {
+        return Err(AppError::BadRequest("Email is required".into()));
+    }
+
+    sqlx::query("UPDATE users SET email = $1 WHERE id = $2")
+        .bind(&email)
+        .bind(user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            if let sqlx::Error::Database(ref db) = e {
+                if db.code().as_deref() == Some("23505") {
+                    return AppError::Conflict("Email already in use".into());
+                }
+            }
+            AppError::BadRequest("Failed to update email".into())
+        })?;
+
+    Ok(Json(serde_json::json!({ "message": "Email updated successfully" })))
 }
 
 #[cfg(test)]
