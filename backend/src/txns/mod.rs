@@ -13,4 +13,5 @@ pub fn router() -> Router<AppState> {
         .route("/categories", get(handlers::list_categories))
         .route("/:id/category", put(handlers::update_category))
         .route("/:id/transfer", patch(handlers::toggle_transfer))
+        .route("/:id/investment", patch(handlers::toggle_investment))
 }
