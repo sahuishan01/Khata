@@ -210,28 +210,39 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
         });
     }
 
-    // ── Income / credits ──────────────────────────────────────────────────────
-    if any(q, &["earn", "earned", "income", "receive", "received", "salary", "credit total", "total credit"]) {
-        let (date_clause, label) = time_clause(q);
-        return Some(Predefined {
-            kind: QueryKind::EarnPeriod,
-            sql:  format!(
-                r#"SELECT COALESCE(SUM(amount), 0)::float8 AS amount, COUNT(*)::bigint AS txn_count
-                   FROM transactions WHERE direction = 'credit' {}"#,
-                date_clause
-            ),
-            label,
-        });
-    }
-
     // ── Spending / debits ─────────────────────────────────────────────────────
-    if any(q, &["spend", "spent", "expense", "expend", "pay", "paid", "debit total", "total debit"]) {
+    // Require a time reference so "what did I spend last month?" routes here
+    // but novel questions like "what subscriptions can I cut?" fall to Claude.
+    if any(q, &["spend", "spent", "expense", "expend", "pay", "paid", "debit total", "total debit"])
+        && (q.contains("this month") || q.contains("last month") || q.contains("this year")
+            || q.contains("last year") || q.contains("today") || q.contains("this week")
+            || q.contains("this quarter") || q.contains("total") || q.contains("overall")
+            || q.contains("all time") || q.contains("in total"))
+    {
         let (date_clause, label) = time_clause(q);
         return Some(Predefined {
             kind: QueryKind::SpendPeriod,
             sql:  format!(
                 r#"SELECT COALESCE(SUM(amount), 0)::float8 AS amount, COUNT(*)::bigint AS txn_count
                    FROM transactions WHERE direction = 'debit' {}"#,
+                date_clause
+            ),
+            label,
+        });
+    }
+
+    // ── Income / credits ──────────────────────────────────────────────────────
+    if any(q, &["earn", "earned", "income", "receive", "received", "salary", "credit total", "total credit"])
+        && (q.contains("this month") || q.contains("last month") || q.contains("this year")
+            || q.contains("last year") || q.contains("today") || q.contains("this week")
+            || q.contains("total") || q.contains("overall") || q.contains("all time"))
+    {
+        let (date_clause, label) = time_clause(q);
+        return Some(Predefined {
+            kind: QueryKind::EarnPeriod,
+            sql:  format!(
+                r#"SELECT COALESCE(SUM(amount), 0)::float8 AS amount, COUNT(*)::bigint AS txn_count
+                   FROM transactions WHERE direction = 'credit' {}"#,
                 date_clause
             ),
             label,
