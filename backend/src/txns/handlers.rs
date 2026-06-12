@@ -556,3 +556,44 @@ pub async fn get_account_balances(
     tx.commit().await?;
     Ok(Json(rows))
 }
+
+pub async fn get_recurring(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+) -> Result<Json<Vec<RecurringTxn>>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let rows = sqlx::query_as::<_, (String, f64, i64, String)>(
+        r#"SELECT description,
+                  (SUM(amount) / COUNT(*))::float8 AS avg_amount,
+                  COUNT(DISTINCT to_char(value_date, 'YYYY-MM'))::bigint AS months_active,
+                  category
+           FROM transactions
+           WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND NOT is_investment
+           GROUP BY description, category
+           HAVING COUNT(DISTINCT to_char(value_date, 'YYYY-MM')) >= 2
+           ORDER BY months_active DESC
+           LIMIT 20"#,
+    )
+    .bind(user_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|_| AppError::BadRequest("Failed to detect recurring".into()))?;
+
+    tx.commit().await?;
+
+    let recurring: Vec<RecurringTxn> = rows
+        .into_iter()
+        .map(|(desc, amount, months, cat)| RecurringTxn {
+            description: desc,
+            amount,
+            frequency: if months >= 3 { "monthly".to_string() } else { "occasional".to_string() },
+            months,
+            category: cat,
+        })
+        .collect();
+
+    Ok(Json(recurring))
+}
