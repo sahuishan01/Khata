@@ -21,6 +21,7 @@ pub async fn list_txns(
     let category_filter = params.category.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
     let date_from = params.from;
     let date_to   = params.to;
+    let search = params.search.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| format!("%{}%", s.to_uppercase()));
 
     let mut tx = state.db.begin().await?;
     sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
@@ -32,9 +33,10 @@ pub async fn list_txns(
            WHERE user_id = $1
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
-             AND ($4::date IS NULL OR value_date <= $4)"#,
+             AND ($4::date IS NULL OR value_date <= $4)
+             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)"#,
     )
-    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to)
+    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search)
     .fetch_one(&mut *tx).await?;
 
     // Whitelist-validated sort — safe to interpolate
@@ -59,11 +61,12 @@ pub async fn list_txns(
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
+             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
            ORDER BY {sort_col} {sort_dir}{secondary}
-           LIMIT $5 OFFSET $6"#
+           LIMIT $6 OFFSET $7"#
     );
     let data = sqlx::query_as::<_, TxnRow>(&sql)
-        .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to)
+        .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search)
         .bind(per_page).bind(offset)
         .fetch_all(&mut *tx).await?;
 
