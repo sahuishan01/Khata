@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingDown, TrendingUp, Wallet, Percent, Calendar, Hash,
-  ArrowUpRight, ArrowDownRight, AlertCircle,
+  ArrowUpRight, ArrowDownRight, AlertCircle, TrendingUp as InvestIcon,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { FileUpload } from '../components/FileUpload'
@@ -10,7 +10,7 @@ import { SpendEarnChart } from '../components/charts/SpendEarnChart'
 import { CategoryChart } from '../components/charts/CategoryChart'
 
 interface DashboardStats {
-  total_spent: number; total_earned: number; net: number
+  total_spent: number; total_earned: number; total_invested: number; net: number
   monthly: { month: string; spent: number; earned: number }[]
   top_debits: { description: string; total: number }[]
 }
@@ -22,6 +22,7 @@ interface AnalysisStats {
   month_comparison: { this_month: number; last_month: number; change_pct: number }
   largest_expense: { description: string; amount: number; value_date: string } | null
   total_transactions: number
+  total_invested: number
 }
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
@@ -101,6 +102,15 @@ export function DashboardPage() {
                 icon={<Percent size={16} />}
                 accent={analysis.savings_rate_pct >= 20 ? 'green' : 'amber'}
                 subtitle={analysis.savings_rate_pct >= 20 ? 'On track' : 'Needs improvement'}
+              />
+            )}
+            {(analysis?.total_invested ?? 0) > 0 && (
+              <StatCard
+                label="Invested"
+                value={fmt(analysis!.total_invested)}
+                icon={<InvestIcon size={16} />}
+                accent="accent"
+                subtitle="This period"
               />
             )}
           </div>
