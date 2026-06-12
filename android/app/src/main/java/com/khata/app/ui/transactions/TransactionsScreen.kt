@@ -90,7 +90,7 @@ fun TransactionsScreen(
     }
 
     LaunchedEffect(Unit) { reload() }
-    LaunchedEffect(sortBy, sortDir, selectedCategory, selectedPreset, customFrom, customTo) { reload() }
+    LaunchedEffect(sortBy, sortDir, selectedCategory, selectedPreset) { reload() }
 
     // Date picker dialogs
     if (showFromPicker) {
@@ -107,6 +107,7 @@ fun TransactionsScreen(
                         customFrom = LocalDate.ofEpochDay(millis / 86400000).format(fmt)
                     }
                     showFromPicker = false
+                    reload()
                 }) { Text("OK") }
             },
             dismissButton = {
@@ -131,6 +132,7 @@ fun TransactionsScreen(
                         customTo = LocalDate.ofEpochDay(millis / 86400000).format(fmt)
                     }
                     showToPicker = false
+                    reload()
                 }) { Text("OK") }
             },
             dismissButton = {
@@ -280,7 +282,7 @@ fun TransactionsScreen(
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(txns) { txn -> TransactionCard(txn) }
+            items(txns, key = { it.id }) { txn -> TransactionCard(txn) }
         }
     }
 }
