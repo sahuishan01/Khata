@@ -1,6 +1,7 @@
 mod accounts;
 mod auth;
 mod budgets;
+mod categories;
 mod chat;
 mod config;
 mod db;
@@ -69,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/ingest", ingest::router())
         .nest("/api/rules", rules::router())
         .nest("/api/budgets", budgets::router())
+        .nest("/api/categories", categories::router())
         .nest("/api/portfolio", portfolio::router())
         .nest("/api/txns", txns::router())
         .nest("/api/chat", chat::router())

@@ -48,6 +48,10 @@ data class ChatAskRequest(val question: String)
 data class ChatAskResponse(val answer: String, @SerializedName("sql_used") val sqlUsed: String)
 data class MessageResponse(val message: String)
 
+// Categories
+data class Category(val id: String, val name: String, @SerializedName("txn_type") val txnType: String, val color: String, val description: String)
+data class CreateCategoryReq(val name: String, @SerializedName("txn_type") val txnType: String, val color: String? = null, val description: String? = null)
+
 // Accounts
 data class UserAccount(val id: String, val label: String, val identifier: String)
 data class CreateAccountReq(val label: String, val identifier: String)

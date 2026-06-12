@@ -60,4 +60,8 @@ interface KhataApi {
 
     @GET("api/chat/history") suspend fun chatHistory(): List<ChatHistoryResponse>
     @POST("api/chat/ask") suspend fun chatAsk(@Body body: ChatAskRequest): ChatAskResponse
+
+    @GET("api/categories") suspend fun listCategoriesV2(): List<Category>
+    @POST("api/categories") suspend fun createCategory(@Body body: CreateCategoryReq): Category
+    @DELETE("api/categories/{id}") suspend fun deleteCategory(@Path("id") id: String): MessageResponse
 }

@@ -23,6 +23,7 @@ data class AccountsUiState(val accounts: List<UserAccount> = emptyList(), val is
 data class RulesUiState(val rules: List<CategoryRule> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class BudgetsUiState(val budgets: List<Budget> = emptyList(), val status: List<BudgetStatus> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class PortfolioUiState(val snapshot: NetWorthSnapshot? = null, val isLoading: Boolean = false, val error: String? = null)
+data class CategoriesUiState(val list: List<Category> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -37,6 +38,7 @@ class MainViewModel @Inject constructor(
     private val _rulesState = MutableStateFlow(RulesUiState()); val rulesState: StateFlow<RulesUiState> = _rulesState.asStateFlow()
     private val _budgetsState = MutableStateFlow(BudgetsUiState()); val budgetsState: StateFlow<BudgetsUiState> = _budgetsState.asStateFlow()
     private val _portfolioState = MutableStateFlow(PortfolioUiState()); val portfolioState: StateFlow<PortfolioUiState> = _portfolioState.asStateFlow()
+    private val _categoriesState = MutableStateFlow(CategoriesUiState()); val categoriesState: StateFlow<CategoriesUiState> = _categoriesState.asStateFlow()
 
     fun checkAuth() { viewModelScope.launch {
         try {
@@ -123,6 +125,10 @@ class MainViewModel @Inject constructor(
     fun deleteAsset(id: String) { viewModelScope.launch { try { repository.deleteAsset(id); loadPortfolio() } catch (_: Exception) {} }}
     fun createLiability(n: String, t: String, v: Double) { viewModelScope.launch { try { repository.createLiability(n, t, v); loadPortfolio() } catch (e: Exception) { _portfolioState.value = _portfolioState.value.copy(error = e.message) } }}
     fun deleteLiability(id: String) { viewModelScope.launch { try { repository.deleteLiability(id); loadPortfolio() } catch (_: Exception) {} }}
+
+    fun loadCategories() { viewModelScope.launch { try { _categoriesState.value = CategoriesUiState(list = repository.listCategoriesV2()) } catch (e: Exception) { _categoriesState.value = _categoriesState.value.copy(error = e.message) } }}
+    fun createCategory(n: String, t: String, c: String?, d: String?) { viewModelScope.launch { try { repository.createCategory(n, t, c, d); loadCategories() } catch (e: Exception) { _categoriesState.value = _categoriesState.value.copy(error = e.message) } }}
+    fun deleteCategory(id: String) { viewModelScope.launch { try { repository.deleteCategory(id); loadCategories() } catch (_: Exception) {} }}
 
     fun uploadStatement(context: Context, uri: Uri, onResult: (String) -> Unit) { viewModelScope.launch { try {
         val ins = context.contentResolver.openInputStream(uri) ?: return@launch onResult("Error")
