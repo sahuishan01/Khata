@@ -304,6 +304,7 @@ fun TransactionsScreen(
             items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes) }
         }
     }
+    }
 }
 
 @Composable
