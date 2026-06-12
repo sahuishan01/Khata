@@ -21,17 +21,17 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.9
+      - name: Make gradlew executable
+        run: chmod +x gradlew
         working-directory: ./android
 
-      - name: Setup Gradle (caches based on wrapper)
+      - name: Setup Gradle (caches wrapper + dependencies)
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --build-cache
+        run: ./gradlew assembleDebug --build-cache
         working-directory: ./android
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
