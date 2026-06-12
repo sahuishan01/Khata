@@ -30,8 +30,8 @@ jobs:
         with:
           cache-read-only: false
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --build-cache
+      - name: Build release APK
+        run: ./gradlew assembleRelease --build-cache
         working-directory: ./android
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
@@ -54,4 +54,4 @@ jobs:
 
             ### Changelog
             See the commits in this release for details.
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: android/app/build/outputs/apk/release/app-release.apk
