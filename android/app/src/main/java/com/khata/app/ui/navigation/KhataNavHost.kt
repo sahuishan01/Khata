@@ -30,6 +30,7 @@ import com.khata.app.ui.auth.LoginScreen
 import com.khata.app.ui.auth.ResetPasswordScreen
 import com.khata.app.ui.auth.SetupScreen
 import com.khata.app.ui.budgets.BudgetsScreen
+import com.khata.app.ui.categories.CategoriesScreen
 import com.khata.app.ui.chat.ChatScreen
 import com.khata.app.ui.dashboard.DashboardScreen
 import com.khata.app.ui.portfolio.PortfolioScreen
@@ -54,6 +55,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Budgets : Screen("budgets", "Budgets", { Icon(Icons.Default.Savings, contentDescription = null) })
     data object Portfolio : Screen("portfolio", "Net Worth", { Icon(Icons.Default.MonetizationOn, contentDescription = null) })
     data object Rules : Screen("rules")
+    data object Categories : Screen("categories", "Categories", { Icon(Icons.Default.Label, contentDescription = null) })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +72,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val rulesState by viewModel.rulesState.collectAsState()
     val budgetsState by viewModel.budgetsState.collectAsState()
     val portfolioState by viewModel.portfolioState.collectAsState()
+    val categoriesState by viewModel.categoriesState.collectAsState()
     val context = LocalContext.current
 
     val isDark by themeManager.isDarkFlow.collectAsState(initial = false)
@@ -138,6 +141,8 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Budgets.route) { BudgetsScreen(budgets = budgetsState.budgets, status = budgetsState.status, isLoading = budgetsState.isLoading, error = budgetsState.error, onLoad = { viewModel.loadBudgets() }, onCreate = { c, l -> viewModel.createBudget(c, l) }, onDelete = { id -> viewModel.deleteBudget(id) }) }
 
             composable(Screen.Portfolio.route) { PortfolioScreen(snapshot = portfolioState.snapshot, isLoading = portfolioState.isLoading, error = portfolioState.error, onLoad = { viewModel.loadPortfolio() }, onCreateAsset = { n, t, v -> viewModel.createAsset(n, t, v) }, onDeleteAsset = { id -> viewModel.deleteAsset(id) }, onCreateLiability = { n, t, v -> viewModel.createLiability(n, t, v) }, onDeleteLiability = { id -> viewModel.deleteLiability(id) }) }
+
+            composable(Screen.Categories.route) { CategoriesScreen(categories = categoriesState.list, isLoading = categoriesState.isLoading, error = categoriesState.error, onLoad = { viewModel.loadCategories() }, onCreate = { n, t, c, d -> viewModel.createCategory(n, t, c, d) }, onDelete = { id -> viewModel.deleteCategory(id) }) }
 
             composable(Screen.AdminUsers.route) { AdminUsersScreen(users = usersState.users, isLoading = usersState.isLoading, error = usersState.error, success = usersState.success, onLoad = { viewModel.loadUsers() }, onCreateUser = { e, p -> viewModel.createUser(e, p) }, onDeleteUser = { id -> viewModel.deleteUser(id) }) }
 

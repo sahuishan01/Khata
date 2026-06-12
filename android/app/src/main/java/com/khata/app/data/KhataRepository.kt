@@ -64,4 +64,8 @@ class KhataRepository @Inject constructor(
 
     suspend fun getChatHistory(): List<ChatHistoryResponse> = api.chatHistory()
     suspend fun askChat(question: String): ChatAskResponse = api.chatAsk(ChatAskRequest(question))
+
+    suspend fun listCategoriesV2() = api.listCategoriesV2()
+    suspend fun createCategory(name: String, type: String, color: String?, desc: String?) = api.createCategory(CreateCategoryReq(name, type, color, desc))
+    suspend fun deleteCategory(id: String) = api.deleteCategory(id)
 }

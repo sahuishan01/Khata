@@ -62,7 +62,8 @@ fun TransactionsScreen(
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onToggleInvestment: (String, Boolean) -> Unit = { _, _ -> },
-    onUpdateNotes: (String, String) -> Unit = { _, _ -> }
+    onUpdateNotes: (String, String) -> Unit = { _, _ -> },
+    onUpdateCategory: ((String, String) -> Unit)? = null
 ) {
     var sortBy by remember { mutableStateOf("date") }
     var sortDir by remember { mutableStateOf("desc") }
@@ -260,32 +261,47 @@ fun TransactionsScreen(
             Spacer(Modifier.height(8.dp))
         }
 
-        if (isLoading && txnState == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            return
-        }
-
-        val txns = txnState?.data ?: emptyList()
-
-        if (txns.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("📄", fontSize = 36.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Text("No transactions found", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Try changing the date range", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (isLoading && txnState != null) {
+                // Show loading overlay on top of existing data
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
-            return
-        }
+
+            if (isLoading && txnState == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                return@Column
+            }
+
+            val txns = txnState?.data ?: emptyList()
+
+            if (txns.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📄", fontSize = 36.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("No transactions found", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Try changing the date range", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                return@Column
+            }
 
         Text("${txnState?.total ?: 0} transactions", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes) }
+            items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes) }
         }
     }
 }
@@ -293,12 +309,15 @@ fun TransactionsScreen(
 @Composable
 private fun TransactionCard(
     txn: TxnRow,
+    allCategories: List<String> = emptyList(),
     onToggleTransfer: (String, Boolean) -> Unit,
     onToggleInvestment: (String, Boolean) -> Unit,
     onUpdateNotes: (String, String) -> Unit
 ) {
     var showNotes by remember { mutableStateOf(false) }
     var notesText by remember { mutableStateOf(txn.notes) }
+    var showCatMenu by remember { mutableStateOf(false) }
+    var newCat by remember { mutableStateOf("") }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -341,24 +360,19 @@ private fun TransactionCard(
             // Action buttons
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilterChip(
-                    selected = txn.isTransfer,
-                    onClick = { onToggleTransfer(txn.id, !txn.isTransfer) },
-                    label = { Text("↔", fontSize = 10.sp) },
-                    modifier = Modifier.height(28.dp)
-                )
-                FilterChip(
-                    selected = txn.isInvestment,
-                    onClick = { onToggleInvestment(txn.id, !txn.isInvestment) },
-                    label = { Text("I", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                    modifier = Modifier.height(28.dp)
-                )
-                FilterChip(
-                    selected = showNotes,
-                    onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes },
-                    label = { Text("📝", fontSize = 10.sp) },
-                    modifier = Modifier.height(28.dp)
-                )
+                FilterChip(selected = txn.isTransfer, onClick = { onToggleTransfer(txn.id, !txn.isTransfer) }, label = { Text("↔", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
+                FilterChip(selected = txn.isInvestment, onClick = { onToggleInvestment(txn.id, !txn.isInvestment) }, label = { Text("I", fontSize = 10.sp, fontWeight = FontWeight.Bold) }, modifier = Modifier.height(28.dp))
+                FilterChip(selected = showNotes, onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes }, label = { Text("📝", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
+                Box {
+                    FilterChip(selected = false, onClick = { showCatMenu = true }, label = { Text(txn.category.take(8), fontSize = 9.sp, maxLines = 1) }, modifier = Modifier.height(28.dp))
+                    DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }) {
+                        allCategories.forEach { cat ->
+                            DropdownMenuItem(text = { Text(cat, fontSize = 12.sp) }, onClick = { showCatMenu = false })
+                        }
+                        HorizontalDivider()
+                        OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New category…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))
+                    }
+                }
             }
 
             if (showNotes) {
