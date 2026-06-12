@@ -1,3 +1,4 @@
+mod accounts;
 mod auth;
 mod chat;
 mod config;
@@ -61,6 +62,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(|| async { "ok" }))
         .nest("/api/auth", auth::router())
+        .nest("/api/accounts", accounts::router())
         .nest("/api/ingest", ingest::router())
         .nest("/api/txns", txns::router())
         .nest("/api/chat", chat::router())

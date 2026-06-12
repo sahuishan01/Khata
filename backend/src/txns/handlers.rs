@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
@@ -52,7 +53,7 @@ pub async fn list_txns(
 
     let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer
            FROM transactions
            WHERE user_id = $1
              AND ($2::text IS NULL OR category = $2)
@@ -82,8 +83,8 @@ pub async fn get_dashboard(
 
     let (total_spent, total_earned): (f64, f64) = sqlx::query_as(
         r#"SELECT
-             COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8,
-             COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8
+             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),  0)::float8,
+             COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8
            FROM transactions WHERE user_id = $1"#,
     )
     .bind(user_id)
@@ -93,8 +94,8 @@ pub async fn get_dashboard(
     let monthly = sqlx::query_as::<_, MonthBucket>(
         r#"SELECT
              to_char(value_date, 'YYYY-MM') AS month,
-             COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8 AS spent,
-             COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8 AS earned
+             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),  0)::float8 AS spent,
+             COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8 AS earned
            FROM transactions WHERE user_id = $1
            GROUP BY month ORDER BY month DESC LIMIT 12"#,
     )
@@ -105,7 +106,7 @@ pub async fn get_dashboard(
     let top_debits = sqlx::query_as::<_, TopMerchant>(
         r#"SELECT description, SUM(amount)::float8 AS total
            FROM transactions
-           WHERE user_id = $1 AND direction = 'debit'
+           WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer
            GROUP BY description ORDER BY total DESC LIMIT 10"#,
     )
     .bind(user_id)
@@ -135,8 +136,8 @@ pub async fn get_analysis(
     // Total spent/earned for savings rate
     let (total_spent, total_earned, total_txns): (f64, f64, i64) = sqlx::query_as(
         r#"SELECT
-             COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8,
-             COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8,
+             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),  0)::float8,
+             COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8,
              COUNT(*)::bigint
            FROM transactions WHERE user_id = $1"#,
     )
@@ -148,7 +149,7 @@ pub async fn get_analysis(
     let cat_rows: Vec<(String, f64, i64)> = sqlx::query_as(
         r#"SELECT category, SUM(amount)::float8, COUNT(*)::bigint
            FROM transactions
-           WHERE user_id = $1 AND direction = 'debit'
+           WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer
            GROUP BY category
            ORDER BY SUM(amount) DESC"#,
     )
@@ -168,7 +169,7 @@ pub async fn get_analysis(
 
     // Average daily spend (days with at least one debit)
     let (active_days,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(DISTINCT value_date)::bigint FROM transactions WHERE user_id = $1 AND direction='debit'"
+        "SELECT COUNT(DISTINCT value_date)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer"
     )
     .bind(user_id)
     .fetch_one(&mut *tx)
@@ -185,10 +186,12 @@ pub async fn get_analysis(
         r#"SELECT
              COALESCE(SUM(amount) FILTER (
                WHERE value_date >= date_trunc('month', CURRENT_DATE)
+                 AND NOT is_transfer
              ), 0)::float8,
              COALESCE(SUM(amount) FILTER (
                WHERE value_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
                  AND value_date  < date_trunc('month', CURRENT_DATE)
+                 AND NOT is_transfer
              ), 0)::float8
            FROM transactions WHERE user_id = $1 AND direction = 'debit'"#,
     )
@@ -205,9 +208,9 @@ pub async fn get_analysis(
     // Largest single expense
     let largest = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer
            FROM transactions
-           WHERE user_id = $1 AND direction = 'debit'
+           WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer
            ORDER BY amount DESC LIMIT 1"#,
     )
     .bind(user_id)
@@ -317,4 +320,38 @@ pub async fn update_category(
 
     tx.commit().await?;
     Ok(Json(UpdateCategoryResponse { updated }))
+}
+
+#[derive(Deserialize)]
+pub struct ToggleTransferReq {
+    pub is_transfer: bool,
+}
+
+pub async fn toggle_transfer(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Path(txn_id): Path<Uuid>,
+    Json(req): Json<ToggleTransferReq>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let result = sqlx::query(
+        "UPDATE transactions SET is_transfer = $1 WHERE id = $2 AND user_id = $3"
+    )
+    .bind(req.is_transfer)
+    .bind(txn_id)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| AppError::BadRequest("Failed to update".into()))?;
+
+    tx.commit().await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+
+    Ok(Json(serde_json::json!({ "message": "Transfer status updated" })))
 }
