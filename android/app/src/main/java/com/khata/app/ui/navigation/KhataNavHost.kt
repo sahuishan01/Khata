@@ -77,6 +77,12 @@ fun KhataNavHost(themeManager: ThemeManager) {
         viewModel.checkAuth()
     }
 
+    // Show splash while checking auth
+    if (authState.isChecking) {
+        SplashScreen()
+        return
+    }
+
     LaunchedEffect(authState.isLoggedIn, authState.setupRequired) {
         val dest = navController.currentDestination?.route
         when {
@@ -106,9 +112,38 @@ fun KhataNavHost(themeManager: ThemeManager) {
                                 }
                             }
                         )
-                    }
+        }
+    }
+}
+
+@Composable
+private fun SplashScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(
+                modifier = Modifier.size(72.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 8.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("₹", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                 }
             }
+            Spacer(Modifier.height(16.dp))
+            Text("Khata", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+            Spacer(Modifier.height(24.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                strokeWidth = 3.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
         }
     ) { innerPadding ->
         NavHost(

@@ -15,6 +15,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 data class AuthUiState(
+    val isChecking: Boolean = true,
     val isLoading: Boolean = false,
     val isLoggedIn: Boolean = false,
     val setupRequired: Boolean = false,
@@ -76,15 +77,15 @@ class MainViewModel @Inject constructor(
                 if (!setupRequired) {
                     try {
                         val user = repository.getMe()
-                        _authState.value = AuthUiState(isLoggedIn = true, user = user)
+                        _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = user)
                     } catch (_: Exception) {
-                        _authState.value = AuthUiState(setupRequired = false)
+                        _authState.value = AuthUiState(isChecking = false, setupRequired = false)
                     }
                 } else {
-                    _authState.value = AuthUiState(setupRequired = true)
+                    _authState.value = AuthUiState(isChecking = false, setupRequired = true)
                 }
             } catch (_: Exception) {
-                _authState.value = AuthUiState(setupRequired = true)
+                _authState.value = AuthUiState(isChecking = false, setupRequired = true)
             }
         }
     }
@@ -95,7 +96,7 @@ class MainViewModel @Inject constructor(
             try {
                 repository.login(email, password)
                 val user = repository.getMe()
-                _authState.value = AuthUiState(isLoggedIn = true, user = user)
+                _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = user)
             } catch (e: Exception) {
                 _authState.value = _authState.value.copy(
                     isLoading = false,
@@ -111,7 +112,7 @@ class MainViewModel @Inject constructor(
             try {
                 repository.setup(email, password)
                 val user = repository.getMe()
-                _authState.value = AuthUiState(isLoggedIn = true, user = user)
+                _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = user)
             } catch (e: Exception) {
                 _authState.value = _authState.value.copy(
                     isLoading = false,
@@ -124,7 +125,7 @@ class MainViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             repository.logout()
-            _authState.value = AuthUiState()
+            _authState.value = AuthUiState(isChecking = false)
         }
     }
 
