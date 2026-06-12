@@ -48,7 +48,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Dashboard : Screen("dashboard", "Dashboard", { Icon(Icons.Default.Home, contentDescription = null) })
     data object Transactions : Screen("transactions", "Txns", { Icon(Icons.Default.Receipt, contentDescription = null) })
     data object Chat : Screen("chat", "Claude", { Icon(Icons.Default.Chat, contentDescription = null) })
-    data object Upload : Screen("upload", "Upload", { Icon(Icons.Default.UploadFile, contentDescription = null) })
+    data object Upload : Screen("upload", "Add", { Icon(Icons.Default.AddCircle, contentDescription = null) })
     data object Analytics : Screen("analytics", "Analytics", { Icon(Icons.Default.Analytics, contentDescription = null) })
     data object AdminUsers : Screen("admin_users")
     data object ResetPassword : Screen("reset_password")
@@ -83,7 +83,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
 
-    val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.AddTransaction, Screen.Upload, Screen.Analytics)
+    val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Upload, Screen.Analytics)
     val drawerItems = listOf(Screen.Chat, Screen.Accounts, Screen.Rules, Screen.Budgets, Screen.Portfolio, Screen.AdminUsers)
     val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
 
