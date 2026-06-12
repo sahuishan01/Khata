@@ -41,6 +41,7 @@ pub struct TxnRow {
     pub bank: String,
     pub bank_ref: Option<String>,
     pub category: String,
+    pub is_transfer: bool,
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,7 +1,7 @@
 pub mod handlers;
 pub mod models;
 
-use axum::{routing::{get, put}, Router};
+use axum::{routing::{get, patch, put}, Router};
 
 use crate::AppState;
 
@@ -12,4 +12,5 @@ pub fn router() -> Router<AppState> {
         .route("/analysis", get(handlers::get_analysis))
         .route("/categories", get(handlers::list_categories))
         .route("/:id/category", put(handlers::update_category))
+        .route("/:id/transfer", patch(handlers::toggle_transfer))
 }
