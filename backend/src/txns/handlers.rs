@@ -55,7 +55,7 @@ pub async fn list_txns(
 
     let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, is_investment
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, is_investment, notes
            FROM transactions
            WHERE user_id = $1
              AND ($2::text IS NULL OR category = $2)
@@ -214,7 +214,7 @@ pub async fn get_analysis(
     // Largest single expense
     let largest = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, is_investment
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, is_investment, notes
            FROM transactions
            WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND NOT is_investment
            ORDER BY amount DESC LIMIT 1"#,
@@ -419,4 +419,61 @@ pub async fn toggle_investment(
     }
 
     Ok(Json(serde_json::json!({ "message": "Investment status updated" })))
+}
+
+pub async fn get_txn(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Path(txn_id): Path<Uuid>,
+) -> Result<Json<TxnRow>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let row = sqlx::query_as::<_, TxnRow>(
+        r#"SELECT id, txn_date, value_date, description,
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, is_investment, notes
+           FROM transactions WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(txn_id)
+    .bind(user_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| AppError::BadRequest("Failed to fetch transaction".into()))?;
+
+    tx.commit().await?;
+
+    match row {
+        Some(t) => Ok(Json(t)),
+        None => Err(AppError::NotFound),
+    }
+}
+
+pub async fn update_notes(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Path(txn_id): Path<Uuid>,
+    Json(req): Json<UpdateNotesReq>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let result = sqlx::query(
+        "UPDATE transactions SET notes = $1 WHERE id = $2 AND user_id = $3"
+    )
+    .bind(&req.notes)
+    .bind(txn_id)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| AppError::BadRequest("Failed to update notes".into()))?;
+
+    tx.commit().await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+
+    Ok(Json(serde_json::json!({ "message": "Notes updated" })))
 }
