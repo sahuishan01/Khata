@@ -203,12 +203,10 @@ fun TransactionsScreen(
                     trailingIcon = {
                         IconButton(onClick = { showToPicker = true }) {
                             Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-}
-
+                        }
+                    }
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))
