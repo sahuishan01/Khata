@@ -70,11 +70,10 @@ pub struct ListParams {
     pub direction: Option<String>,
     pub search: Option<String>,
     pub category: Option<String>,
+    pub bank: Option<String>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
-    /// Column to sort by: "date" | "amount" | "description" | "category"
     pub sort_by: Option<String>,
-    /// Sort direction: "asc" | "desc"
     pub sort_dir: Option<String>,
 }
 
@@ -131,10 +130,20 @@ pub struct MonthComparison {
 #[derive(Debug, Serialize)]
 pub struct AnalysisStats {
     pub category_breakdown: Vec<CategoryBucket>,
-    pub savings_rate_pct: f64,        // (earned - spent) / earned * 100
-    pub avg_daily_spend: f64,         // total_spent / distinct days with debits
+    pub savings_rate_pct: f64,
+    pub avg_daily_spend: f64,
     pub month_comparison: MonthComparison,
     pub largest_expense: Option<TxnRow>,
     pub total_transactions: i64,
     pub total_invested: f64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct AccountBalance {
+    pub bank: String,
+    pub account_label: String,
+    pub total_spent: f64,
+    pub total_earned: f64,
+    pub balance: f64,
+    pub txn_count: i64,
 }

@@ -22,6 +22,7 @@ pub async fn list_txns(
     let date_from = params.from;
     let date_to   = params.to;
     let search = params.search.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| format!("%{}%", s.to_uppercase()));
+    let bank_filter = params.bank.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
 
     let mut tx = state.db.begin().await?;
     sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
@@ -34,9 +35,10 @@ pub async fn list_txns(
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
-             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)"#,
+             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
+             AND ($6::text IS NULL OR bank = $6)"#,
     )
-    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search)
+    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search).bind(&bank_filter)
     .fetch_one(&mut *tx).await?;
 
     // Whitelist-validated sort — safe to interpolate
@@ -62,11 +64,12 @@ pub async fn list_txns(
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
              AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
+             AND ($6::text IS NULL OR bank = $6)
            ORDER BY {sort_col} {sort_dir}{secondary}
-           LIMIT $6 OFFSET $7"#
+           LIMIT $7 OFFSET $8"#
     );
     let data = sqlx::query_as::<_, TxnRow>(&sql)
-        .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search)
+        .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search).bind(&bank_filter)
         .bind(per_page).bind(offset)
         .fetch_all(&mut *tx).await?;
 
@@ -525,4 +528,31 @@ pub async fn create_txn(
 
     tx.commit().await?;
     Ok(Json(row))
+}
+
+pub async fn get_account_balances(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+) -> Result<Json<Vec<AccountBalance>>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let rows = sqlx::query_as::<_, AccountBalance>(
+        r#"SELECT bank, account_label,
+                  COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND NOT is_investment), 0)::float8 AS total_spent,
+                  COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8 AS total_earned,
+                  COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8
+                    - COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND NOT is_investment), 0)::float8 AS balance,
+                  COUNT(*)::bigint AS txn_count
+           FROM transactions WHERE user_id = $1
+           GROUP BY bank, account_label ORDER BY bank"#,
+    )
+    .bind(user_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|_| AppError::BadRequest("Failed to fetch balances".into()))?;
+
+    tx.commit().await?;
+    Ok(Json(rows))
 }
