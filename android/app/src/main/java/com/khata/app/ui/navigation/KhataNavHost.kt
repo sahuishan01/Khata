@@ -34,9 +34,11 @@ import com.khata.app.ui.categories.CategoriesScreen
 import com.khata.app.ui.chat.ChatScreen
 import com.khata.app.ui.dashboard.DashboardScreen
 import com.khata.app.ui.portfolio.PortfolioScreen
+import com.khata.app.ui.profile.ProfileScreen
 import com.khata.app.ui.rules.RulesScreen
 import com.khata.app.ui.theme.ThemeManager
 import com.khata.app.ui.transactions.TransactionsScreen
+import com.khata.app.ui.upload.CombinedUploadScreen
 import com.khata.app.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -56,6 +58,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Portfolio : Screen("portfolio", "Net Worth", { Icon(Icons.Default.MonetizationOn, contentDescription = null) })
     data object Rules : Screen("rules")
     data object Categories : Screen("categories", "Categories", { Icon(Icons.Default.Label, contentDescription = null) })
+    data object Profile : Screen("profile", "Settings", { Icon(Icons.Default.Settings, contentDescription = null) })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,7 +127,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }) }
 
-            composable(Screen.Upload.route) { UploadScreen(isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }) }
+            composable(Screen.Upload.route) { CombinedUploadScreen(isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }) }
 
             composable(Screen.Transactions.route) { TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onToggleInvestment = { id, v -> viewModel.toggleInvestment(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }, onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) }) }
 
@@ -143,6 +146,8 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Portfolio.route) { PortfolioScreen(snapshot = portfolioState.snapshot, isLoading = portfolioState.isLoading, error = portfolioState.error, onLoad = { viewModel.loadPortfolio() }, onCreateAsset = { n, t, v -> viewModel.createAsset(n, t, v) }, onDeleteAsset = { id -> viewModel.deleteAsset(id) }, onCreateLiability = { n, t, v -> viewModel.createLiability(n, t, v) }, onDeleteLiability = { id -> viewModel.deleteLiability(id) }) }
 
             composable(Screen.Categories.route) { CategoriesScreen(categories = categoriesState.list, isLoading = categoriesState.isLoading, error = categoriesState.error, onLoad = { viewModel.loadCategories() }, onCreate = { n, t, c, d -> viewModel.createCategory(n, t, c, d) }, onDelete = { id -> viewModel.deleteCategory(id) }) }
+
+            composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }) }
 
             composable(Screen.AdminUsers.route) { AdminUsersScreen(users = usersState.users, isLoading = usersState.isLoading, error = usersState.error, success = usersState.success, onLoad = { viewModel.loadUsers() }, onCreateUser = { e, p -> viewModel.createUser(e, p) }, onDeleteUser = { id -> viewModel.deleteUser(id) }) }
 

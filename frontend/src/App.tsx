@@ -6,7 +6,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
 import { TransactionsPage } from './pages/TransactionsPage'
-import { AddTransactionPage } from './pages/AddTransactionPage'
+import { UploadPage } from './pages/UploadPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { AdminUsersPage } from './pages/AdminUsersPage'
 import { AccountsPage } from './pages/AccountsPage'
@@ -31,8 +32,9 @@ export function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/"             element={<AppLayout><DashboardPage /></AppLayout>} />
         <Route path="/transactions" element={<AppLayout><TransactionsPage /></AppLayout>} />
-        <Route path="/add"          element={<AppLayout><AddTransactionPage /></AppLayout>} />
+        <Route path="/upload"       element={<AppLayout><UploadPage /></AppLayout>} />
         <Route path="/chat"         element={<AppLayout><ChatPage /></AppLayout>} />
+        <Route path="/profile"      element={<AppLayout><ProfilePage /></AppLayout>} />
         <Route path="/accounts"     element={<AppLayout><AccountsPage /></AppLayout>} />
         <Route path="/rules"        element={<AppLayout><RulesPage /></AppLayout>} />
         <Route path="/budgets"      element={<AppLayout><BudgetsPage /></AppLayout>} />
