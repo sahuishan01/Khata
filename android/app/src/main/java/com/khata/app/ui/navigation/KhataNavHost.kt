@@ -119,7 +119,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Setup.route) { SetupScreen(isLoading = authState.isLoading, error = authState.error, onSetup = { e, p -> viewModel.setup(e, p) }) }
             composable(Screen.Login.route) { LoginScreen(isLoading = authState.isLoading, error = authState.error, onLogin = { e, p -> viewModel.login(e, p) }) }
 
-            composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }, onNavigateToTransactions = {}) }
+            composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }) }
 
             composable(Screen.Upload.route) { UploadScreen(isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }) }
 
