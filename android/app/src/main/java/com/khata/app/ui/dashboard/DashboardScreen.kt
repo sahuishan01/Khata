@@ -100,6 +100,22 @@ fun DashboardScreen(
                 }
             }
 
+            // Invested row
+            if ((analysis?.totalInvested ?: 0.0) > 0) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        StatCard(
+                            label = "Invested",
+                            value = fmt(analysis!!.totalInvested),
+                            icon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                            accentColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+
             if (analysis != null && analysis.monthComparison.lastMonth > 0) {
                 item {
                     Card(
