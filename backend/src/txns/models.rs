@@ -43,6 +43,12 @@ pub struct TxnRow {
     pub category: String,
     pub is_transfer: bool,
     pub is_investment: bool,
+    pub notes: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateNotesReq {
+    pub notes: String,
 }
 
 #[derive(Debug, Deserialize)]
