@@ -81,13 +81,14 @@ class MainViewModel @Inject constructor(
     fun updateNotes(id: String, notes: String) { viewModelScope.launch { try { repository.updateNotes(id, notes); loadTransactions() } catch (_: Exception) {} }}
     fun updateCategory(id: String, category: String) { viewModelScope.launch { try {
         repository.updateCategory(id, category)
-        // Optimistically update local state
         val current = _txnState.value
         current.txns?.let { list ->
             val updated = list.data.map { if (it.id == id) it.copy(category = category) else it }
-            _txnState.value = current.copy(txns = list.copy(data = updated))
+            _txnState.value = current.copy(txns = list.copy(data = updated), error = null)
         }
-    } catch (_: Exception) {} }}
+    } catch (e: Exception) {
+        _txnState.value = _txnState.value.copy(error = "Category update failed: ${e.message}")
+    } }}
     fun createTxn(req: CreateTxnReq) { viewModelScope.launch { try { repository.createTxn(req); loadTransactions() } catch (_: Exception) {} }}
 
     fun loadChatHistory() { viewModelScope.launch { try {
