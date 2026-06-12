@@ -60,7 +60,7 @@ fun BudgetsScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
-                        Box(Modifier.fillMaxWidth(fraction = (pct / 100.0).coerceIn(0.0, 1.0)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor))
+                        Box(Modifier.fillMaxWidth(fraction = (pct / 100.0).toFloat().coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor))
                     }
                     if (s != null) Text("Spent: ₹${String.format("%,.0f", s.spent)} / ₹${String.format("%,.0f", b.monthlyLimit)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
