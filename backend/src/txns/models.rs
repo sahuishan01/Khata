@@ -147,3 +147,12 @@ pub struct AccountBalance {
     pub balance: f64,
     pub txn_count: i64,
 }
+
+#[derive(Debug, Serialize)]
+pub struct RecurringTxn {
+    pub description: String,
+    pub amount: f64,
+    pub frequency: String,
+    pub months: i64,
+    pub category: String,
+}
