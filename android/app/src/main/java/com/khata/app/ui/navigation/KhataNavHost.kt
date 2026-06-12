@@ -112,6 +112,100 @@ fun KhataNavHost(themeManager: ThemeManager) {
                                 }
                             }
                         )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Setup.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Screen.Setup.route) {
+                SetupScreen(
+                    isLoading = authState.isLoading,
+                    error = authState.error,
+                    onSetup = { email, password -> viewModel.setup(email, password) }
+                )
+            }
+            composable(Screen.Login.route) {
+                LoginScreen(
+                    isLoading = authState.isLoading,
+                    error = authState.error,
+                    onLogin = { email, password -> viewModel.login(email, password) }
+                )
+            }
+            composable(Screen.Dashboard.route) {
+                DashboardScreen(
+                    stats = dashboardState.stats,
+                    analysis = dashboardState.analysis,
+                    isLoading = dashboardState.isLoading,
+                    error = dashboardState.error,
+                    onRefresh = { viewModel.refreshDashboard() }
+                )
+            }
+            composable(Screen.Upload.route) {
+                UploadScreen(
+                    isDark = isDark,
+                    onToggleDark = { scope.launch { themeManager.setDark(!isDark) } },
+                    resultMessage = uploadResult,
+                    onPickFile = { filePickerLauncher.launch("*/*") },
+                    onClearResult = { uploadResult = null },
+                    onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }
+                )
+            }
+            composable(Screen.Transactions.route) {
+                TransactionsScreen(
+                    txnState = txnState.txns,
+                    categories = txnState.categories,
+                    isLoading = txnState.isLoading,
+                    error = txnState.error,
+                    onLoad = { sortBy, sortDir, category, from, to ->
+                        viewModel.loadTransactions(sortBy, sortDir, category, from, to)
+                    }
+                )
+            }
+            composable(Screen.Chat.route) {
+                ChatScreen(
+                    messages = chatState.messages,
+                    isLoading = chatState.isLoading,
+                    error = chatState.error,
+                    onLoad = { viewModel.loadChatHistory() },
+                    onSend = { question -> viewModel.sendChatMessage(question) }
+                )
+            }
+            composable(Screen.Analytics.route) {
+                AnalyticsScreen(
+                    stats = dashboardState.stats,
+                    analysis = dashboardState.analysis,
+                    isLoading = dashboardState.isLoading,
+                    onRefresh = { viewModel.refreshDashboard() }
+                )
+            }
+            composable(Screen.AdminUsers.route) {
+                AdminUsersScreen(
+                    users = usersState.users,
+                    isLoading = usersState.isLoading,
+                    error = usersState.error,
+                    success = usersState.success,
+                    onLoad = { viewModel.loadUsers() },
+                    onCreateUser = { email, password -> viewModel.createUser(email, password) },
+                    onDeleteUser = { id -> viewModel.deleteUser(id) }
+                )
+            }
+            composable(Screen.ResetPassword.route) {
+                ResetPasswordScreen(
+                    isLoading = authState.isLoading,
+                    error = authState.error,
+                    onReset = { current, newPassword ->
+                        viewModel.resetPassword(current, newPassword) {
+                            navController.popBackStack()
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
@@ -141,108 +235,6 @@ private fun SplashScreen() {
                 strokeWidth = 3.dp,
                 color = MaterialTheme.colorScheme.primary
             )
-        }
-    }
-}
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Setup.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(Screen.Setup.route) {
-                SetupScreen(
-                    isLoading = authState.isLoading,
-                    error = authState.error,
-                    onSetup = { email, password -> viewModel.setup(email, password) }
-                )
-            }
-
-            composable(Screen.Login.route) {
-                LoginScreen(
-                    isLoading = authState.isLoading,
-                    error = authState.error,
-                    onLogin = { email, password -> viewModel.login(email, password) }
-                )
-            }
-
-            composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                    stats = dashboardState.stats,
-                    analysis = dashboardState.analysis,
-                    isLoading = dashboardState.isLoading,
-                    error = dashboardState.error,
-                    onRefresh = { viewModel.refreshDashboard() }
-                )
-            }
-
-            composable(Screen.Upload.route) {
-                UploadScreen(
-                    isDark = isDark,
-                    onToggleDark = { scope.launch { themeManager.setDark(!isDark) } },
-                    resultMessage = uploadResult,
-                    onPickFile = { filePickerLauncher.launch("*/*") },
-                    onClearResult = { uploadResult = null },
-                    onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }
-                )
-            }
-
-            composable(Screen.Transactions.route) {
-                TransactionsScreen(
-                    txnState = txnState.txns,
-                    categories = txnState.categories,
-                    isLoading = txnState.isLoading,
-                    error = txnState.error,
-                    onLoad = { sortBy, sortDir, category, from, to ->
-                        viewModel.loadTransactions(sortBy, sortDir, category, from, to)
-                    }
-                )
-            }
-
-            composable(Screen.Chat.route) {
-                ChatScreen(
-                    messages = chatState.messages,
-                    isLoading = chatState.isLoading,
-                    error = chatState.error,
-                    onLoad = { viewModel.loadChatHistory() },
-                    onSend = { question -> viewModel.sendChatMessage(question) }
-                )
-            }
-
-            composable(Screen.Analytics.route) {
-                AnalyticsScreen(
-                    stats = dashboardState.stats,
-                    analysis = dashboardState.analysis,
-                    isLoading = dashboardState.isLoading,
-                    onRefresh = { viewModel.refreshDashboard() }
-                )
-            }
-
-            composable(Screen.AdminUsers.route) {
-                AdminUsersScreen(
-                    users = usersState.users,
-                    isLoading = usersState.isLoading,
-                    error = usersState.error,
-                    success = usersState.success,
-                    onLoad = { viewModel.loadUsers() },
-                    onCreateUser = { email, password -> viewModel.createUser(email, password) },
-                    onDeleteUser = { id -> viewModel.deleteUser(id) }
-                )
-            }
-
-            composable(Screen.ResetPassword.route) {
-                ResetPasswordScreen(
-                    isLoading = authState.isLoading,
-                    error = authState.error,
-                    onReset = { current, newPassword ->
-                        viewModel.resetPassword(current, newPassword) {
-                            navController.popBackStack()
-                        }
-                    },
-                    onBack = { navController.popBackStack() }
-                )
-            }
         }
     }
 }
