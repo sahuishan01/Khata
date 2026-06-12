@@ -42,6 +42,7 @@ pub struct TxnRow {
     pub bank_ref: Option<String>,
     pub category: String,
     pub is_transfer: bool,
+    pub is_investment: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +81,7 @@ pub struct MonthBucket {
 pub struct DashboardStats {
     pub total_spent: f64,
     pub total_earned: f64,
+    pub total_invested: f64,
     pub net: f64,
     pub monthly: Vec<MonthBucket>,
     pub top_debits: Vec<TopMerchant>,
@@ -116,4 +118,5 @@ pub struct AnalysisStats {
     pub month_comparison: MonthComparison,
     pub largest_expense: Option<TxnRow>,
     pub total_transactions: i64,
+    pub total_invested: f64,
 }
