@@ -6,6 +6,7 @@ mod config;
 mod db;
 mod error;
 mod ingest;
+mod portfolio;
 mod rules;
 mod txns;
 
@@ -68,6 +69,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/ingest", ingest::router())
         .nest("/api/rules", rules::router())
         .nest("/api/budgets", budgets::router())
+        .nest("/api/portfolio", portfolio::router())
         .nest("/api/txns", txns::router())
         .nest("/api/chat", chat::router())
         .layer(cors)
