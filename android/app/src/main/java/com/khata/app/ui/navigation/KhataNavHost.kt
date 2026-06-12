@@ -147,7 +147,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Categories.route) { CategoriesScreen(categories = categoriesState.list, isLoading = categoriesState.isLoading, error = categoriesState.error, onLoad = { viewModel.loadCategories() }, onCreate = { n, t, c, d -> viewModel.createCategory(n, t, c, d) }, onDelete = { id -> viewModel.deleteCategory(id) }) }
 
-            composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }) }
+            composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }, onUpdateEmail = { email -> viewModel.updateEmail(email) }, onLogout = { viewModel.logout() }) }
 
             composable(Screen.AdminUsers.route) { AdminUsersScreen(users = usersState.users, isLoading = usersState.isLoading, error = usersState.error, success = usersState.success, onLoad = { viewModel.loadUsers() }, onCreateUser = { e, p -> viewModel.createUser(e, p) }, onDeleteUser = { id -> viewModel.deleteUser(id) }) }
 

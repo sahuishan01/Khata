@@ -20,6 +20,7 @@ interface KhataApi {
     @POST("api/auth/users") suspend fun createUser(@Body body: Map<String, String>): UserResponse
     @DELETE("api/auth/users/{id}") suspend fun deleteUser(@Path("id") id: String): MessageResponse
     @POST("api/auth/reset-password") suspend fun resetPassword(@Body body: Map<String, String>): MessageResponse
+    @POST("api/auth/email") suspend fun updateEmail(@Body body: Map<String, String>): MessageResponse
 
     @GET("api/txns/dashboard") suspend fun dashboard(): DashboardStats
     @GET("api/txns/analysis") suspend fun analysis(): AnalysisStats

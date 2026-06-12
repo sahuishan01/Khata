@@ -21,14 +21,26 @@ fun ProfileScreen(
     isDark: Boolean,
     onToggleDark: () -> Unit,
     onResetPassword: () -> Unit,
-    onClearAllData: () -> Unit
+    onClearAllData: () -> Unit,
+    onUpdateEmail: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var showEmailDialog by remember { mutableStateOf(false) }
+    var newEmail by remember { mutableStateOf(user?.email ?: "") }
+    var msg by remember { mutableStateOf("") }
 
     if (showClearDialog) {
         AlertDialog(onDismissRequest = { showClearDialog = false }, title = { Text("Clear All Data?") }, text = { Text("This action cannot be undone.") },
             confirmButton = { TextButton(onClick = { showClearDialog = false; onClearAllData() }) { Text("Clear", color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancel") } })
+    }
+
+    if (showEmailDialog) {
+        AlertDialog(onDismissRequest = { showEmailDialog = false }, title = { Text("Change Email") }, text = {
+            OutlinedTextField(value = newEmail, onValueChange = { newEmail = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }, confirmButton = { TextButton(onClick = { onUpdateEmail(newEmail); showEmailDialog = false }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { showEmailDialog = false }) { Text("Cancel") } })
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -44,22 +56,20 @@ fun ProfileScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(40.dp)) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) } }
                     Spacer(Modifier.width(12.dp))
-                    Column { Text(user?.email ?: "Unknown", fontSize = 14.sp, fontWeight = FontWeight.Medium); Text(user?.role ?: "", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Column(Modifier.weight(1f)) { Text(user?.email ?: "Unknown", fontSize = 14.sp, fontWeight = FontWeight.Medium); Text(user?.role ?: "", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    TextButton(onClick = { newEmail = user?.email ?: ""; showEmailDialog = true }) { Text("Change", fontSize = 12.sp) }
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
 
-        // Preferences
+        // Theme
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(16.dp)) {
                 Text("Preferences", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (isDark) Icons.Default.DarkMode else Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(10.dp)); Text("Dark Mode", fontSize = 14.sp)
-                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(if (isDark) Icons.Default.DarkMode else Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)); Text("Dark Mode", fontSize = 14.sp) }
                     Switch(checked = isDark, onCheckedChange = { onToggleDark() })
                 }
             }
@@ -74,7 +84,11 @@ fun ProfileScreen(
                 OutlinedButton(onClick = onResetPassword, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Reset Password") }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Clear All Data") }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Logout") }
             }
         }
+
+        if (msg.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(msg, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary) }
     }
 }

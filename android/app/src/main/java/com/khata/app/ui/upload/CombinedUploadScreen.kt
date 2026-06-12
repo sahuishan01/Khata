@@ -54,18 +54,18 @@ fun CombinedUploadScreen(
         }
         Spacer(Modifier.height(12.dp))
 
-        // Tab selector
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+        // Tab selector - centered
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
-                onClick = { tab = 0 }, modifier = Modifier.weight(1f),
+                onClick = { tab = 0 },
                 shape = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp),
                 color = if (tab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-            ) { Text("Upload", modifier = Modifier.padding(vertical = 10.dp), color = if (tab == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
+            ) { Text("Upload", modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp), color = if (tab == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
             Surface(
-                onClick = { tab = 1 }, modifier = Modifier.weight(1f),
+                onClick = { tab = 1 },
                 shape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp),
                 color = if (tab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-            ) { Text("Manual", modifier = Modifier.padding(vertical = 10.dp), color = if (tab == 1) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
+            ) { Text("Manual", modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp), color = if (tab == 1) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
         }
         Spacer(Modifier.height(16.dp))
 

@@ -16,4 +16,5 @@ pub fn router() -> Router<AppState> {
         .route("/users", get(handlers::list_users_handler).post(handlers::admin_create_user_handler))
         .route("/users/:id", delete(handlers::delete_user_handler))
         .route("/reset-password", post(handlers::reset_password_handler))
+        .route("/email", post(handlers::update_email_handler))
 }

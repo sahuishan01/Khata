@@ -52,9 +52,9 @@ export function UploadPage() {
       <h1 className="page-title" style={{ marginBottom: 4 }}>Add Data</h1>
       <p className="text-muted" style={{ marginBottom: 20 }}>Upload a statement or add a transaction manually</p>
 
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-        <button onClick={() => setTab('upload')} style={{ flex: 1, padding: '10px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--accent)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
-        <button onClick={() => setTab('manual')} style={{ flex: 1, padding: '10px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--accent)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', width: 'fit-content', margin: '0 auto 20px' }}>
+        <button onClick={() => setTab('upload')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--accent)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
+        <button onClick={() => setTab('manual')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--accent)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
       </div>
 
       {tab === 'upload' ? (
