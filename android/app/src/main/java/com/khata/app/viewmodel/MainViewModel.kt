@@ -16,7 +16,8 @@ import javax.inject.Inject
 
 data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val user: MeResponse? = null, val error: String? = null)
 data class DashboardUiState(val stats: DashboardStats? = null, val analysis: AnalysisStats? = null, val isLoading: Boolean = false, val error: String? = null)
-data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
+data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null)
+data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val filter: TxnFilter = TxnFilter())
 data class ChatUiState(val messages: List<ChatHistoryResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class UsersUiState(val users: List<UserResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val success: String? = null)
 data class AccountsUiState(val accounts: List<UserAccount> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
@@ -78,7 +79,15 @@ class MainViewModel @Inject constructor(
     fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleTransfer(id, v); loadTransactions() } catch (_: Exception) {} }}
     fun toggleInvestment(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleInvestment(id, v); loadTransactions() } catch (_: Exception) {} }}
     fun updateNotes(id: String, notes: String) { viewModelScope.launch { try { repository.updateNotes(id, notes); loadTransactions() } catch (_: Exception) {} }}
-    fun updateCategory(id: String, category: String) { viewModelScope.launch { try { repository.updateCategory(id, category); loadTransactions() } catch (_: Exception) {} }}
+    fun updateCategory(id: String, category: String) { viewModelScope.launch { try {
+        repository.updateCategory(id, category)
+        // Optimistically update local state
+        val current = _txnState.value
+        current.txns?.let { list ->
+            val updated = list.data.map { if (it.id == id) it.copy(category = category) else it }
+            _txnState.value = current.copy(txns = list.copy(data = updated))
+        }
+    } catch (_: Exception) {} }}
     fun createTxn(req: CreateTxnReq) { viewModelScope.launch { try { repository.createTxn(req); loadTransactions() } catch (_: Exception) {} }}
 
     fun loadChatHistory() { viewModelScope.launch { try {
