@@ -63,7 +63,7 @@ fun ChatScreen(
                 }
             }
 
-            items(messages) { msg ->
+            items(messages, key = { it.id }) { msg ->
                 val isUser = msg.role == "user"
                 Column(
                     modifier = Modifier.fillMaxWidth(),

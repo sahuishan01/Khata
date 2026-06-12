@@ -1,15 +1,18 @@
 package com.khata.app.ui.charts
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,69 +32,42 @@ fun MonthlyBarChart(
     val reversed = data.reversed()
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        // Single Canvas for all bars
+        Canvas(
+            modifier = Modifier.fillMaxWidth().height(130.dp)
         ) {
-            reversed.forEach { month ->
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                    ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val barWidth = size.width * 0.3f
-                            val spacing = (size.width - barWidth * 2) / 3
-                            val spentHeight = (month.spent / maxVal * size.height * 0.9).toFloat()
-                            val earnedHeight = (month.earned / maxVal * size.height * 0.9).toFloat()
+            val stepX = size.width / reversed.size
+            reversed.forEachIndexed { i, month ->
+                val barWidth = stepX * 0.25f
+                val spacing = (stepX - barWidth * 2) / 3
+                val spentH = (month.spent / maxVal * size.height * 0.85f).toFloat()
+                val earnedH = (month.earned / maxVal * size.height * 0.85f).toFloat()
+                val x = i * stepX
 
-                            // Spent bar
-                            drawRect(
-                                color = SpendColor,
-                                topLeft = Offset(spacing, size.height - spentHeight),
-                                size = Size(barWidth, spentHeight)
-                            )
-                            // Earned bar
-                            drawRect(
-                                color = EarnColor,
-                                topLeft = Offset(spacing * 2 + barWidth, size.height - earnedHeight),
-                                size = Size(barWidth, earnedHeight)
-                            )
-                        }
-                    }
-                    Text(
-                        month.month.takeLast(2),
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                drawRect(SpendColor, Offset(x + spacing, size.height - spentH), Size(barWidth, spentH))
+                drawRect(EarnColor, Offset(x + spacing * 2 + barWidth, size.height - earnedH), Size(barWidth, earnedH))
             }
         }
 
+        // Labels
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .padding(0.dp)
-            ) {
-                Canvas(Modifier.fillMaxSize()) { drawRect(color = SpendColor) }
+            reversed.forEach { month ->
+                Text(month.month.takeLast(2), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+
+        // Legend (Box instead of Canvas)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(SpendColor))
             Text(" Spent  ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .padding(0.dp)
-            ) {
-                Canvas(Modifier.fillMaxSize()) { drawRect(color = EarnColor) }
-            }
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(EarnColor))
             Text(" Earned", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

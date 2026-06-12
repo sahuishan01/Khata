@@ -78,13 +78,9 @@ fun WaterfallChart(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            Box(modifier = Modifier.size(10.dp, 10.dp)) {
-                Canvas(Modifier.fillMaxSize()) { drawRect(color = NetPosColor) }
-            }
+            Box(modifier = Modifier.size(10.dp, 10.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp)).background(NetPosColor))
             Text(" Surplus  ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Box(modifier = Modifier.size(10.dp, 10.dp)) {
-                Canvas(Modifier.fillMaxSize()) { drawRect(color = NetNegColor) }
-            }
+            Box(modifier = Modifier.size(10.dp, 10.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp)).background(NetNegColor))
             Text(" Deficit", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
