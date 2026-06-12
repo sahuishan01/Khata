@@ -31,7 +31,7 @@ jobs:
           cache-read-only: false
 
       - name: Build release APK
-        run: ./gradlew assembleRelease --build-cache -Dorg.gradle.workers.max=1
+        run: ./gradlew assembleRelease --build-cache --parallel
         working-directory: ./android
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
