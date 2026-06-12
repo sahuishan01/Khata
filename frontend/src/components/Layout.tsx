@@ -1,17 +1,18 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Receipt, MessageSquare, LogOut, Shield, KeyRound, Landmark, Tags, Wallet, PiggyBank, PlusCircle } from 'lucide-react'
+import { LayoutDashboard, Receipt, MessageSquare, LogOut, Shield, KeyRound, Landmark, Tags, Wallet, PiggyBank, PlusCircle, Settings } from 'lucide-react'
 import { useAuth } from '../store/auth'
 import { useEffect } from 'react'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: Receipt },
-  { to: '/add', label: 'Add', icon: PlusCircle },
+  { to: '/upload', label: 'Add Data', icon: PlusCircle },
   { to: '/chat', label: 'Ask Claude', icon: MessageSquare },
   { to: '/accounts', label: 'Accounts', icon: Landmark },
   { to: '/rules', label: 'Rules', icon: Tags },
   { to: '/budgets', label: 'Budgets', icon: PiggyBank },
   { to: '/portfolio', label: 'Portfolio', icon: Wallet },
+  { to: '/profile', label: 'Settings', icon: Settings },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {
