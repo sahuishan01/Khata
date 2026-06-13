@@ -1,4 +1,5 @@
 mod accounts;
+mod audit;
 mod auth;
 mod budgets;
 mod categories;
@@ -11,20 +12,61 @@ mod portfolio;
 mod rules;
 mod txns;
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
-use axum::{routing::get, Router};
+use axum::{
+    extract::Request,
+    http::{header, HeaderValue},
+    middleware::{self, Next},
+    response::Response,
+    routing::get,
+    Router,
+};
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
 use tracing_subscriber::{fmt, EnvFilter};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub db_ro: sqlx::PgPool,
     pub config: Arc<config::Config>,
+    pub chat_ratelimit: Arc<Mutex<HashMap<Uuid, Instant>>>,
+}
+
+async fn security_headers_mw(
+    req: Request,
+    next: Next,
+) -> Response {
+    let mut resp = next.run(req).await;
+    resp.headers_mut().insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    resp.headers_mut().insert(
+        header::X_FRAME_OPTIONS,
+        HeaderValue::from_static("DENY"),
+    );
+    resp.headers_mut().insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    resp.headers_mut().insert(
+        header::STRICT_TRANSPORT_SECURITY,
+        HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
+    );
+    resp.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com;",
+        ),
+    );
+    resp
 }
 
 #[tokio::main]
@@ -45,6 +87,7 @@ async fn main() -> anyhow::Result<()> {
         db,
         db_ro,
         config: cfg.clone(),
+        chat_ratelimit: Arc::new(Mutex::new(HashMap::new())),
     };
 
     let cors = {
@@ -74,6 +117,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/portfolio", portfolio::router())
         .nest("/api/txns", txns::router())
         .nest("/api/chat", chat::router())
+        .layer(middleware::from_fn(security_headers_mw))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);

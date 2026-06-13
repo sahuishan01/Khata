@@ -10,10 +10,10 @@ class KhataRepository @Inject constructor(
     private val api: KhataApi,
     private val tokenManager: TokenManager
 ) {
-    suspend fun login(email: String, password: String): String {
+    suspend fun login(email: String, password: String): AuthResponse {
         val response = api.login(mapOf("email" to email, "password" to password))
         tokenManager.saveToken(response.token)
-        return response.token
+        return response
     }
     suspend fun setup(email: String, password: String): String {
         val r = api.setup(mapOf("email" to email, "password" to password))

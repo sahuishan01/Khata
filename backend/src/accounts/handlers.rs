@@ -4,7 +4,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
+use crate::{auth, auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::models::*;
 
@@ -57,16 +57,13 @@ pub async fn delete_account(
     CurrentUser(user_id): CurrentUser,
     Path(account_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result = sqlx::query("DELETE FROM user_accounts WHERE id = $1 AND user_id = $2")
+    auth::verify_ownership(&state.db, account_id, user_id, "user_accounts", "id").await?;
+
+    sqlx::query("DELETE FROM user_accounts WHERE id = $1")
         .bind(account_id)
-        .bind(user_id)
         .execute(&state.db)
         .await
         .map_err(|_| AppError::BadRequest("Failed to delete account".into()))?;
-
-    if result.rows_affected() == 0 {
-        return Err(AppError::NotFound);
-    }
 
     Ok(Json(serde_json::json!({ "message": "Account deleted" })))
 }

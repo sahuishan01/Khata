@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 
 export function ResetPasswordPage() {
+  const location = useLocation()
+  const forceReset = (location.state as { forceReset?: boolean })?.forceReset
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -48,6 +50,12 @@ export function ResetPasswordPage() {
         <h2 style={{ fontSize: 18, textAlign: 'center', marginBottom: 6 }}>Reset Password</h2>
         <p className="text-muted" style={{ textAlign: 'center', marginBottom: 24 }}>Enter your current password and a new one</p>
 
+        {forceReset && (
+          <p className="text-warning" style={{ textAlign: 'center', marginBottom: 16, padding: '8px 12px', background: 'var(--warning-bg, #fff3cd)', borderRadius: 8 }}>
+            You must reset your password before continuing
+          </p>
+        )}
+
         <form onSubmit={submit}>
           <div className="form-group">
             <label className="form-label">Current Password</label>
@@ -66,11 +74,11 @@ export function ResetPasswordPage() {
             <input
               type="password"
               className="form-input"
-              placeholder="Min. 8 characters"
+              placeholder="Min. 12 characters"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               required
-              minLength={8}
+              minLength={12}
               autoComplete="new-password"
             />
           </div>
@@ -83,7 +91,7 @@ export function ResetPasswordPage() {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               required
-              minLength={8}
+              minLength={12}
               autoComplete="new-password"
             />
           </div>

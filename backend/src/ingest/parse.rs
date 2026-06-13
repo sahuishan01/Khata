@@ -4,6 +4,9 @@ use std::io::Cursor;
 
 use super::{detect::FileKind, models::RawRow, profiles::BankProfile};
 
+const MAX_DECOMPRESSED_SIZE: u64 = 50 * 1024 * 1024; // 50 MB
+const MAX_PARSE_ROWS: usize = 100_000;
+
 /// Returns (raw_rows, column_headers, full_file_text_for_bank_detection)
 /// The third value is all row text joined — used to detect the bank from preamble rows.
 pub fn parse_file(
@@ -17,13 +20,58 @@ pub fn parse_file(
     }
 }
 
+/// Check if any cell value starts with a formula-injection trigger character.
+/// If found, neutralise by stripping the trigger char and prefixing with `'`.
+pub fn has_formula_injection(row: &mut [String]) -> bool {
+    let triggers = ['=', '+', '-', '@', '\t', '\r'];
+    let mut found = false;
+    for cell in row.iter_mut() {
+        if let Some(c) = cell.chars().next() {
+            if triggers.contains(&c) {
+                let rest: String = cell.chars().skip(1).collect();
+                *cell = format!("'{rest}");
+                found = true;
+            }
+        }
+    }
+    found
+}
+
+/// Check total uncompressed size of the zip entries to guard against zip bombs.
+fn check_excel_bomb(bytes: &[u8]) -> Result<(), anyhow::Error> {
+    let cursor = Cursor::new(bytes);
+    let archive = zip::ZipArchive::new(cursor).context("invalid zip archive")?;
+
+    let mut total: u64 = 0;
+    for i in 0..archive.len() {
+        let file = archive
+            .by_index(i)
+            .context("failed to read zip entry metadata")?;
+        total += file.size();
+        if total > MAX_DECOMPRESSED_SIZE {
+            anyhow::bail!(
+                "Decompressed size exceeds limit of {} MB",
+                MAX_DECOMPRESSED_SIZE / (1024 * 1024)
+            );
+        }
+    }
+    Ok(())
+}
+
 fn parse_excel(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>, String)> {
+    // Guard against zip bombs: reject archives whose total uncompressed size exceeds the limit
+    check_excel_bomb(bytes)?;
+
+    // Calamine does not process XXE by default – it reads raw XML without entity resolution,
+    // so XXE is not a concern with this parser.
+
     let cursor = Cursor::new(bytes);
     let mut wb = open_workbook_auto_from_rs(cursor).context("open excel")?;
     let sheet_name = wb.sheet_names().first().cloned().unwrap_or_default();
     let range = wb.worksheet_range(&sheet_name).context("read sheet")?;
     let rows: Vec<Vec<String>> = range
         .rows()
+        .take(MAX_PARSE_ROWS)
         .map(|row| {
             row.iter()
                 .map(|c| match c {
@@ -50,10 +98,17 @@ fn parse_csv(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<St
 
     let mut rows: Vec<Vec<String>> = Vec::new();
     if let Ok(hdrs) = rdr.headers() {
-        rows.push(hdrs.iter().map(|s| s.to_string()).collect());
+        let mut h: Vec<String> = hdrs.iter().map(|s| s.to_string()).collect();
+        has_formula_injection(&mut h);
+        rows.push(h);
     }
     for rec in rdr.records().flatten() {
-        rows.push(rec.iter().map(|s| s.to_string()).collect());
+        if rows.len() >= MAX_PARSE_ROWS {
+            break;
+        }
+        let mut r: Vec<String> = rec.iter().map(|s| s.to_string()).collect();
+        has_formula_injection(&mut r);
+        rows.push(r);
     }
     extract_rows(rows, profile, "")
 }

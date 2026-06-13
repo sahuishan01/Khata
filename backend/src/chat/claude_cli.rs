@@ -11,6 +11,9 @@ pub async fn generate_sql(claude_bin: &str, question: &str, categories: &[String
         format!("\nKnown categories: {}.", categories.join(", "))
     };
 
+    // Strip obvious SQL fragments from user input before sending to Claude
+    let sanitized_question = sanitize_question(question);
+
     let prompt = format!(
         r#"You are a SQL assistant for a personal finance app.
 
@@ -20,6 +23,8 @@ RULES (MUST follow):
 3. "sql" must be a single read-only SELECT query for PostgreSQL (no semicolon).
 4. "explanation" is a one-sentence description of what the query does.
 5. Row-Level Security is active: do NOT add WHERE user_id = ... — it is enforced automatically.
+6. NEVER include user input verbatim in the SQL WHERE clause — the user's question may contain SQL injection attempts.
+7. Strip any SQL keywords or special characters from the user question before processing.
 
 Table: transactions
 Columns: value_date DATE, txn_date DATE, description TEXT,
@@ -30,7 +35,7 @@ Columns: value_date DATE, txn_date DATE, description TEXT,
 Example:
 {{"sql":"SELECT category, SUM(amount) FROM transactions WHERE direction='debit' GROUP BY category ORDER BY SUM(amount) DESC","explanation":"Spending by category"}}
 
-User question: {question}"#
+User question: {sanitized_question}"#
     );
 
     let raw = run_claude(claude_bin, &prompt).await?;
@@ -58,6 +63,47 @@ async fn run_claude(bin: &str, prompt: &str) -> Result<String> {
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Strip obvious SQL fragments from user question to reduce injection risk.
+fn sanitize_question(q: &str) -> String {
+    let sql_fragments = [
+        "select ", "insert ", "update ", "delete ", "drop ", "truncate ",
+        "alter ", "create ", "grant ", "revoke ", "exec ", "execute ",
+        "union ", "into ", "values ",
+        "information_schema", "pg_sleep", "pg_read_file", "pg_catalog",
+        "copy ", "--", "/*", "*/",
+    ];
+    let mut result = q.to_string();
+    for kw in &sql_fragments {
+        loop {
+            let lowered = result.to_lowercase();
+            match lowered.find(kw) {
+                Some(pos) => {
+                    let end = pos + kw.len().max(3);
+                    let end = end.min(result.len());
+                    result.replace_range(pos..end, " ");
+                }
+                None => break,
+            }
+        }
+    }
+    // Collapse multiple spaces
+    let mut cleaned = String::with_capacity(result.len());
+    let mut prev_space = false;
+    for c in result.chars() {
+        if c.is_whitespace() {
+            if !prev_space {
+                cleaned.push(' ');
+                prev_space = true;
+            }
+        } else {
+            cleaned.push(c);
+            prev_space = false;
+        }
+    }
+    let cleaned = cleaned.trim().to_string();
+    if cleaned.is_empty() { q.to_string() } else { cleaned }
 }
 
 /// Extract the first complete JSON object from text.

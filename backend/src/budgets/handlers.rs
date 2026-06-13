@@ -4,7 +4,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
+use crate::{auth, auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::models::*;
 
@@ -56,13 +56,13 @@ pub async fn delete_budget(
     CurrentUser(user_id): CurrentUser,
     Path(budget_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result = sqlx::query("DELETE FROM budgets WHERE id = $1 AND user_id = $2")
+    auth::verify_ownership(&state.db, budget_id, user_id, "budgets", "id").await?;
+
+    sqlx::query("DELETE FROM budgets WHERE id = $1")
         .bind(budget_id)
-        .bind(user_id)
         .execute(&state.db)
         .await
         .map_err(|_| AppError::BadRequest("Failed to delete budget".into()))?;
-    if result.rows_affected() == 0 { return Err(AppError::NotFound); }
     Ok(Json(serde_json::json!({ "message": "Budget deleted" })))
 }
 
