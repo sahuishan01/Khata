@@ -73,9 +73,9 @@ class MainViewModel @Inject constructor(
         _dashboardState.value = DashboardUiState(stats = s, analysis = a)
     } catch (e: Exception) { _dashboardState.value = _dashboardState.value.copy(isLoading = false, error = e.message) } }}
 
-    fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null) { viewModelScope.launch { try {
+    fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null, preset: Int = 0) { viewModelScope.launch { try {
         _txnState.value = _txnState.value.copy(isLoading = true, error = null)
-        _txnFilterState.value = TxnFilter(sortBy, sortDir, category, from, to)
+        _txnFilterState.value = TxnFilter(sortBy, sortDir, category, from, to, preset)
         val t = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to)
         val txnCats = repository.listCategories()
         val managedCats = try { repository.listCategoriesV2().map { it.name } } catch (_: Exception) { emptyList() }
