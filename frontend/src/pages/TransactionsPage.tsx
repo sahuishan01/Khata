@@ -80,7 +80,15 @@ export function TransactionsPage() {
   useEffect(() => {
     setPage(1)
     fetchPage(1, sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo)
-    api.get<string[]>('/txns/categories').then(r => setCategories(r.data))
+    Promise.all([
+      api.get<string[]>('/txns/categories'),
+      api.get<any[]>('/categories').catch(() => ({ data: [] as any[] })),
+    ]).then(([txnRes, catRes]) => {
+      const txnCats = txnRes.data
+      const managed = catRes.data || []
+      const managedNames = managed.map((c: any) => c.name)
+      setCategories([...new Set([...txnCats, ...managedNames])].sort())
+    })
   }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo])
 
   useEffect(() => {

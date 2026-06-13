@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -367,9 +368,11 @@ private fun TransactionCard(
                 FilterChip(selected = showNotes, onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes }, label = { Text("📝", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
                 Box {
                     FilterChip(selected = false, onClick = { showCatMenu = true }, label = { Text(txn.category.take(8), fontSize = 9.sp, maxLines = 1) }, modifier = Modifier.height(28.dp))
-                    DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }) {
-                        allCategories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat, fontSize = 12.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false })
+                    DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }, modifier = Modifier.heightIn(max = 240.dp)) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            allCategories.forEach { cat ->
+                                DropdownMenuItem(text = { Text(cat, fontSize = 11.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false }, modifier = Modifier.height(36.dp))
+                            }
                         }
                         HorizontalDivider()
                         OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))

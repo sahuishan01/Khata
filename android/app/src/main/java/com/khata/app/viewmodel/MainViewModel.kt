@@ -72,8 +72,10 @@ class MainViewModel @Inject constructor(
     fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null) { viewModelScope.launch { try {
         _txnState.value = _txnState.value.copy(isLoading = true, error = null)
         val t = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to)
-        val c = repository.listCategories()
-        _txnState.value = TxnUiState(txns = t, categories = c)
+        val txnCats = repository.listCategories()
+        val managedCats = try { repository.listCategoriesV2().map { it.name } } catch (_: Exception) { emptyList() }
+        val allCats = (txnCats + managedCats).distinct().sorted()
+        _txnState.value = TxnUiState(txns = t, categories = allCats)
     } catch (e: Exception) { _txnState.value = _txnState.value.copy(isLoading = false, error = e.message ?: "Failed") } }}
 
     fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleTransfer(id, v); loadTransactions() } catch (_: Exception) {} }}
