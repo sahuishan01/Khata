@@ -312,6 +312,8 @@ fun TransactionsScreen(
                 }
             }
         }
+    }
+}
 
 @Composable
 private fun TransactionCard(
