@@ -127,7 +127,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }) }
 
-            composable(Screen.Upload.route) { CombinedUploadScreen(isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }) }
+            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }) }
 
             composable(Screen.Transactions.route) { TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onToggleInvestment = { id, v -> viewModel.toggleInvestment(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }, onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) }) }
 
