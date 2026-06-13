@@ -13,8 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.NetWorthSnapshot
-
-private fun fmt(n: Double) = "₹${String.format("%,.0f", n)}"
+import com.khata.app.util.formatINR
 
 @Composable
 fun PortfolioScreen(
@@ -33,9 +32,9 @@ fun PortfolioScreen(
         if (snapshot != null) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Text("Assets", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(fmt(snapshot.totalAssets), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary) } }
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Text("Liabilities", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(fmt(snapshot.totalLiabilities), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) } }
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Text("Net Worth", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(fmt(snapshot.netWorth), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (snapshot.netWorth >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error) } }
+                    Card(Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Text("Assets", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(formatINR(snapshot.totalAssets), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary) } }
+                    Card(Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Text("Liabilities", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(formatINR(snapshot.totalLiabilities), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) } }
+                    Card(Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Column(Modifier.padding(12.dp)) { Text("Net Worth", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(formatINR(snapshot.netWorth), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (snapshot.netWorth >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error) } }
                 }
             }
         }
@@ -60,8 +59,22 @@ fun PortfolioScreen(
         }
 
         if (snapshot != null) {
-            snapshot.assets.forEach { a ->
-                item { Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary); Spacer(Modifier.width(8.dp)); Column(Modifier.weight(1f)) { Text(a.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(a.assetType, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Text(fmt(a.value), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary); Spacer(Modifier.width(4.dp)); IconButton(onClick = { onDeleteAsset(a.id) }, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) } } } }
+            if (snapshot.assets.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("💰", fontSize = 28.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text("No assets added", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text("Add assets like bank accounts, mutual funds, or stocks above.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            } else {
+                snapshot.assets.forEach { a ->
+                    item { Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary); Spacer(Modifier.width(8.dp)); Column(Modifier.weight(1f)) { Text(a.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(a.assetType, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Text(formatINR(a.value), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary); Spacer(Modifier.width(4.dp)); IconButton(onClick = { onDeleteAsset(a.id) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) } } } }
+                }
             }
         }
 
@@ -85,8 +98,22 @@ fun PortfolioScreen(
         }
 
         if (snapshot != null) {
-            snapshot.liabilities.forEach { l ->
-                item { Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.TrendingDown, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp)); Column(Modifier.weight(1f)) { Text(l.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(l.liabilityType, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Text(fmt(l.value), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); IconButton(onClick = { onDeleteLiability(l.id) }, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) } } } }
+            if (snapshot.liabilities.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("💳", fontSize = 28.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text("No liabilities added", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text("Add liabilities like loans or credit cards above.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            } else {
+                snapshot.liabilities.forEach { l ->
+                    item { Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.TrendingDown, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp)); Column(Modifier.weight(1f)) { Text(l.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(l.liabilityType, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Text(formatINR(l.value), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); IconButton(onClick = { onDeleteLiability(l.id) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) } } } }
+                }
             }
         }
     }

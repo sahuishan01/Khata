@@ -17,9 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MonthBucket
 
-private val NetColor = Color(0xFF6C5CE7)
-private val GreenColor = Color(0xFF00B894)
-private val RedColor = Color(0xFFE17055)
+private val NetColor = Color(0xFF8479F2)
+private val GreenColor = Color(0xFF2EC27E)
+private val RedColor = Color(0xFFEE6B4D)
 
 @Composable
 fun NetWorthLineChart(

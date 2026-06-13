@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import {
   TrendingDown, TrendingUp, Wallet, Percent, Calendar, Hash,
   ArrowUpRight, ArrowDownRight, AlertCircle, TrendingUp as InvestIcon,
+  Eye, EyeOff,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { FileUpload } from '../components/FileUpload'
 import { SpendEarnChart } from '../components/charts/SpendEarnChart'
 import { CategoryChart } from '../components/charts/CategoryChart'
+import { usePrivacy } from '../store/privacy'
+import { maskDescription } from '../utils/pii'
+import { formatINR, formatDate } from '../utils/format'
 
 interface DashboardStats {
   total_spent: number; total_earned: number; total_invested: number; net: number
@@ -25,9 +29,6 @@ interface AnalysisStats {
   total_invested: number
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-const fmtDec = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [analysis, setAnalysis] = useState<AnalysisStats | null>(null)
@@ -40,6 +41,7 @@ export function DashboardPage() {
 
   useEffect(() => { fetchAll() }, [])
 
+  const { blurMode, toggleBlur } = usePrivacy()
   const hasData = stats && (stats.total_spent > 0 || stats.total_earned > 0)
 
   return (
@@ -49,6 +51,10 @@ export function DashboardPage() {
           <h1 className="page-title" style={{ marginBottom: 4 }}>Dashboard</h1>
           <p className="text-muted">Your financial overview</p>
         </div>
+        <button className="btn btn-ghost btn-sm" onClick={toggleBlur} title={blurMode ? 'Show PII' : 'Hide PII'}>
+          {blurMode ? <EyeOff size={14} /> : <Eye size={14} />}
+          <span style={{ fontSize: 11, marginLeft: 4 }}>{blurMode ? 'Blurred' : 'Visible'}</span>
+        </button>
       </div>
 
       <FileUpload onSuccess={fetchAll} />
@@ -57,18 +63,18 @@ export function DashboardPage() {
         <div style={{
           textAlign: 'center', padding: '64px 24px',
           background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-          border: '1px solid var(--border)', marginTop: 20,
+          border: '1px solid var(--hairline)', marginTop: 20,
         }}>
           <div style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: 'var(--accent-light)', color: 'var(--accent)',
+            background: 'var(--brand-soft)', color: 'var(--brand)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 28, margin: '0 auto 16px',
           }}>
             <Wallet size={28} />
           </div>
           <h2 style={{ fontSize: 18, marginBottom: 8 }}>No data yet</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
+          <p style={{ color: 'var(--text-2)', fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
             Upload a bank statement to get started with your financial analysis
           </p>
         </div>
@@ -77,21 +83,21 @@ export function DashboardPage() {
           <div className="grid grid-stats mb-4" style={{ marginTop: 20 }}>
             <StatCard
               label="Net Balance"
-              value={fmt(stats!.net)}
+              value={formatINR(stats!.net)}
               icon={<Wallet size={16} />}
               accent="accent"
               subtitle={stats!.net >= 0 ? 'Positive' : 'Negative'}
             />
             <StatCard
               label="Total Spent"
-              value={fmt(stats!.total_spent)}
+              value={formatINR(stats!.total_spent)}
               icon={<TrendingDown size={16} />}
               accent="red"
               subtitle={`${analysis ? analysis.total_transactions : 0} transactions`}
             />
             <StatCard
               label="Total Earned"
-              value={fmt(stats!.total_earned)}
+              value={formatINR(stats!.total_earned)}
               icon={<TrendingUp size={16} />}
               accent="green"
             />
@@ -107,7 +113,7 @@ export function DashboardPage() {
             {(analysis?.total_invested ?? 0) > 0 && (
               <StatCard
                 label="Invested"
-                value={fmt(analysis!.total_invested)}
+                value={formatINR(analysis!.total_invested)}
                 icon={<InvestIcon size={16} />}
                 accent="accent"
                 subtitle="This period"
@@ -118,7 +124,7 @@ export function DashboardPage() {
           {analysis && analysis.month_comparison.last_month > 0 && (
             <div style={{
               background: 'var(--surface)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--hairline)',
               borderRadius: 'var(--r-xl)',
               padding: '16px 20px',
               marginBottom: 16,
@@ -128,15 +134,15 @@ export function DashboardPage() {
               flexWrap: 'wrap',
               gap: 8,
             }}>
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                This month spent: <strong style={{ color: 'var(--text-heading)' }}>{fmt(analysis.month_comparison.this_month)}</strong>
+              <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                This month spent: <strong style={{ color: 'var(--text)' }}>{formatINR(analysis.month_comparison.this_month)}</strong>
                 <span style={{ margin: '0 8px', color: 'var(--text-muted)' }}>·</span>
-                Last month: <strong style={{ color: 'var(--text-heading)' }}>{fmt(analysis.month_comparison.last_month)}</strong>
+                Last month: <strong style={{ color: 'var(--text)' }}>{formatINR(analysis.month_comparison.last_month)}</strong>
               </span>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 fontWeight: 600, fontSize: 13,
-                color: analysis.month_comparison.change_pct > 0 ? 'var(--red)' : 'var(--green)',
+                color: analysis.month_comparison.change_pct > 0 ? 'var(--expense)' : 'var(--income)',
               }}>
                 {analysis.month_comparison.change_pct > 0
                   ? <ArrowUpRight size={14} />
@@ -159,7 +165,7 @@ export function DashboardPage() {
                     data={analysis.category_breakdown}
                     onCategoryClick={cat => navigate(`/transactions?category=${encodeURIComponent(cat)}`)}
                   />
-                : <p className="text-muted" style={{ padding: '20px 0', textAlign: 'center' }}>No debit data yet.</p>}
+                : <p className="text-muted" style={{ padding: '20px 0', textAlign: 'center' }}>No spending data yet. Upload a statement or add a transaction to see your category breakdown.</p>}
             </div>
           </div>
 
@@ -169,17 +175,17 @@ export function DashboardPage() {
                 <div className="panel-title">Largest Expense</div>
                 <div style={{
                   fontSize: 28, fontWeight: 700,
-                  color: 'var(--red)', marginBottom: 8,
+                  color: 'var(--expense)', marginBottom: 8,
                   letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {fmtDec(analysis.largest_expense.amount)}
+                  {formatINR(analysis.largest_expense.amount)}
                 </div>
-                <div style={{ fontSize: 13.5, color: 'var(--text-heading)', marginBottom: 4 }}>
-                  {analysis.largest_expense.description}
+                <div style={{ fontSize: 13.5, color: 'var(--text)', marginBottom: 4 }}>
+                  {maskDescription(analysis.largest_expense.description, blurMode)}
                 </div>
                 <div className="text-muted" style={{ fontSize: 12 }}>
                   <Calendar size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
-                  {analysis.largest_expense.value_date}
+                  {formatDate(analysis.largest_expense.value_date)}
                 </div>
               </div>
             )}
@@ -189,12 +195,12 @@ export function DashboardPage() {
                 <tbody>
                   {stats!.top_debits.slice(0, 7).map(d => (
                     <tr key={d.description}>
-                      <td className="truncate" style={{ maxWidth: 160, color: 'var(--text-heading)' }}>{d.description}</td>
+                      <td className="truncate" style={{ maxWidth: 160, color: 'var(--text)' }}>{maskDescription(d.description, blurMode)}</td>
                       <td className="text-right" style={{
-                        color: 'var(--red)', fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--expense)', fontVariantNumeric: 'tabular-nums',
                         fontWeight: 600, whiteSpace: 'nowrap',
                       }}>
-                        {fmtDec(d.total)}
+                        {formatINR(d.total)}
                       </td>
                     </tr>
                   ))}
@@ -215,13 +221,13 @@ export function DashboardPage() {
                 </div>
                 <div>
                   <div className="stat-label">Avg Daily Spend</div>
-                  <div className="stat-value" style={{ fontSize: 20 }}>{fmt(analysis.avg_daily_spend)}</div>
+                  <div className="stat-value" style={{ fontSize: 20 }}>{formatINR(analysis.avg_daily_spend)}</div>
                 </div>
               </div>
               <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{
                   width: 42, height: 42, borderRadius: 'var(--r-md)',
-                  background: 'var(--accent-light)', color: 'var(--accent)',
+                  background: 'var(--brand-soft)', color: 'var(--brand)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
                   <Hash size={18} />
@@ -234,8 +240,8 @@ export function DashboardPage() {
               <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{
                   width: 42, height: 42, borderRadius: 'var(--r-md)',
-                  background: analysis.savings_rate_pct >= 20 ? 'var(--green-light)' : 'var(--amber-light)',
-                  color: analysis.savings_rate_pct >= 20 ? 'var(--green)' : 'var(--amber)',
+                  background: analysis.savings_rate_pct >= 20 ? 'var(--income-soft)' : 'rgba(224,163,58,.14)',
+                  color: analysis.savings_rate_pct >= 20 ? 'var(--income)' : 'var(--warn)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
                   <AlertCircle size={18} />
@@ -244,7 +250,7 @@ export function DashboardPage() {
                   <div className="stat-label">Savings Rate</div>
                   <div className="stat-value" style={{
                     fontSize: 20,
-                    color: analysis.savings_rate_pct >= 20 ? 'var(--green)' : 'var(--amber)',
+                    color: analysis.savings_rate_pct >= 20 ? 'var(--income)' : 'var(--warn)',
                   }}>
                     {analysis.savings_rate_pct.toFixed(1)}%
                   </div>
@@ -265,10 +271,10 @@ function StatCard({ label, value, icon, accent, subtitle }: {
   subtitle?: string
 }) {
   const colors = {
-    red:    { bg: 'var(--red-light)', color: 'var(--red)', bar: 'var(--red)' },
-    green:  { bg: 'var(--green-light)', color: 'var(--green)', bar: 'var(--green)' },
-    amber:  { bg: 'var(--amber-light)', color: 'var(--amber)', bar: 'var(--amber)' },
-    accent: { bg: 'var(--accent-light)', color: 'var(--accent)', bar: 'var(--accent)' },
+    red:    { bg: 'var(--expense-soft)', color: 'var(--expense)', bar: 'var(--expense)' },
+    green:  { bg: 'var(--income-soft)', color: 'var(--income)', bar: 'var(--income)' },
+    amber:  { bg: 'rgba(224,163,58,.14)', color: 'var(--warn)', bar: 'var(--warn)' },
+    accent: { bg: 'var(--brand-soft)', color: 'var(--brand)', bar: 'var(--brand)' },
   }
   const c = colors[accent]
   return (
@@ -283,7 +289,7 @@ function StatCard({ label, value, icon, accent, subtitle }: {
           {subtitle && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</div>}
         </div>
       </div>
-      <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ height: 3, background: 'var(--hairline)', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ width: '100%', height: '100%', background: c.bar, borderRadius: 2, opacity: 0.5 }} />
       </div>
     </div>

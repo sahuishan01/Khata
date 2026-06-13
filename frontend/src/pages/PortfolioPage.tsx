@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
+import { formatINR } from '../utils/format'
 
 interface Asset { id: string; name: string; asset_type: string; value: number; recorded_at: string }
 interface Liability { id: string; name: string; liability_type: string; value: number; recorded_at: string }
@@ -35,8 +36,6 @@ export function PortfolioPage() {
   }
   const delLiab = async (id: string) => { try { await api.delete(`/portfolio/liabilities/${id}`); await load() } catch { setError('Failed') } }
 
-  const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-
   return (
     <div>
       <h1 className="page-title" style={{ marginBottom: 4 }}>Portfolio</h1>
@@ -45,19 +44,19 @@ export function PortfolioPage() {
       {snap && (
         <div className="grid grid-3 mb-4">
           <div className="card" style={{ textAlign: 'center' }}>
-            <TrendingUp size={18} style={{ color: 'var(--green)', marginBottom: 6 }} />
+            <TrendingUp size={18} style={{ color: 'var(--income)', marginBottom: 6 }} />
             <div className="stat-label">Total Assets</div>
-            <div className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>{fmt(snap.total_assets)}</div>
+            <div className="stat-value" style={{ fontSize: 18, color: 'var(--income)' }}>{formatINR(snap.total_assets)}</div>
           </div>
           <div className="card" style={{ textAlign: 'center' }}>
-            <TrendingDown size={18} style={{ color: 'var(--red)', marginBottom: 6 }} />
+            <TrendingDown size={18} style={{ color: 'var(--expense)', marginBottom: 6 }} />
             <div className="stat-label">Total Liabilities</div>
-            <div className="stat-value" style={{ fontSize: 18, color: 'var(--red)' }}>{fmt(snap.total_liabilities)}</div>
+            <div className="stat-value" style={{ fontSize: 18, color: 'var(--expense)' }}>{formatINR(snap.total_liabilities)}</div>
           </div>
           <div className="card" style={{ textAlign: 'center' }}>
-            <Wallet size={18} style={{ color: 'var(--accent)', marginBottom: 6 }} />
+            <Wallet size={18} style={{ color: 'var(--brand)', marginBottom: 6 }} />
             <div className="stat-label">Net Worth</div>
-            <div className="stat-value" style={{ fontSize: 18, color: snap.net_worth >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(snap.net_worth)}</div>
+            <div className="stat-value" style={{ fontSize: 18, color: snap.net_worth >= 0 ? 'var(--income)' : 'var(--expense)' }}>{formatINR(snap.net_worth)}</div>
           </div>
         </div>
       )}
@@ -74,14 +73,14 @@ export function PortfolioPage() {
             <button className="btn btn-primary btn-sm"><Plus size={14} /></button>
           </form>
           {snap?.assets.map(a => (
-            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
               <span className="badge badge-green" style={{ fontSize: 10 }}>{a.asset_type}</span>
               <span style={{ flex: 1, fontSize: 13 }}>{a.name}</span>
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--green)' }}>{fmt(a.value)}</span>
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => delAsset(a.id)}><Trash2 size={13} /></button>
+              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--income)' }}>{formatINR(a.value)}</span>
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => delAsset(a.id)}><Trash2 size={13} /></button>
             </div>
           ))}
-          {(snap?.assets.length ?? 0) === 0 && <p className="text-muted" style={{ fontSize: 12 }}>No assets added</p>}
+          {(snap?.assets.length ?? 0) === 0 && <p className="text-muted" style={{ fontSize: 12 }}>No assets yet. Add investments, property, or valuables to track your net worth.</p>}
         </div>
 
         <div className="card">
@@ -93,14 +92,14 @@ export function PortfolioPage() {
             <button className="btn btn-primary btn-sm"><Plus size={14} /></button>
           </form>
           {snap?.liabilities.map(l => (
-            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
               <span className="badge badge-red" style={{ fontSize: 10 }}>{l.liability_type}</span>
               <span style={{ flex: 1, fontSize: 13 }}>{l.name}</span>
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--red)' }}>{fmt(l.value)}</span>
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => delLiab(l.id)}><Trash2 size={13} /></button>
+              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--expense)' }}>{formatINR(l.value)}</span>
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => delLiab(l.id)}><Trash2 size={13} /></button>
             </div>
           ))}
-          {(snap?.liabilities.length ?? 0) === 0 && <p className="text-muted" style={{ fontSize: 12 }}>No liabilities added</p>}
+          {(snap?.liabilities.length ?? 0) === 0 && <p className="text-muted" style={{ fontSize: 12 }}>No liabilities yet. Add loans, credit card debt, or other obligations.</p>}
         </div>
       </div>
     </div>

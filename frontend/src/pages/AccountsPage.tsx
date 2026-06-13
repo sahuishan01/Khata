@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
-import { Plus, Trash2, Landmark } from 'lucide-react'
+import { Plus, Trash2, Landmark, Eye, EyeOff } from 'lucide-react'
+import { EmptyState } from '../components/EmptyState'
+import { usePrivacy } from '../store/privacy'
+import { maskIdentifier } from '../utils/pii'
 
 interface Account {
   id: string; label: string; identifier: string
@@ -12,6 +15,7 @@ export function AccountsPage() {
   const [identifier, setIdentifier] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { blurMode, toggleBlur } = usePrivacy()
 
   const load = () => api.get<Account[]>('/accounts').then(r => setAccounts(r.data)).catch(() => {})
   useEffect(() => { load() }, [])
@@ -37,7 +41,13 @@ export function AccountsPage() {
   return (
     <div>
       <h1 className="page-title" style={{ marginBottom: 4 }}>Your Accounts</h1>
-      <p className="text-muted" style={{ marginBottom: 20 }}>Mark accounts as your own so transfers between them don't count as income/expense</p>
+      <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
+        <p className="text-muted">Mark accounts as your own so transfers between them don't count as income/expense</p>
+        <button className="btn btn-ghost btn-sm" onClick={toggleBlur} title={blurMode ? 'Show PII' : 'Hide PII'}>
+          {blurMode ? <EyeOff size={14} /> : <Eye size={14} />}
+          <span style={{ fontSize: 11, marginLeft: 4 }}>{blurMode ? 'Blurred' : 'Visible'}</span>
+        </button>
+      </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <form onSubmit={add} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -49,15 +59,15 @@ export function AccountsPage() {
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        {accounts.length === 0 && <p className="text-muted" style={{ padding: 20, textAlign: 'center' }}>No accounts added yet</p>}
+        {accounts.length === 0 && <EmptyState icon="🏦" title="No accounts yet" description="Add your bank accounts, UPI IDs, or wallets so transfers between them don't count as income or expense." action={{ label: 'Add your first account', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder*="Label"]')?.focus() }} />}
         {accounts.map(a => (
-          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-            <div className="stat-icon" style={{ background: 'var(--accent-dim)', color: 'var(--accent-text)' }}><Landmark size={15} /></div>
+          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--hairline)' }}>
+            <div className="stat-icon" style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}><Landmark size={15} /></div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-heading)' }}>{a.label}</div>
-              <div className="text-muted" style={{ fontSize: 12 }}>{a.identifier}</div>
+              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text)' }}>{a.label}</div>
+              <div className="text-muted" style={{ fontSize: 12 }}>{blurMode ? maskIdentifier(a.identifier) : a.identifier}</div>
             </div>
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => del(a.id)}><Trash2 size={14} /></button>
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => del(a.id)}><Trash2 size={14} /></button>
           </div>
         ))}
       </div>

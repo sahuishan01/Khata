@@ -1,17 +1,13 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Receipt, MessageSquare, LogOut, Shield, KeyRound, Landmark, Tags, Wallet, PiggyBank, PlusCircle, Settings } from 'lucide-react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { LayoutDashboard, Receipt, PlusCircle, Grid3X3, Settings, LogOut, Shield, KeyRound } from 'lucide-react'
 import { useAuth } from '../store/auth'
 import { useEffect } from 'react'
 
-const NAV = [
+const PRIMARY_NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: Receipt },
-  { to: '/upload', label: 'Add Data', icon: PlusCircle },
-  { to: '/chat', label: 'Ask Claude', icon: MessageSquare },
-  { to: '/accounts', label: 'Accounts', icon: Landmark },
-  { to: '/rules', label: 'Rules', icon: Tags },
-  { to: '/budgets', label: 'Budgets', icon: PiggyBank },
-  { to: '/portfolio', label: 'Portfolio', icon: Wallet },
+  { to: '/upload', label: 'Add', icon: PlusCircle },
+  { to: '/more', label: 'More', icon: Grid3X3 },
   { to: '/profile', label: 'Settings', icon: Settings },
 ]
 
@@ -20,10 +16,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user)
   const fetchMe = useAuth(s => s.fetchMe)
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => { fetchMe() }, [fetchMe])
 
   const doLogout = () => { logout(); navigate('/login') }
+
+  const isActive = (to: string) => {
+    if (to === '/') return location.pathname === '/'
+    if (to === '/more') return location.pathname.startsWith('/more')
+    return location.pathname.startsWith(to)
+  }
 
   return (
     <div className="app-shell">
@@ -34,26 +37,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="sidebar-brand-name">Khata</span>
         </div>
         <nav className="sidebar-nav">
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {PRIMARY_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
-              className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}
+              className={({ isActive: act }) => `sidebar-nav-item${act || isActive(to) ? ' active' : ''}`}
             >
               <Icon size={16} />
               {label}
             </NavLink>
           ))}
-          {user?.role === 'admin' && (
-            <NavLink
-              to="/admin/users"
-              className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}
-            >
-              <Shield size={16} />
-              Manage Users
-            </NavLink>
-          )}
         </nav>
         <div className="sidebar-footer">
           <button
@@ -81,7 +75,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <header className="mobile-topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="sidebar-logo" style={{ width: 28, height: 28, fontSize: 13 }}>₹</div>
-            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-heading)' }}>Khata</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>Khata</span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={doLogout} title="Logout">
             <LogOut size={16} />
@@ -94,33 +88,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Mobile bottom nav */}
         <nav className="bottom-nav">
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {PRIMARY_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
-              className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}
+              className={({ isActive: act }) => `bottom-nav-item${act || isActive(to) ? ' active' : ''}`}
             >
               <Icon size={21} />
-              {label}
+              <span>{label}</span>
             </NavLink>
           ))}
-          {user?.role === 'admin' && (
-            <NavLink
-              to="/admin/users"
-              className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}
-            >
-              <Shield size={21} />
-              Users
-            </NavLink>
-          )}
-          <NavLink
-            to="/reset-password"
-            className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}
-          >
-            <KeyRound size={21} />
-            Password
-          </NavLink>
         </nav>
       </div>
     </div>

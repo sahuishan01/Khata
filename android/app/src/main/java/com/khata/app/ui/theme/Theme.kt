@@ -4,45 +4,42 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF6C5CE7),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFEDE6FF),
-    onPrimaryContainer = Color(0xFF3B2A8A),
-    secondary = Color(0xFF00B894),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE0FFF5),
-    error = Color(0xFFE17055),
-    onError = Color.White,
-    errorContainer = Color(0xFFFFE8E0),
-    background = Color(0xFFF5F3F0),
-    onBackground = Color(0xFF1A1628),
-    surface = Color.White,
-    onSurface = Color(0xFF1A1628),
-    surfaceVariant = Color(0xFFF8F7F4),
-    onSurfaceVariant = Color(0xFF4A4658),
-    outline = Color(0xFFECE9E3),
-    outlineVariant = Color(0xFFD6D2C8),
-)
+object KhataColors {
+    val bg = Color(0xFF0E0E13)
+    val surface = Color(0xFF17171F)
+    val surface2 = Color(0xFF1F1F2A)
+    val hairline = Color(0xFF2A2A38)
+    val text = Color(0xFFF2F2F5)
+    val text2 = Color(0xFF9A9AA8)
+    val textMuted = Color(0xFF6B6B78)
+    val brand = Color(0xFF8479F2)
+    val brandPress = Color(0xFF6F62E6)
+    val brandSoft = Color(0x288479F2)
+    val income = Color(0xFF2EC27E)
+    val incomeSoft = Color(0x242EC27E)
+    val expense = Color(0xFFEE6B4D)
+    val expenseSoft = Color(0x24EE6B4D)
+    val warn = Color(0xFFE0A33A)
+}
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8B7CF2),
+    primary = KhataColors.brand,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFF3B2A8A),
-    onPrimaryContainer = Color(0xFFEDE6FF),
-    secondary = Color(0xFF00D2A0),
+    primaryContainer = KhataColors.brandSoft,
+    onPrimaryContainer = KhataColors.text,
+    secondary = Color(0xFF6F62E6),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFF004D3D),
-    error = Color(0xFFE17055),
+    secondaryContainer = Color(0x286F62E6),
+    error = KhataColors.expense,
     onError = Color.White,
-    errorContainer = Color(0xFF5C1A06),
-    background = Color(0xFF121016),
-    onBackground = Color(0xFFEAE6F0),
-    surface = Color(0xFF1B1823),
-    onSurface = Color(0xFFEAE6F0),
-    surfaceVariant = Color(0xFF221F2D),
-    onSurfaceVariant = Color(0xFF9D97AD),
-    outline = Color(0xFF2A2638),
+    errorContainer = KhataColors.expenseSoft,
+    background = KhataColors.bg,
+    onBackground = KhataColors.text,
+    surface = KhataColors.surface,
+    onSurface = KhataColors.text,
+    surfaceVariant = KhataColors.surface2,
+    onSurfaceVariant = KhataColors.text2,
+    outline = KhataColors.hairline,
     outlineVariant = Color(0xFF3A3550),
 )
 
@@ -51,9 +48,8 @@ fun KhataTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColors else LightColors
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = DarkColors,
         content = content
     )
 }

@@ -20,20 +20,35 @@ fun ProfileScreen(
     user: MeResponse?,
     isDark: Boolean,
     onToggleDark: () -> Unit,
+    blurMode: Boolean,
+    onToggleBlur: () -> Unit,
     onResetPassword: () -> Unit,
     onClearAllData: () -> Unit,
     onUpdateEmail: (String) -> Unit,
     onLogout: () -> Unit
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var clearConfirmText by remember { mutableStateOf("") }
     var showEmailDialog by remember { mutableStateOf(false) }
     var newEmail by remember { mutableStateOf(user?.email ?: "") }
     var msg by remember { mutableStateOf("") }
 
     if (showClearDialog) {
-        AlertDialog(onDismissRequest = { showClearDialog = false }, title = { Text("Clear All Data?") }, text = { Text("This action cannot be undone.") },
-            confirmButton = { TextButton(onClick = { showClearDialog = false; onClearAllData() }) { Text("Clear", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { showClearDialog = false; clearConfirmText = "" },
+            title = { Text("Clear All Data", color = MaterialTheme.colorScheme.error) },
+            text = {
+                Column {
+                    Text("This will permanently delete all transactions, statements, and chat history. This action cannot be undone.", fontSize = 13.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Type DELETE to confirm:", fontSize = 13.sp)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(value = clearConfirmText, onValueChange = { clearConfirmText = it }, placeholder = { Text("DELETE") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showClearDialog = false; clearConfirmText = ""; onClearAllData() }, enabled = clearConfirmText == "DELETE") { Text("Clear Everything", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showClearDialog = false; clearConfirmText = "" }) { Text("Cancel") } })
     }
 
     if (showEmailDialog) {
@@ -71,6 +86,11 @@ fun ProfileScreen(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(if (isDark) Icons.Default.DarkMode else Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)); Text("Dark Mode", fontSize = 14.sp) }
                     Switch(checked = isDark, onCheckedChange = { onToggleDark() })
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)); Text("Privacy Mode", fontSize = 14.sp) }
+                    Switch(checked = blurMode, onCheckedChange = { onToggleBlur() })
                 }
             }
         }

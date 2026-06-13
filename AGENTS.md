@@ -12,4 +12,14 @@ Changes made to the web frontend should also be applied to the Android app, and 
 - `/portfolio` (web) ↔ `PortfolioScreen.kt` (Android)
 - `/chat` (web) ↔ `ChatScreen.kt` (Android)
 - `/admin/users` (web) ↔ `AdminUsersScreen.kt` (Android)
-- Dark mode, clear data, change email, reset password, logout are all available in both web and Android Settings/Profile pages.
+
+Keep the app version below 1.0 (pre-release, e.g. 0.x.y) until the user explicitly says it's production-ready.
+
+Always ask if the previous build was successful before changing the version number. The last successful build tag is the reference point.
+
+
+## Design
+- Read DESIGN.md for design related instructions
+
+## Security
+- Read SECURITY.md for security related instructions

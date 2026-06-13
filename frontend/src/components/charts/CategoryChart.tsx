@@ -1,4 +1,5 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { formatINR } from '../../utils/format'
 
 interface CategoryBucket { category: string; amount: number; pct: number }
 
@@ -8,7 +9,7 @@ const COLORS = [
   '#06b6d4', '#a855f7', '#fb923c', '#94a3b8',
 ]
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+
 
 interface Props {
   data: CategoryBucket[]
@@ -33,7 +34,7 @@ export function CategoryChart({ data, onCategoryClick }: Props) {
               <Cell key={i} fill={COLORS[i % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(v) => fmt(Number(v))} />
+          <Tooltip formatter={(v) => formatINR(Number(v))} />
         </PieChart>
       </ResponsiveContainer>
 
@@ -52,8 +53,8 @@ export function CategoryChart({ data, onCategoryClick }: Props) {
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
           >
             <div style={{ width: 10, height: 10, borderRadius: 2, background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-            <div style={{ flex: 1, fontSize: 13, color: 'var(--text-heading)' }}>{d.category}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>{fmt(d.amount)}</div>
+            <div style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>{d.category}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{formatINR(d.amount)}</div>
             <div style={{ fontSize: 11, color: 'var(--text-2)', width: 38, textAlign: 'right' }}>
               {d.pct.toFixed(1)}%
             </div>

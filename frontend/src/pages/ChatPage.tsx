@@ -120,12 +120,12 @@ export function ChatPage() {
                   <pre style={{
                     fontSize: 12,
                     background: 'var(--surface-2)',
-                    border: '1px solid var(--border)',
+                    border: '1px solid var(--hairline)',
                     padding: '8px 12px',
                     borderRadius: 'var(--r-md)',
                     overflowX: 'auto',
                     margin: '4px 0 0',
-                    color: 'var(--text-heading)',
+                    color: 'var(--text)',
                     lineHeight: 1.5,
                   }}>
                     {m.sql_used}

@@ -27,6 +27,7 @@ fun CombinedUploadScreen(
 ) {
     var tab by remember { mutableStateOf(1) }
     var showClearDialog by remember { mutableStateOf(false) }
+    var clearConfirmText by remember { mutableStateOf("") }
     val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
     var desc by remember { mutableStateOf("") }; var amount by remember { mutableStateOf("") }
     var direction by remember { mutableStateOf("debit") }; var txnDate by remember { mutableStateOf(today) }
@@ -34,9 +35,21 @@ fun CombinedUploadScreen(
     var notes by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; var success by remember { mutableStateOf("") }
 
     if (showClearDialog) {
-        AlertDialog(onDismissRequest = { showClearDialog = false }, title = { Text("Clear All Data?") }, text = { Text("This action cannot be undone.") },
-            confirmButton = { TextButton(onClick = { showClearDialog = false; onClearAllData() }) { Text("Clear", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { showClearDialog = false; clearConfirmText = "" },
+            title = { Text("Clear All Data", color = MaterialTheme.colorScheme.error) },
+            text = {
+                Column {
+                    Text("This will permanently delete all transactions, statements, and chat history. This action cannot be undone.", fontSize = 13.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Type DELETE to confirm:", fontSize = 13.sp)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(value = clearConfirmText, onValueChange = { clearConfirmText = it }, placeholder = { Text("DELETE") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showClearDialog = false; clearConfirmText = ""; onClearAllData() }, enabled = clearConfirmText == "DELETE") { Text("Clear Everything", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showClearDialog = false; clearConfirmText = "" }) { Text("Cancel") } })
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -71,8 +84,8 @@ fun CombinedUploadScreen(
                         OutlinedTextField(value = amount, onValueChange = { amount = it }, placeholder = { Text("Amount") }, singleLine = true, modifier = Modifier.weight(1f))
                         Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                             Row(Modifier.padding(4.dp)) {
-                                FilterChip(selected = direction == "debit", onClick = { direction = "debit" }, label = { Text("Expense", fontSize = 12.sp) })
-                                FilterChip(selected = direction == "credit", onClick = { direction = "credit" }, label = { Text("Income", fontSize = 12.sp) })
+                                FilterChip(selected = direction == "debit", onClick = { direction = "debit" }, label = { Text("Expense", fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer, selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer))
+                                FilterChip(selected = direction == "credit", onClick = { direction = "credit" }, label = { Text("Income", fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer, selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer))
                             }
                         }
                     }

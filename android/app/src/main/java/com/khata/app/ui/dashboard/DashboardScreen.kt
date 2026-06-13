@@ -18,9 +18,9 @@ import com.khata.app.api.DashboardStats
 import com.khata.app.ui.charts.CategoryPieChart
 import com.khata.app.ui.charts.MonthlyBarChart
 import com.khata.app.ui.components.StatCard
-
-private fun fmt(n: Double) = "₹${String.format("%,.0f", n)}"
-private fun fmtDec(n: Double) = "₹${String.format("%,.2f", n)}"
+import com.khata.app.util.formatDate
+import com.khata.app.util.formatINR
+import com.khata.app.util.maskDescription
 
 @Composable
 fun DashboardScreen(
@@ -28,6 +28,7 @@ fun DashboardScreen(
     analysis: AnalysisStats?,
     isLoading: Boolean,
     error: String?,
+    blurMode: Boolean = true,
     onRefresh: () -> Unit,
     onNavigateToTransactions: (String) -> Unit = {}
 ) {
@@ -65,14 +66,14 @@ fun DashboardScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     StatCard(
                         label = "Net Balance",
-                        value = fmt(stats.net),
+                        value = formatINR(stats.net),
                         icon = { Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
                     )
                     StatCard(
                         label = "Total Spent",
-                        value = fmt(stats.totalSpent),
+                        value = formatINR(stats.totalSpent),
                         icon = { Icon(Icons.Default.TrendingDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f)
@@ -84,7 +85,7 @@ fun DashboardScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     StatCard(
                         label = "Total Earned",
-                        value = fmt(stats.totalEarned),
+                        value = formatINR(stats.totalEarned),
                         icon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.secondary,
                         subtitle = "${analysis?.totalTransactions ?: 0} transactions",
@@ -107,7 +108,7 @@ fun DashboardScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         StatCard(
                             label = "Invested",
-                            value = fmt(analysis!!.totalInvested),
+                            value = formatINR(analysis!!.totalInvested),
                             icon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp)) },
                             accentColor = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f)
@@ -136,7 +137,7 @@ fun DashboardScreen(
                         ) {
                             Column {
                                 Text("This month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(fmt(analysis.monthComparison.thisMonth), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("vs last month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -194,12 +195,12 @@ fun DashboardScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 letterSpacing = 0.8.sp)
                             Spacer(Modifier.height(8.dp))
-                            Text(fmtDec(analysis.largestExpense!!.amount), fontSize = 26.sp,
+                            Text(formatINR(analysis.largestExpense!!.amount), fontSize = 26.sp,
                                 fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                            Text(analysis.largestExpense!!.description, fontSize = 13.sp,
+                            Text(maskDescription(analysis.largestExpense!!.description, blurMode), fontSize = 13.sp,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onBackground)
-                            Text(analysis.largestExpense!!.valueDate, fontSize = 12.sp,
+                            Text(formatDate(analysis.largestExpense!!.valueDate), fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -223,7 +224,7 @@ fun DashboardScreen(
                             ) {
                                 Text(t.description, fontSize = 13.sp, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(fmtDec(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.error)
                             }
                             HorizontalDivider(

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Plus, Trash2, Sparkles } from 'lucide-react'
+import { EmptyState } from '../components/EmptyState'
 
 interface Rule {
   id: string; pattern: string; category: string
@@ -67,14 +68,14 @@ export function RulesPage() {
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        {rules.length === 0 && <p className="text-muted" style={{ padding: 20, textAlign: 'center' }}>No rules yet. Add keywords like ZOMATO → Food & Dining</p>}
+        {rules.length === 0 && <EmptyState icon="🔤" title="No rules yet" description="Auto-categorize transactions by keyword. Add rules like ZOMATO → Food & Dining to save time." action={{ label: 'Create your first rule', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder*="keyword"]')?.focus() }} />}
         {rules.map(r => (
-          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-            <span className="badge badge-gray" style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.pattern}</span>
+          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--hairline)', overflow: 'hidden' }}>
+            <span className="badge badge-gray" style={{ fontFamily: 'monospace', fontSize: 12, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }} title={r.pattern}>{r.pattern}</span>
             <span style={{ color: 'var(--text-2)' }}>→</span>
             <span className="badge badge-purple">{r.category}</span>
             <div style={{ flex: 1 }} />
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => del(r.id)}><Trash2 size={14} /></button>
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => del(r.id)}><Trash2 size={14} /></button>
           </div>
         ))}
       </div>

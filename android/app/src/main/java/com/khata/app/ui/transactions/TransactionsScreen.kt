@@ -24,8 +24,8 @@ import com.khata.app.api.TxnRow
 import com.khata.app.viewmodel.TxnFilter
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
-private fun fmt(n: Double) = "₹${String.format("%,.2f", n)}"
+import com.khata.app.util.formatDate
+import com.khata.app.util.formatINR
 
 data class DatePreset(val label: String, val from: String?, val to: String?)
 
@@ -310,7 +310,9 @@ fun TransactionsScreen(
                         Text("📄", fontSize = 36.sp)
                         Spacer(Modifier.height(8.dp))
                         Text("No transactions found", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Try changing the date range", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Try changing the date range or upload a new statement", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = { selectedPreset = 0; reload() }) { Text("Show all time") }
                     }
                 }
                 return@Column
@@ -357,6 +359,7 @@ private fun TransactionCard(
     var notesText by remember { mutableStateOf(txn.notes) }
     var showCatMenu by remember { mutableStateOf(false) }
     var newCat by remember { mutableStateOf("") }
+    var showOverflow by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -381,12 +384,12 @@ private fun TransactionCard(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                    Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
                     if (txn.notes.isNotBlank()) {
                         Text(txn.notes, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(txn.valueDate, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatDate(txn.valueDate), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         if (txn.isTransfer) { Spacer(Modifier.width(4.dp)); Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiaryContainer) { Text("↔", fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) } }
                         // Inline clickable category (instead of separate badge + dropdown)
@@ -411,17 +414,28 @@ private fun TransactionCard(
                         }
                     }
                 }
-                Text(fmt(txn.amount), fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                    color = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true), fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                        color = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+                    Box {
+                        IconButton(onClick = { showOverflow = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "More", modifier = Modifier.size(16.dp)) }
+                        DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
+                            DropdownMenuItem(
+                                text = { Text(if (txn.isTransfer) "Remove transfer" else "Mark transfer", fontSize = 12.sp) },
+                                onClick = { onToggleTransfer(txn.id, !txn.isTransfer); showOverflow = false },
+                                leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Notes", fontSize = 12.sp) },
+                                onClick = { showOverflow = false; showNotes = !showNotes; if (showNotes) notesText = txn.notes },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            )
+                        }
+                    }
+                }
             }
 
-            // Action buttons
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilterChip(selected = txn.isTransfer, onClick = { onToggleTransfer(txn.id, !txn.isTransfer) }, label = { Text("↔", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
-                FilterChip(selected = showNotes, onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes }, label = { Text("📝", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
-            }
-
+            // Notes expand
             if (showNotes) {
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

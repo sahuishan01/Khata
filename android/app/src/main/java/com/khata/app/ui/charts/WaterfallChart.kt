@@ -16,11 +16,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MonthBucket
+import com.khata.app.util.formatINR
 
-private val SpendColor = Color(0xFFE17055)
-private val EarnColor = Color(0xFF00B894)
-private val NetPosColor = Color(0xFF6C5CE7)
-private val NetNegColor = Color(0xFFE17055)
+private val SpendColor = Color(0xFFEE6B4D)
+private val EarnColor = Color(0xFF2EC27E)
+private val NetPosColor = Color(0xFF8479F2)
+private val NetNegColor = Color(0xFFEE6B4D)
 
 @Composable
 fun WaterfallChart(
@@ -67,7 +68,7 @@ fun WaterfallChart(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "₹${String.format("%,.0f", kotlin.math.abs(net))}",
+                        formatINR(kotlin.math.abs(net)),
                         fontSize = 8.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (net >= 0) MaterialTheme.colorScheme.secondary

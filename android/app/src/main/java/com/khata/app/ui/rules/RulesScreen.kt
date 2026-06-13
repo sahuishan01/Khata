@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.CategoryRule
@@ -45,7 +46,7 @@ fun RulesScreen(
         items(rules, key = { it.id }) { r ->
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer) { Text(r.pattern, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) }
+                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.widthIn(max = 200.dp)) { Text(r.pattern, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) }
                     Spacer(Modifier.width(8.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
@@ -55,6 +56,18 @@ fun RulesScreen(
                 }
             }
         }
-        if (rules.isEmpty()) item { Text("No rules yet. Add ZOMATO → Food & Dining", modifier = Modifier.padding(vertical = 20.dp).fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (rules.isEmpty()) item {
+            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("📋", fontSize = 32.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("No rules yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Add keyword-based rules to auto-categorize transactions. E.g. ZOMATO → Food & Dining.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = {}) { Text("Add your first rule") }
+                }
+            }
+        }
     }
 }
