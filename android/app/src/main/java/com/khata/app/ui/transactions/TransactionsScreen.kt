@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -67,12 +68,12 @@ fun TransactionsScreen(
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
     onUpdateCategory: ((String, String) -> Unit)? = null
 ) {
-    var sortBy by remember { mutableStateOf("date") }
-    var sortDir by remember { mutableStateOf("desc") }
-    var selectedCategory by remember { mutableStateOf(initialCategory) }
-    var selectedPreset by remember { mutableStateOf(0) }
-    var customFrom by remember { mutableStateOf("") }
-    var customTo by remember { mutableStateOf("") }
+    var sortBy by rememberSaveable { mutableStateOf("date") }
+    var sortDir by rememberSaveable { mutableStateOf("desc") }
+    var selectedCategory by rememberSaveable { mutableStateOf(initialCategory) }
+    var selectedPreset by rememberSaveable { mutableStateOf(0) }
+    var customFrom by rememberSaveable { mutableStateOf("") }
+    var customTo by rememberSaveable { mutableStateOf("") }
     var showSortMenu by remember { mutableStateOf(false) }
     var showCatFilter by remember { mutableStateOf(false) }
     var showCustomDatePicker by remember { mutableStateOf(false) }
@@ -149,7 +150,7 @@ fun TransactionsScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp).imePadding()) {
         Text("Transactions", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
 
@@ -358,8 +359,25 @@ private fun TransactionCard(
                         Text(txn.valueDate, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         if (txn.isTransfer) { Spacer(Modifier.width(4.dp)); Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiaryContainer) { Text("↔", fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) } }
-                        Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Text(txn.category, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // Inline clickable category (instead of separate badge + dropdown)
+                        Box {
+                            Surface(
+                                onClick = { showCatMenu = true },
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(txn.category, fontSize = 10.sp, maxLines = 1, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }, modifier = Modifier.heightIn(max = 240.dp)) {
+                                allCategories.forEach { cat ->
+                                    DropdownMenuItem(text = { Text(cat, fontSize = 11.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false }, modifier = Modifier.height(36.dp))
+                                }
+                                HorizontalDivider()
+                                OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))
+                                if (newCat.isNotBlank()) {
+                                    DropdownMenuItem(text = { Text("Create \"$newCat\"", fontSize = 12.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, newCat); showCatMenu = false; newCat = "" })
+                                }
+                            }
                         }
                     }
                 }
@@ -372,19 +390,6 @@ private fun TransactionCard(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilterChip(selected = txn.isTransfer, onClick = { onToggleTransfer(txn.id, !txn.isTransfer) }, label = { Text("↔", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
                 FilterChip(selected = showNotes, onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes }, label = { Text("📝", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
-                Box {
-                    FilterChip(selected = false, onClick = { showCatMenu = true }, label = { Text(txn.category.take(8), fontSize = 9.sp, maxLines = 1) }, modifier = Modifier.height(28.dp))
-                    DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }, modifier = Modifier.heightIn(max = 240.dp)) {
-                        allCategories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat, fontSize = 11.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false }, modifier = Modifier.height(36.dp))
-                        }
-                        HorizontalDivider()
-                        OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))
-                        if (newCat.isNotBlank()) {
-                            DropdownMenuItem(text = { Text("Create \"$newCat\"", fontSize = 12.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, newCat); showCatMenu = false; newCat = "" })
-                        }
-                    }
-                }
             }
 
             if (showNotes) {
