@@ -311,6 +311,13 @@ pub async fn update_category(
                     )
                     .bind(user_id).bind(&pattern).bind(&category)
                     .execute(&mut *tx).await;
+                    // Apply rule to all matching transactions
+                    let like = format!("%{}%", pattern.to_uppercase());
+                    let _ = sqlx::query(
+                        "UPDATE transactions SET category = $1 WHERE user_id = $2 AND UPPER(description) LIKE $3 AND NOT is_transfer AND NOT is_investment"
+                    )
+                    .bind(&category).bind(user_id).bind(&like)
+                    .execute(&mut *tx).await;
                 }
             }
             result

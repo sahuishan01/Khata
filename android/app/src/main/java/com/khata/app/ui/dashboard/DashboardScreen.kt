@@ -28,7 +28,8 @@ fun DashboardScreen(
     analysis: AnalysisStats?,
     isLoading: Boolean,
     error: String?,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onNavigateToTransactions: (String) -> Unit = {}
 ) {
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -176,7 +177,7 @@ fun DashboardScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 letterSpacing = 0.8.sp)
                             Spacer(Modifier.height(12.dp))
-                            CategoryPieChart(data = analysis.categoryBreakdown)
+                            CategoryPieChart(data = analysis.categoryBreakdown, onCategoryClick = { cat -> onNavigateToTransactions(cat) })
                         }
                     }
                 }

@@ -62,7 +62,11 @@ fun CategoriesScreen(
         var description by remember { mutableStateOf("") }
         var txnType by remember { mutableStateOf("expense") }
         var color by remember { mutableStateOf("#6C5CE7") }
-        val colors = listOf("#6C5CE7", "#00B894", "#E17055", "#FDCB6E", "#74B9FF", "#00CEC9", "#FD79A8", "#636E72")
+        val colors = listOf(
+            "#6C5CE7", "#00B894", "#E17055", "#FDCB6E", "#74B9FF", "#00CEC9", "#FD79A8", "#636E72",
+            "#FF6B6B", "#48DBFB", "#FF9FF3", "#54A0FF", "#5F27CD", "#01A3A4", "#F368E0", "#EE5A24",
+            "#0ABDE3", "#10AC84", "#222F3E", "#ED4C67", "#12CBC4", "#B71540", "#5758BB", "#FFC312"
+        )
 
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -76,21 +80,33 @@ fun CategoriesScreen(
                         FilterChip(selected = txnType == "income", onClick = { txnType = "income" }, label = { Text("Income", fontSize = 12.sp) })
                     }
                     Text("Color", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        colors.forEach { c ->
-                            val isSelected = color == c
-                            val cColor = try { Color(android.graphics.Color.parseColor(c)) } catch (_: Exception) { Color.Gray }
-                            Surface(
-                                onClick = { color = c },
-                                shape = CircleShape,
-                                modifier = Modifier.size(28.dp),
-                                color = cColor
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (isSelected) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    // Color grid
+                    val rows = colors.chunked(6)
+                    rows.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row.forEach { c ->
+                                val isSelected = color == c
+                                val cColor = try { Color(android.graphics.Color.parseColor(c)) } catch (_: Exception) { Color.Gray }
+                                Surface(
+                                    onClick = { color = c },
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(28.dp),
+                                    color = cColor
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (isSelected) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                    }
                                 }
                             }
                         }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(value = color, onValueChange = { newColor ->
+                            if (newColor.startsWith("#") && newColor.length in 4..7) color = newColor
+                        }, label = { Text("Hex", fontSize = 10.sp) }, singleLine = true, modifier = Modifier.width(100.dp).height(48.dp), textStyle = LocalTextStyle.current.copy(fontSize = 12.sp))
+                        Box(Modifier.size(28.dp).clip(CircleShape).background(try { Color(android.graphics.Color.parseColor(color)) } catch (_: Exception) { Color.Gray }))
+                        Text("Custom hex color", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
