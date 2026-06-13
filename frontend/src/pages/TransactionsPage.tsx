@@ -152,14 +152,29 @@ export function TransactionsPage() {
           )}
         </div>
 
-        {/* Search input */}
-        <input
-          className="form-input"
-          style={{ width: 200, padding: '6px 10px', fontSize: 13 }}
-          placeholder="Search payee or ref…"
-          value={searchQuery}
-          onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
-        />
+        {/* Search + Category filter */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            className="form-input"
+            style={{ width: 180, padding: '6px 10px', fontSize: 13 }}
+            placeholder="Search payee or ref…"
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
+          />
+          <select
+            className="form-input"
+            style={{ width: 'auto', padding: '6px 10px', fontSize: 13 }}
+            value={categoryFilter}
+            onChange={e => {
+              const val = e.target.value
+              if (val) setSearchParams({ category: val })
+              else { setSearchParams({}); setPage(1) }
+            }}
+          >
+            <option value="">All categories</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
 
         {/* Mobile sort dropdown */}
         <div id="mobile-sort" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
