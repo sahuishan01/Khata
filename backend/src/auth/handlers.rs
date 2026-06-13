@@ -2,16 +2,17 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use axum::{extract::Path, extract::State, Json};
+use axum::{extract::Path, extract::State, http::header, response::IntoResponse, Json};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{config::Config, error::AppError, AppState};
+use crate::{audit, config::Config, error::AppError, AppState};
 
 use super::middleware::{AdminUser, CurrentUser};
 use super::models::*;
+use super::models::Role;
 
 pub async fn do_register(
     pool: &PgPool,
@@ -46,9 +47,9 @@ pub async fn do_register(
     issue_token(user.0, cfg)
 }
 
-pub async fn do_login(pool: &PgPool, email: &str, password: &str, cfg: &Config) -> anyhow::Result<String> {
+pub async fn do_login(pool: &PgPool, email: &str, password: &str, cfg: &Config) -> anyhow::Result<(String, bool)> {
     let row = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at FROM users WHERE email = $1",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users WHERE email = $1",
     )
     .bind(email)
     .fetch_optional(pool)
@@ -61,7 +62,8 @@ pub async fn do_login(pool: &PgPool, email: &str, password: &str, cfg: &Config) 
         .verify_password(password.as_bytes(), &parsed)
         .map_err(|_| anyhow::anyhow!("invalid credentials"))?;
 
-    issue_token(row.id, cfg)
+    let token = issue_token(row.id, cfg)?;
+    Ok((token, row.must_reset_password))
 }
 
 fn issue_token(user_id: uuid::Uuid, cfg: &Config) -> anyhow::Result<String> {
@@ -96,7 +98,7 @@ pub async fn setup_status_handler(
 pub async fn setup_handler(
     State(state): State<AppState>,
     Json(req): Json<SetupReq>,
-) -> Result<Json<AuthResponse>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     let admin_exists: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin')",
     )
@@ -111,25 +113,68 @@ pub async fn setup_handler(
     if req.email.trim().is_empty() {
         return Err(AppError::BadRequest("Email is required".into()));
     }
-    if req.password.len() < 8 {
-        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
+    if req.password.len() < 12 {
+        return Err(AppError::BadRequest("Password must be at least 12 characters".into()));
     }
 
     let token = do_register(&state.db, &req.email.trim(), &req.password, "admin", &state.config)
         .await
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
-    Ok(Json(AuthResponse { token }))
+    // Audit: decode token to get user id
+    if let Ok(claims) = jsonwebtoken::decode::<serde_json::Value>(
+        &token,
+        &jsonwebtoken::DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
+        &jsonwebtoken::Validation::default(),
+    ) {
+        let sub = claims.claims.get("sub").and_then(|v| v.as_str());
+        if let Some(uid_str) = sub {
+            if let Ok(uid) = uuid::Uuid::parse_str(uid_str) {
+                audit::log_audit(&state.db, uid, "user_created", Some(serde_json::json!({"role": "admin"}))).await;
+            }
+        }
+    }
+
+    let is_local = state.config.bind_addr.starts_with("127.0.0.1") || state.config.bind_addr.contains("localhost");
+    let cookie = format!(
+        "khata_token={}; HttpOnly; {}SameSite=Strict; Path=/; Max-Age={}",
+        token,
+        if is_local { "" } else { "Secure; " },
+        30 * 24 * 3600
+    );
+    Ok(([(header::SET_COOKIE, cookie)], Json(AuthResponse { token, must_reset_password: false })))
 }
 
 pub async fn login_handler(
     State(state): State<AppState>,
     Json(req): Json<LoginReq>,
-) -> Result<Json<AuthResponse>, AppError> {
-    let token = do_login(&state.db, &req.email, &req.password, &state.config)
+) -> Result<impl IntoResponse, AppError> {
+    let (token, must_reset_password) = do_login(&state.db, &req.email, &req.password, &state.config)
         .await
         .map_err(|_| AppError::Unauthorized)?;
-    Ok(Json(AuthResponse { token }))
+
+    // We need the user id to audit login; decode from token
+    if let Ok(claims) = jsonwebtoken::decode::<serde_json::Value>(
+        &token,
+        &jsonwebtoken::DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
+        &jsonwebtoken::Validation::default(),
+    ) {
+        let sub = claims.claims.get("sub").and_then(|v| v.as_str());
+        if let Some(uid_str) = sub {
+            if let Ok(uid) = uuid::Uuid::parse_str(uid_str) {
+                audit::log_audit(&state.db, uid, "login", None).await;
+            }
+        }
+    }
+
+    let is_local = state.config.bind_addr.starts_with("127.0.0.1") || state.config.bind_addr.contains("localhost");
+    let cookie = format!(
+        "khata_token={}; HttpOnly; {}SameSite=Strict; Path=/; Max-Age={}",
+        token,
+        if is_local { "" } else { "Secure; " },
+        30 * 24 * 3600
+    );
+    Ok(([(header::SET_COOKIE, cookie)], Json(AuthResponse { token, must_reset_password })))
 }
 
 pub async fn me_handler(
@@ -137,7 +182,7 @@ pub async fn me_handler(
     current_user: CurrentUser,
 ) -> Result<Json<MeResponse>, AppError> {
     let row = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at FROM users WHERE id = $1",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users WHERE id = $1",
     )
     .bind(current_user.0)
     .fetch_optional(&state.db)
@@ -148,7 +193,7 @@ pub async fn me_handler(
     Ok(Json(MeResponse {
         id: row.id,
         email: row.email,
-        role: row.role,
+        role: Role::from_str(&row.role),
     }))
 }
 
@@ -160,8 +205,8 @@ pub async fn admin_create_user_handler(
     if req.email.trim().is_empty() {
         return Err(AppError::BadRequest("Email is required".into()));
     }
-    if req.password.len() < 8 {
-        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
+    if req.password.len() < 12 {
+        return Err(AppError::BadRequest("Password must be at least 12 characters".into()));
     }
 
     let salt = SaltString::generate(&mut OsRng);
@@ -171,7 +216,7 @@ pub async fn admin_create_user_handler(
         .to_string();
 
     let user: (uuid::Uuid,) = sqlx::query_as(
-        "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'user') RETURNING id",
+        "INSERT INTO users (email, password_hash, role, must_reset_password) VALUES ($1, $2, 'user', true) RETURNING id",
     )
     .bind(&req.email)
     .bind(&hash)
@@ -186,10 +231,17 @@ pub async fn admin_create_user_handler(
         AppError::BadRequest("Failed to create user — please try again".into())
     })?;
 
+    audit::log_audit(
+        &state.db,
+        _admin.0,
+        "user_created",
+        Some(serde_json::json!({"created_user_id": user.0, "email": &req.email})),
+    ).await;
+
     Ok(Json(UserResponse {
         id: user.0,
         email: req.email,
-        role: "user".into(),
+        role: Role::User,
     }))
 }
 
@@ -198,7 +250,7 @@ pub async fn list_users_handler(
     _admin: AdminUser,
 ) -> Result<Json<Vec<UserResponse>>, AppError> {
     let rows = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at FROM users ORDER BY created_at ASC",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users ORDER BY created_at ASC",
     )
     .fetch_all(&state.db)
     .await
@@ -209,7 +261,7 @@ pub async fn list_users_handler(
         .map(|u| UserResponse {
             id: u.id,
             email: u.email,
-            role: u.role,
+            role: Role::from_str(&u.role),
         })
         .collect();
 
@@ -221,12 +273,12 @@ pub async fn reset_password_handler(
     current_user: CurrentUser,
     Json(req): Json<ResetPasswordReq>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if req.new_password.len() < 8 {
-        return Err(AppError::BadRequest("New password must be at least 8 characters".into()));
+    if req.new_password.len() < 12 {
+        return Err(AppError::BadRequest("New password must be at least 12 characters".into()));
     }
 
     let row = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at FROM users WHERE id = $1",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users WHERE id = $1",
     )
     .bind(current_user.0)
     .fetch_optional(&state.db)
@@ -246,7 +298,7 @@ pub async fn reset_password_handler(
         .map_err(|e| AppError::BadRequest(format!("Hash error: {e}")))?
         .to_string();
 
-    sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+    sqlx::query("UPDATE users SET password_hash = $1, must_reset_password = false, password_changed_at = NOW() WHERE id = $2")
         .bind(&new_hash)
         .bind(current_user.0)
         .execute(&state.db)
@@ -274,6 +326,13 @@ pub async fn delete_user_handler(
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound);
     }
+
+    audit::log_audit(
+        &state.db,
+        admin.0,
+        "user_deleted",
+        Some(serde_json::json!({"deleted_user_id": user_id})),
+    ).await;
 
     Ok(Json(serde_json::json!({ "message": "User deleted" })))
 }
@@ -343,7 +402,7 @@ mod tests {
             .unwrap();
         assert!(!token.is_empty());
 
-        let token2 = do_login(&pool, "test@test.com", "password123", &cfg)
+        let (token2, _) = do_login(&pool, "test@test.com", "password123", &cfg)
             .await
             .unwrap();
         assert!(!token2.is_empty());
@@ -358,5 +417,178 @@ mod tests {
         do_register(&pool, "dup@test.com", "pass123", "user", &cfg).await.unwrap();
         let err = do_register(&pool, "dup@test.com", "pass456", "user", &cfg).await;
         assert!(err.is_err());
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn user_b_cannot_see_user_a_txns(pool: PgPool) {
+        use uuid::Uuid;
+        use crate::ingest::store::insert_statement;
+
+        let (uid_a,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('a_idor@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (uid_b,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('b_idor@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let sid_a = insert_statement(&pool, uid_a, "HDFC", "a.csv", "sha_idor_a", 1)
+            .await
+            .unwrap();
+
+        let mut tx = pool.begin().await.unwrap();
+        sqlx::query("SET LOCAL app.current_user_id = $1")
+            .bind(uid_a)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO transactions (user_id,statement_id,bank,account_label,txn_date,value_date,description,raw_description,amount,direction,fingerprint) \
+             VALUES ($1,$2,'HDFC','',NOW(),NOW(),'secret-data','secret-data',100,'debit','fp_idor_test')",
+        )
+        .bind(uid_a)
+        .bind(sid_a)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+
+        let mut tx_b = pool.begin().await.unwrap();
+        sqlx::query("SET LOCAL app.current_user_id = $1")
+            .bind(uid_b)
+            .execute(&mut *tx_b)
+            .await
+        .unwrap();
+
+        let rows: Vec<(i64,)> = sqlx::query_as("SELECT COUNT(*)::bigint FROM transactions")
+            .fetch_all(&mut *tx_b)
+            .await
+        .unwrap();
+        tx_b.rollback().await.unwrap();
+
+        assert_eq!(rows[0].0, 0, "User B must NOT see User A's transactions");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn user_b_cannot_delete_user_a_account(pool: PgPool) {
+        use uuid::Uuid;
+
+        let (uid_a,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('a_acct@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (uid_b,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('b_acct@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (acct_id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO user_accounts (user_id, label, identifier) VALUES ($1, 'A Account', 'a@upi') RETURNING id",
+        )
+        .bind(uid_a)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let result = crate::auth::verify_ownership(&pool, acct_id, uid_b, "user_accounts", "id").await;
+        assert!(matches!(result, Err(AppError::Forbidden)));
+
+        let (count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM user_accounts WHERE id = $1"
+        )
+        .bind(acct_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(count, 1, "Account must still exist");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn user_b_cannot_delete_user_a_budget(pool: PgPool) {
+        use uuid::Uuid;
+
+        let (uid_a,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('a_bgt@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (uid_b,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('b_bgt@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (budget_id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO budgets (user_id, category, monthly_limit) VALUES ($1, 'Groceries', 5000) RETURNING id",
+        )
+        .bind(uid_a)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let result = crate::auth::verify_ownership(&pool, budget_id, uid_b, "budgets", "id").await;
+        assert!(matches!(result, Err(AppError::Forbidden)));
+
+        let (count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM budgets WHERE id = $1"
+        )
+        .bind(budget_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(count, 1, "Budget must still exist");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn user_b_cannot_delete_user_a_rule(pool: PgPool) {
+        use uuid::Uuid;
+
+        let (uid_a,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('a_rule@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (uid_b,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO users (email, password_hash, role) VALUES ('b_rule@test.com','x','user') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let (rule_id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO category_rules (user_id, pattern, category) VALUES ($1, 'AMAZON', 'Shopping') RETURNING id",
+        )
+        .bind(uid_a)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let result = crate::auth::verify_ownership(&pool, rule_id, uid_b, "category_rules", "id").await;
+        assert!(matches!(result, Err(AppError::Forbidden)));
+
+        let (count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM category_rules WHERE id = $1"
+        )
+        .bind(rule_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(count, 1, "Rule must still exist");
     }
 }

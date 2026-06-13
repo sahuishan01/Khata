@@ -8,6 +8,7 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const login = useAuth(s => s.login)
+  const mustResetPassword = useAuth(s => s.mustResetPassword)
   const navigate = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
@@ -16,7 +17,11 @@ export function LoginPage() {
     setError('')
     try {
       await login(email, password)
-      navigate('/')
+      if (mustResetPassword || useAuth.getState().mustResetPassword) {
+        navigate('/reset-password', { state: { forceReset: true } })
+      } else {
+        navigate('/')
+      }
     } catch (err: unknown) {
       const e = err as { response?: { status?: number }; message?: string }
       if (e.response?.status === 401) {

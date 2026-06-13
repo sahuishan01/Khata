@@ -1,7 +1,8 @@
 use axum::{extract::State, Json};
+use std::time::Instant;
 use uuid::Uuid;
 
-use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
+use crate::{audit, auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::{claude_cli, models::*, predefined, sql_validator::validate_select_sql};
 
@@ -12,6 +13,22 @@ pub async fn ask_handler(
 ) -> Result<Json<AskResponse>, AppError> {
     if req.question.trim().is_empty() {
         return Err(AppError::BadRequest("question is empty".into()));
+    }
+
+    // ── Rate limiting: one call per user per 30 seconds ──────────────────
+    {
+        let mut ratelimit = state.chat_ratelimit.lock().unwrap();
+        let now = Instant::now();
+
+        // Clean up stale entries older than 5 minutes
+        ratelimit.retain(|_, last| now.duration_since(*last).as_secs() < 300);
+
+        if let Some(last) = ratelimit.get(&user_id) {
+            if now.duration_since(*last).as_secs() < 30 {
+                return Err(AppError::TooManyRequests);
+            }
+        }
+        ratelimit.insert(user_id, now);
     }
 
     // Fetch user's categories — used for predefined category-spend matching
@@ -31,14 +48,14 @@ pub async fn ask_handler(
         rows.into_iter().map(|(c,)| c).collect()
     };
 
-    let (sql, answer) =
+    let (sql, answer, row_count) =
         if let Some(pre) = predefined::match_question(&req.question, &categories) {
             // ── Predefined path: no Claude call at all ────────────────────────
             let rows_json = execute_safe(&state.db_ro, user_id, &pre.sql).await?;
             let rows: Vec<serde_json::Value> =
                 serde_json::from_str(&rows_json).unwrap_or_default();
             let answer = predefined::format_predefined(pre.kind, &rows, &pre.label);
-            (pre.sql, answer)
+            (pre.sql, answer, rows.len())
         } else {
             // ── Claude fallback: one call to generate SQL ─────────────────────
             let sql_raw =
@@ -57,7 +74,7 @@ pub async fn ask_handler(
             let rows: Vec<serde_json::Value> =
                 serde_json::from_str(&rows_json).unwrap_or_default();
             let answer = predefined::format_generic(&rows);
-            (sql_gen.sql, answer)
+            (sql_gen.sql, answer, rows.len())
         };
 
     // Persist Q + A
@@ -79,6 +96,18 @@ pub async fn ask_handler(
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+
+    // Audit log
+    audit::log_audit(
+        &state.db,
+        user_id,
+        "chat_query",
+        Some(serde_json::json!({
+            "question": &req.question,
+            "sql": &sql,
+            "row_count": row_count,
+        })),
+    ).await;
 
     Ok(Json(AskResponse { answer, sql_used: sql }))
 }

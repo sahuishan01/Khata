@@ -41,3 +41,9 @@
 # Coroutines
 -dontwarn kotlinx.coroutines.**
 -keep class kotlinx.coroutines.** { *; }
+
+# Tink / EncryptedSharedPreferences
+-dontwarn com.google.crypto.tink.**
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.errorprone.**
+-keep class com.google.errorprone.** { *; }

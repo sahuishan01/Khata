@@ -4,7 +4,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
+use crate::{auth, auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::models::*;
 
@@ -62,10 +62,11 @@ pub async fn delete_category(
     CurrentUser(user_id): CurrentUser,
     Path(cat_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let r = sqlx::query("DELETE FROM categories WHERE id = $1 AND user_id = $2")
-        .bind(cat_id).bind(user_id)
+    auth::verify_ownership(&state.db, cat_id, user_id, "categories", "id").await?;
+
+    sqlx::query("DELETE FROM categories WHERE id = $1")
+        .bind(cat_id)
         .execute(&state.db).await
         .map_err(|_| AppError::BadRequest("Failed".into()))?;
-    if r.rows_affected() == 0 { return Err(AppError::NotFound); }
     Ok(Json(serde_json::json!({ "message": "Category deleted" })))
 }

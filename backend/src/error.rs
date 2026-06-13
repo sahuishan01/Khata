@@ -11,6 +11,8 @@ pub enum AppError {
     NotFound,
     #[error("unauthorized")]
     Unauthorized,
+    #[error("too many requests")]
+    TooManyRequests,
     #[error("bad request: {0}")]
     BadRequest(String),
     #[error("conflict: {0}")]
@@ -19,6 +21,10 @@ pub enum AppError {
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
+    #[error("forbidden")]
+    Forbidden,
+    #[error("internal error")]
+    Internal,
     #[error("multipart error: {0}")]
     Multipart(String),
 }
@@ -34,9 +40,12 @@ impl IntoResponse for AppError {
         let (status, msg) = match &self {
             AppError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
+            AppError::TooManyRequests => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
+            AppError::Forbidden => (StatusCode::FORBIDDEN, self.to_string()),
             AppError::BadRequest(m) => (StatusCode::BAD_REQUEST, m.clone()),
             AppError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
             AppError::Multipart(m) => (StatusCode::BAD_REQUEST, m.clone()),
+            AppError::Internal => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             AppError::Sqlx(e) => {
                 tracing::error!("sqlx error: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "database error".into())

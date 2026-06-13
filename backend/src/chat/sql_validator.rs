@@ -20,9 +20,27 @@ pub fn validate_select_sql(sql: &str) -> Result<()> {
     for kw in &[
         "insert ", "update ", "delete ", "drop ", "truncate ", "alter ",
         "create ", "grant ", "revoke ", "execute ", "call ", "copy ",
+        "pg_sleep", "pg_read_file", "pg_write_file",
     ] {
         if lower.contains(kw) {
             bail!("disallowed keyword: {}", kw.trim());
+        }
+    }
+
+    // Block information_schema and pg_catalog table access
+    if lower.contains("information_schema") || lower.contains("pg_catalog") {
+        bail!("access to system schemas is not allowed");
+    }
+
+    // Block any semicolons inside string literals
+    let mut in_string = false;
+    let mut escape = false;
+    for c in sql.chars() {
+        if escape { escape = false; continue; }
+        if c == '\\' { escape = true; continue; }
+        if c == '\'' { in_string = !in_string; continue; }
+        if in_string && c == ';' {
+            bail!("semicolons inside string content are not allowed");
         }
     }
 

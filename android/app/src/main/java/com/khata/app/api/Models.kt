@@ -2,7 +2,10 @@ package com.khata.app.api
 
 import com.google.gson.annotations.SerializedName
 
-data class AuthResponse(val token: String)
+data class AuthResponse(
+    val token: String,
+    @SerializedName("must_reset_password") val mustResetPassword: Boolean = false
+)
 data class MeResponse(val id: String, val email: String, val role: String)
 data class SetupStatusResponse(@SerializedName("setup_required") val setupRequired: Boolean)
 data class UserResponse(val id: String, val email: String, val role: String)

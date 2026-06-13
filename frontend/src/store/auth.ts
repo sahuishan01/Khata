@@ -10,6 +10,8 @@ interface UserInfo {
 interface AuthState {
   token: string | null
   user: UserInfo | null
+  loading: boolean
+  mustResetPassword: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   setup: (email: string, password: string) => Promise<void>
@@ -20,24 +22,25 @@ interface AuthState {
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
-  token: localStorage.getItem('token'),
+  token: null,
   user: null,
+  loading: true,
+  mustResetPassword: false,
 
   login: async (email, password) => {
-    const { data } = await api.post<{ token: string }>('/auth/login', { email, password })
-    localStorage.setItem('token', data.token)
-    set({ token: data.token })
-    await get().fetchMe()
+    const { data } = await api.post<{ token: string; must_reset_password: boolean }>('/auth/login', { email, password })
+    set({ token: data.token, mustResetPassword: data.must_reset_password })
+    if (!data.must_reset_password) {
+      await get().fetchMe()
+    }
   },
 
   logout: () => {
-    localStorage.removeItem('token')
     set({ token: null, user: null })
   },
 
   setup: async (email, password) => {
     const { data } = await api.post<{ token: string }>('/auth/setup', { email, password })
-    localStorage.setItem('token', data.token)
     set({ token: data.token })
     await get().fetchMe()
   },
@@ -51,13 +54,11 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   fetchMe: async () => {
-    const token = get().token || localStorage.getItem('token')
-    if (!token) return
     try {
       const { data } = await api.get<UserInfo>('/auth/me')
-      set({ user: data })
+      set({ user: data, loading: false })
     } catch {
-      set({ user: null })
+      set({ user: null, loading: false })
     }
   },
 
@@ -66,3 +67,5 @@ export const useAuth = create<AuthState>((set, get) => ({
     return data.setup_required
   },
 }))
+
+useAuth.getState().fetchMe()

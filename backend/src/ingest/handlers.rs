@@ -5,7 +5,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
+use crate::{audit, auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::{
     detect::{detect_bank, detect_file_kind},
@@ -15,6 +15,56 @@ use super::{
     profiles::registry,
     store::store_transactions,
 };
+
+// ── Upload validation ──────────────────────────────────────────────────────────
+
+const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
+const ALLOWED_EXTENSIONS: [&str; 3] = ["csv", "xls", "xlsx"];
+
+fn validate_upload(filename: &str, bytes: &[u8]) -> Result<(), AppError> {
+    if bytes.len() > MAX_UPLOAD_SIZE {
+        return Err(AppError::BadRequest(format!(
+            "File too large: {} bytes (maximum {})",
+            bytes.len(),
+            MAX_UPLOAD_SIZE
+        )));
+    }
+
+    let ext = filename
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_lowercase();
+    if !ALLOWED_EXTENSIONS.contains(&ext.as_str()) {
+        return Err(AppError::BadRequest(format!(
+            "Unsupported file extension: .{} (allowed: .csv, .xls, .xlsx)",
+            ext
+        )));
+    }
+
+    match ext.as_str() {
+        "xlsx" => {
+            if bytes.len() < 4 || bytes[..4] != [0x50, 0x4B, 0x03, 0x04] {
+                return Err(AppError::BadRequest(
+                    "Invalid XLSX file: missing PK zip header (0x50 0x4B 0x03 0x04)".into(),
+                ));
+            }
+        }
+        "xls" => {
+            if bytes.len() < 4 || bytes[..4] != [0xD0, 0xCF, 0x11, 0xE0] {
+                return Err(AppError::BadRequest(
+                    "Invalid XLS file: missing DCF header (0xD0 0xCF 0x11 0xE0)".into(),
+                ));
+            }
+        }
+        "csv" => {
+            // No magic bytes for CSV – rely on extension validation
+        }
+        _ => unreachable!(), // validated above
+    }
+
+    Ok(())
+}
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +78,9 @@ pub async fn upload_handler(
     while let Some(field) = multipart.next_field().await? {
         let filename = field.file_name().unwrap_or("upload").to_string();
         let bytes = field.bytes().await?;
+
+        validate_upload(&filename, &bytes)?;
+
         let sha = hex::encode(Sha256::digest(&bytes));
 
         let mut tx = state.db.begin().await?;
@@ -116,6 +169,9 @@ pub async fn debug_headers_handler(
     while let Some(field) = multipart.next_field().await? {
         let filename = field.file_name().unwrap_or("upload").to_string();
         let bytes = field.bytes().await?;
+
+        validate_upload(&filename, &bytes)?;
+
         let kind = detect_file_kind(&filename);
 
         let (_, _, file_hint) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
@@ -208,6 +264,13 @@ pub async fn clear_all_data_handler(
         .ok();
 
     tx.commit().await?;
+
+    audit::log_audit(
+        &state.db,
+        user_id,
+        "clear_all_data",
+        Some(serde_json::json!({"deleted_transactions": deleted.rows_affected()})),
+    ).await;
 
     Ok(Json(serde_json::json!({
         "message": "All data cleared",

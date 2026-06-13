@@ -106,10 +106,11 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
     if (authState.isChecking) { SplashScreen(); return }
 
-    LaunchedEffect(authState.isLoggedIn, authState.setupRequired) {
+    LaunchedEffect(authState.isLoggedIn, authState.setupRequired, authState.mustResetPassword) {
         val dest = navController.currentDestination?.route
         when {
-            authState.isLoggedIn && dest?.startsWith(Screen.Dashboard.route) != true -> navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+            authState.mustResetPassword && dest != Screen.ResetPassword.route -> navController.navigate(Screen.ResetPassword.route) { popUpTo(0) { inclusive = true } }
+            authState.isLoggedIn && !authState.mustResetPassword && dest?.startsWith(Screen.Dashboard.route) != true -> navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
             authState.setupRequired && dest != Screen.Setup.route -> navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
             !authState.isLoggedIn && !authState.setupRequired && dest != Screen.Login.route -> navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
         }
@@ -193,7 +194,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.AdminUsers.route) { AdminUsersScreen(users = usersState.users, isLoading = usersState.isLoading, error = usersState.error, success = usersState.success, onLoad = { viewModel.loadUsers() }, onCreateUser = { e, p -> viewModel.createUser(e, p) }, onDeleteUser = { id -> viewModel.deleteUser(id) }) }
 
-            composable(Screen.ResetPassword.route) { ResetPasswordScreen(isLoading = authState.isLoading, error = authState.error, onReset = { c, n -> viewModel.resetPassword(c, n) { navController.popBackStack() } }, onBack = { navController.popBackStack() }) }
+            composable(Screen.ResetPassword.route) { ResetPasswordScreen(isLoading = authState.isLoading, error = authState.error, onReset = { c, n -> viewModel.resetPassword(c, n) { navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } } } }, onBack = { navController.popBackStack() }) }
         }
     }
 }

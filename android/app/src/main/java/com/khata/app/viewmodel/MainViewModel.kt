@@ -14,7 +14,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
-data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val user: MeResponse? = null, val error: String? = null)
+data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val mustResetPassword: Boolean = false, val user: MeResponse? = null, val error: String? = null)
 data class DashboardUiState(val stats: DashboardStats? = null, val analysis: AnalysisStats? = null, val isLoading: Boolean = false, val error: String? = null)
 data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null, val preset: Int = 0, val search: String = "")
 data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
@@ -55,8 +55,10 @@ class MainViewModel @Inject constructor(
 
     fun login(email: String, password: String) { viewModelScope.launch { try {
         _authState.value = _authState.value.copy(isLoading = true, error = null)
-        repository.login(email, password); val u = repository.getMe()
-        _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = u)
+        val authResp = repository.login(email, password)
+        val mustReset = authResp.mustResetPassword
+        val u = if (!mustReset) repository.getMe() else null
+        _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, mustResetPassword = mustReset, user = u)
     } catch (e: Exception) { _authState.value = _authState.value.copy(isLoading = false, error = e.message ?: "Login failed") } }}
 
     fun setup(email: String, password: String) { viewModelScope.launch { try {
@@ -120,7 +122,11 @@ class MainViewModel @Inject constructor(
     fun createUser(e: String, p: String) { viewModelScope.launch { try { repository.createUser(e, p); loadUsers(); _usersState.value = _usersState.value.copy(success = "User created") } catch (ex: Exception) { _usersState.value = _usersState.value.copy(error = ex.message) } }}
     fun deleteUser(id: String) { viewModelScope.launch { try { repository.deleteUser(id); loadUsers() } catch (_: Exception) {} }}
 
-    fun resetPassword(c: String, n: String, onSuccess: () -> Unit) { viewModelScope.launch { try { repository.resetPassword(c, n); onSuccess() } catch (e: Exception) { _authState.value = _authState.value.copy(error = e.message) } }}
+    fun resetPassword(c: String, n: String, onSuccess: () -> Unit) { viewModelScope.launch { try {
+        repository.resetPassword(c, n)
+        _authState.value = _authState.value.copy(mustResetPassword = false, isLoading = false)
+        onSuccess()
+    } catch (e: Exception) { _authState.value = _authState.value.copy(error = e.message) } }}
     fun updateEmail(email: String) { viewModelScope.launch { try { repository.updateEmail(email); val u = repository.getMe(); _authState.value = _authState.value.copy(user = u) } catch (_: Exception) {} }}
 
     fun loadAccounts() { viewModelScope.launch { try { _accountsState.value = AccountsUiState(accounts = repository.listAccounts()) } catch (e: Exception) { _accountsState.value = _accountsState.value.copy(error = e.message) } }}

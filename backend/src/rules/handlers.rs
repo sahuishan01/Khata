@@ -4,7 +4,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
+use crate::{auth, auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::models::*;
 
@@ -63,16 +63,13 @@ pub async fn delete_rule(
     CurrentUser(user_id): CurrentUser,
     Path(rule_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result = sqlx::query("DELETE FROM category_rules WHERE id = $1 AND user_id = $2")
+    auth::verify_ownership(&state.db, rule_id, user_id, "category_rules", "id").await?;
+
+    sqlx::query("DELETE FROM category_rules WHERE id = $1")
         .bind(rule_id)
-        .bind(user_id)
         .execute(&state.db)
         .await
         .map_err(|_| AppError::BadRequest("Failed to delete rule".into()))?;
-
-    if result.rows_affected() == 0 {
-        return Err(AppError::NotFound);
-    }
 
     Ok(Json(serde_json::json!({ "message": "Rule deleted" })))
 }

@@ -1,44 +1,52 @@
 package com.khata.app.api
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
-
-private val Context.dataStore by preferencesDataStore(name = "khata_prefs")
 
 @Singleton
 class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    companion object {
-        private val TOKEN_KEY = stringPreferencesKey("auth_token")
+    private val prefs: SharedPreferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "khata_secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
-    val tokenFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[TOKEN_KEY]
-    }
+    private val _tokenFlow = MutableStateFlow(getTokenSync())
 
-    suspend fun getToken(): String? = tokenFlow.first()
+    val tokenFlow: Flow<String?> = _tokenFlow.asStateFlow()
 
-    fun getTokenSync(): String? = runBlocking { tokenFlow.first() }
+    suspend fun getToken(): String? = getTokenSync()
+
+    fun getTokenSync(): String? = prefs.getString(TOKEN_KEY, null)
 
     suspend fun saveToken(token: String) {
-        context.dataStore.edit { prefs ->
-            prefs[TOKEN_KEY] = token
-        }
+        prefs.edit().putString(TOKEN_KEY, token).apply()
+        _tokenFlow.value = token
     }
 
     suspend fun clearToken() {
-        context.dataStore.edit { prefs ->
-            prefs.remove(TOKEN_KEY)
-        }
+        prefs.edit().remove(TOKEN_KEY).apply()
+        _tokenFlow.value = null
+    }
+
+    companion object {
+        private const val TOKEN_KEY = "auth_token"
     }
 }
