@@ -176,7 +176,7 @@ fun TransactionsScreen(
         // Local search
         OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it },
             placeholder = { Text("Search payee or category…", fontSize = 12.sp) },
-            singleLine = true, modifier = Modifier.fillMaxWidth().height(44.dp),
+            singleLine = true, modifier = Modifier.fillMaxWidth().height(52.dp),
             textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
             trailingIcon = { if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp)) } }
