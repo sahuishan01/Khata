@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val user: MeResponse? = null, val error: String? = null)
 data class DashboardUiState(val stats: DashboardStats? = null, val analysis: AnalysisStats? = null, val isLoading: Boolean = false, val error: String? = null)
-data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null)
+data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null, val preset: Int = 0, val search: String = "")
 data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class ChatUiState(val messages: List<ChatHistoryResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class UsersUiState(val users: List<UserResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val success: String? = null)

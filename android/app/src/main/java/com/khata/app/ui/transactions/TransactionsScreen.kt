@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.TxnListResponse
 import com.khata.app.api.TxnRow
+import com.khata.app.viewmodel.TxnFilter
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -62,18 +63,19 @@ fun TransactionsScreen(
     categories: List<String>,
     isLoading: Boolean,
     error: String?,
-    initialCategory: String? = null,
+    filter: TxnFilter = TxnFilter(),
+    onFilterChange: (TxnFilter) -> Unit = {},
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
     onUpdateCategory: ((String, String) -> Unit)? = null
 ) {
-    var sortBy by rememberSaveable { mutableStateOf("date") }
-    var sortDir by rememberSaveable { mutableStateOf("desc") }
-    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedPreset by rememberSaveable { mutableStateOf(0) }
-    var customFrom by rememberSaveable { mutableStateOf("") }
-    var customTo by rememberSaveable { mutableStateOf("") }
+    var sortBy by remember(filter) { mutableStateOf(filter.sortBy) }
+    var sortDir by remember(filter) { mutableStateOf(filter.sortDir) }
+    var selectedCategory by remember(filter) { mutableStateOf(filter.category) }
+    var selectedPreset by remember(filter) { mutableStateOf(filter.preset) }
+    var customFrom by remember(filter) { mutableStateOf(filter.from ?: "") }
+    var customTo by remember(filter) { mutableStateOf(filter.to ?: "") }
     var showSortMenu by remember { mutableStateOf(false) }
     var showCatFilter by remember { mutableStateOf(false) }
     var showCustomDatePicker by remember { mutableStateOf(false) }
@@ -111,17 +113,9 @@ fun TransactionsScreen(
         onLoad(sortBy, sortDir, selectedCategory, from, to)
     }
 
-    // Initial load only when no data exists (handles first visit + cache miss)
+    // Initial load only when no data exists
     LaunchedEffect(Unit) {
-        if (txnState == null && initialCategory == null) reload()
-    }
-
-    // Apply initial category filter when navigating from dashboard
-    LaunchedEffect(initialCategory) {
-        if (initialCategory != null) {
-            selectedCategory = initialCategory
-            reload()
-        }
+        if (txnState == null) reload()
     }
 
     // Date picker dialogs
