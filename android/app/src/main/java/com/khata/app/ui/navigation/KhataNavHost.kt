@@ -23,9 +23,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
 import com.khata.app.ui.accounts.AccountsScreen
 import com.khata.app.ui.addtxn.AddTransactionScreen
@@ -47,6 +45,7 @@ import com.khata.app.ui.theme.ThemeManager
 import com.khata.app.ui.transactions.TransactionsScreen
 import com.khata.app.ui.upload.CombinedUploadScreen
 import com.khata.app.viewmodel.MainViewModel
+import com.khata.app.viewmodel.TxnFilter
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val label: String = "", val icon: @Composable () -> Unit = {}) {
@@ -138,21 +137,21 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Setup.route) { SetupScreen(isLoading = authState.isLoading, error = authState.error, onSetup = { e, p -> viewModel.setup(e, p) }) }
             composable(Screen.Login.route) { LoginScreen(isLoading = authState.isLoading, error = authState.error, onLogin = { e, p -> viewModel.login(e, p) }) }
 
-            composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }, onNavigateToTransactions = { cat -> navController.navigate(Screen.Transactions.route + "?category=" + cat) }) }
+            composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }, onNavigateToTransactions = { cat ->
+                viewModel.updateTxnFilter(TxnFilter(category = cat))
+                navController.navigate(Screen.Transactions.route)
+            }) }
 
             composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }) }
 
-            composable(
-                Screen.Transactions.route + "?category={category}",
-                arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null })
-            ) { entry ->
-                val cat = entry.arguments?.getString("category")
+            composable(Screen.Transactions.route) {
+                val filterState by viewModel.txnFilterState.collectAsState()
                 TransactionsScreen(
                     txnState = txnState.txns ?: cachedTxnsState,
                     categories = txnState.categories,
                     isLoading = txnState.isLoading,
                     error = txnState.error,
-                    initialCategory = cat,
+                    filter = filterState,
                     onLoad = { s, d, c, f, t ->
                         viewModel.loadTransactions(s, d, c, f, t)
                     },
