@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { Upload, CheckCircle, AlertTriangle, Plus } from 'lucide-react'
 
 export function UploadPage() {
-  const [tab, setTab] = useState<'upload' | 'manual'>('upload')
+  const [tab, setTab] = useState<'manual' | 'upload'>('manual')
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

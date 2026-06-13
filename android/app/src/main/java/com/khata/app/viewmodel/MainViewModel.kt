@@ -17,7 +17,7 @@ import javax.inject.Inject
 data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val user: MeResponse? = null, val error: String? = null)
 data class DashboardUiState(val stats: DashboardStats? = null, val analysis: AnalysisStats? = null, val isLoading: Boolean = false, val error: String? = null)
 data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null)
-data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val filter: TxnFilter = TxnFilter())
+data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class ChatUiState(val messages: List<ChatHistoryResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class UsersUiState(val users: List<UserResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val success: String? = null)
 data class AccountsUiState(val accounts: List<UserAccount> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
@@ -40,6 +40,9 @@ class MainViewModel @Inject constructor(
     private val _budgetsState = MutableStateFlow(BudgetsUiState()); val budgetsState: StateFlow<BudgetsUiState> = _budgetsState.asStateFlow()
     private val _portfolioState = MutableStateFlow(PortfolioUiState()); val portfolioState: StateFlow<PortfolioUiState> = _portfolioState.asStateFlow()
     private val _categoriesState = MutableStateFlow(CategoriesUiState()); val categoriesState: StateFlow<CategoriesUiState> = _categoriesState.asStateFlow()
+    private val _txnFilterState = MutableStateFlow(TxnFilter()); val txnFilterState: StateFlow<TxnFilter> = _txnFilterState.asStateFlow()
+
+    fun updateTxnFilter(filter: TxnFilter) { _txnFilterState.value = filter }
 
     fun checkAuth() { viewModelScope.launch {
         try {

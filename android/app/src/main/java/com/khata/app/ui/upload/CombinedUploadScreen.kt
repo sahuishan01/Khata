@@ -25,7 +25,7 @@ fun CombinedUploadScreen(
     onClearAllData: () -> Unit,
     onAddTxn: (CreateTxnReq) -> Unit
 ) {
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableStateOf(1) }
     var showClearDialog by remember { mutableStateOf(false) }
     val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
     var desc by remember { mutableStateOf("") }; var amount by remember { mutableStateOf("") }
@@ -63,34 +63,40 @@ fun CombinedUploadScreen(
                 }
             } else {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount") }, singleLine = true, modifier = Modifier.weight(1f))
-                                Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                                    Row(Modifier.padding(4.dp)) {
-                                        FilterChip(selected = direction == "debit", onClick = { direction = "debit" }, label = { Text("Expense", fontSize = 12.sp) })
-                                        FilterChip(selected = direction == "credit", onClick = { direction = "credit" }, label = { Text("Income", fontSize = 12.sp) })
-                                    }
-                                }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(value = txnDate, onValueChange = { txnDate = it }, label = { Text("Date", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
-                                OutlinedTextField(value = valueDate, onValueChange = { valueDate = it }, label = { Text("Value Date", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
-                            }
-                            OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, singleLine = true, modifier = Modifier.fillMaxWidth(), maxLines = 3)
-                            if (error.isNotBlank()) Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
-                            if (success.isNotBlank()) Text(success, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
-                            Button(onClick = {
-                                if (desc.isBlank() || amount.isBlank()) { error = "Fill required fields"; return@Button }
-                                onAddTxn(CreateTxnReq(txnDate, valueDate, desc, amount.toDoubleOrNull() ?: 0.0, direction, category, null, notes.ifBlank { null }))
-                                desc = ""; amount = ""; category = ""; notes = ""; success = "Transaction added!"
-                            }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp)) {
-                                Icon(Icons.Default.Check, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Add Transaction")
+                    // Description
+                    OutlinedTextField(value = desc, onValueChange = { desc = it }, placeholder = { Text("Description") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    // Amount + Type row
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = amount, onValueChange = { amount = it }, placeholder = { Text("Amount") }, singleLine = true, modifier = Modifier.weight(1f))
+                        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Row(Modifier.padding(4.dp)) {
+                                FilterChip(selected = direction == "debit", onClick = { direction = "debit" }, label = { Text("Expense", fontSize = 12.sp) })
+                                FilterChip(selected = direction == "credit", onClick = { direction = "credit" }, label = { Text("Income", fontSize = 12.sp) })
                             }
                         }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // Date + Value Date row
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = txnDate, onValueChange = { txnDate = it }, label = { Text("Txn Date", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = valueDate, onValueChange = { valueDate = it }, label = { Text("Value Date", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // Category
+                    OutlinedTextField(value = category, onValueChange = { category = it }, placeholder = { Text("Category") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    // Notes
+                    OutlinedTextField(value = notes, onValueChange = { notes = it }, placeholder = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                    Spacer(Modifier.height(12.dp))
+                    if (error.isNotBlank()) { Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.error); Spacer(Modifier.height(8.dp)) }
+                    if (success.isNotBlank()) { Text(success, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary); Spacer(Modifier.height(8.dp)) }
+                    Button(onClick = {
+                        if (desc.isBlank() || amount.isBlank()) { error = "Fill required fields"; return@Button }
+                        onAddTxn(CreateTxnReq(txnDate, valueDate, desc, amount.toDoubleOrNull() ?: 0.0, direction, category, null, notes.ifBlank { null }))
+                        desc = ""; amount = ""; category = ""; notes = ""; success = "Transaction added!"
+                    }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp)) {
+                        Icon(Icons.Default.Check, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Add Transaction")
                     }
                 }
             }
