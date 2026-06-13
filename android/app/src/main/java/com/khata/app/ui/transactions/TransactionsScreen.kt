@@ -79,6 +79,23 @@ fun TransactionsScreen(
     var showCustomDatePicker by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val fmt = DateTimeFormatter.ISO_LOCAL_DATE
+
+    // Local search filter — filters cached data without server request
+    val filteredData = remember(txnState, searchQuery) {
+        if (searchQuery.isBlank() || txnState == null) txnState
+        else {
+            val q = searchQuery.uppercase()
+            val filtered = txnState!!.data.filter { txn ->
+                txn.description.uppercase().contains(q) ||
+                txn.category.uppercase().contains(q) ||
+                (txn.notes.uppercase().contains(q))
+            }
+            txnState!!.copy(data = filtered, total = filtered.size)
+        }
+    }
 
     val fmt = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -162,7 +179,17 @@ fun TransactionsScreen(
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).imePadding()) {
         Text("Transactions", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
+
+        // Local search
+        OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it },
+            placeholder = { Text("Search payee or category…", fontSize = 12.sp) },
+            singleLine = true, modifier = Modifier.fillMaxWidth().height(44.dp),
+            textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            trailingIcon = { if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp)) } }
+        )
+        Spacer(Modifier.height(6.dp))
 
         // Date presets row (horizontally scrollable)
         Row(
@@ -283,7 +310,7 @@ fun TransactionsScreen(
                 return@Column
             }
 
-            val txns = txnState?.data ?: emptyList()
+            val txns = filteredData?.data ?: emptyList()
 
             if (txns.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -299,7 +326,7 @@ fun TransactionsScreen(
 
             // Content
             Column {
-                Text("${txnState?.total ?: 0} transactions", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${filteredData?.total ?: 0} transactions", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
