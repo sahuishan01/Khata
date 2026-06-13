@@ -79,7 +79,6 @@ class MainViewModel @Inject constructor(
     } catch (e: Exception) { _txnState.value = _txnState.value.copy(isLoading = false, error = e.message ?: "Failed") } }}
 
     fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleTransfer(id, v); loadTransactions() } catch (_: Exception) {} }}
-    fun toggleInvestment(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleInvestment(id, v); loadTransactions() } catch (_: Exception) {} }}
     fun updateNotes(id: String, notes: String) { viewModelScope.launch { try { repository.updateNotes(id, notes); loadTransactions() } catch (_: Exception) {} }}
     fun updateCategory(id: String, category: String) { viewModelScope.launch { try {
         repository.updateCategory(id, category)

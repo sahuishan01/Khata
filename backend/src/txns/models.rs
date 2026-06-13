@@ -42,7 +42,6 @@ pub struct TxnRow {
     pub bank_ref: Option<String>,
     pub category: String,
     pub is_transfer: bool,
-    pub is_investment: bool,
     pub notes: String,
 }
 
