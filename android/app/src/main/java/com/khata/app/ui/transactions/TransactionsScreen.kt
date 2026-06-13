@@ -96,8 +96,12 @@ fun TransactionsScreen(
         onLoad(sortBy, sortDir, selectedCategory, from, to)
     }
 
-    LaunchedEffect(Unit) { reload() }
     LaunchedEffect(sortBy, sortDir, selectedCategory, selectedPreset) { reload() }
+
+    // Load data only if empty (first visit triggers from NavHost)
+    LaunchedEffect(txnState) {
+        if (txnState == null) reload()
+    }
 
     // Date picker dialogs
     if (showFromPicker) {
