@@ -70,7 +70,7 @@ fun TransactionsScreen(
 ) {
     var sortBy by rememberSaveable { mutableStateOf("date") }
     var sortDir by rememberSaveable { mutableStateOf("desc") }
-    var selectedCategory by rememberSaveable { mutableStateOf(initialCategory) }
+    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPreset by rememberSaveable { mutableStateOf(0) }
     var customFrom by rememberSaveable { mutableStateOf("") }
     var customTo by rememberSaveable { mutableStateOf("") }
@@ -80,8 +80,6 @@ fun TransactionsScreen(
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-
-    val fmt = DateTimeFormatter.ISO_LOCAL_DATE
 
     // Local search filter — filters cached data without server request
     val filteredData = remember(txnState, searchQuery) {
