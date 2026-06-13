@@ -152,8 +152,8 @@ fun KhataNavHost(themeManager: ThemeManager) {
                     isLoading = txnState.isLoading,
                     error = txnState.error,
                     filter = filterState,
-                    onLoad = { s, d, c, f, t ->
-                        viewModel.loadTransactions(s, d, c, f, t)
+                    onLoad = { s, d, c, f, t, p ->
+                        viewModel.loadTransactions(s, d, c, f, t, p)
                     },
                     onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) },
                     onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) },

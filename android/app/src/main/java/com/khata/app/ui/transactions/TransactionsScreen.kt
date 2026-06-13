@@ -65,7 +65,7 @@ fun TransactionsScreen(
     error: String?,
     filter: TxnFilter = TxnFilter(),
     onFilterChange: (TxnFilter) -> Unit = {},
-    onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit,
+    onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?, preset: Int) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
     onUpdateCategory: ((String, String) -> Unit)? = null
@@ -110,7 +110,7 @@ fun TransactionsScreen(
 
     fun reload() {
         val (from, to) = getDateParams()
-        onLoad(sortBy, sortDir, selectedCategory, from, to)
+        onLoad(sortBy, sortDir, selectedCategory, from, to, selectedPreset)
     }
 
     // Initial load only when no data exists
