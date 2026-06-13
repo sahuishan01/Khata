@@ -147,7 +147,19 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null })
             ) { entry ->
                 val cat = entry.arguments?.getString("category")
-                TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, initialCategory = cat, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }, onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) })
+                TransactionsScreen(
+                    txnState = txnState.txns ?: cachedTxnsState,
+                    categories = txnState.categories,
+                    isLoading = txnState.isLoading,
+                    error = txnState.error,
+                    initialCategory = cat,
+                    onLoad = { s, d, c, f, t ->
+                        viewModel.loadTransactions(s, d, c, f, t)
+                    },
+                    onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) },
+                    onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) },
+                    onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) }
+                )
             }
 
             composable(Screen.Chat.route) { ChatScreen(messages = chatState.messages, isLoading = chatState.isLoading, error = chatState.error, onLoad = { viewModel.loadChatHistory() }, onSend = { q -> viewModel.sendChatMessage(q) }) }
