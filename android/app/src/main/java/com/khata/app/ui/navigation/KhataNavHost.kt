@@ -33,6 +33,8 @@ import com.khata.app.ui.budgets.BudgetsScreen
 import com.khata.app.ui.categories.CategoriesScreen
 import com.khata.app.ui.chat.ChatScreen
 import com.khata.app.ui.dashboard.DashboardScreen
+import com.khata.app.ui.more.MoreItem
+import com.khata.app.ui.more.MoreScreen
 import com.khata.app.ui.portfolio.PortfolioScreen
 import com.khata.app.ui.profile.ProfileScreen
 import com.khata.app.ui.rules.RulesScreen
@@ -59,6 +61,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Rules : Screen("rules")
     data object Categories : Screen("categories", "Categories", { Icon(Icons.Default.Label, contentDescription = null) })
     data object Profile : Screen("profile", "Settings", { Icon(Icons.Default.Settings, contentDescription = null) })
+    data object More : Screen("more", "More", { Icon(Icons.Default.MoreVert, contentDescription = null) })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +86,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
 
-    val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Upload, Screen.Analytics, Screen.Profile)
+    val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Upload, Screen.More, Screen.Profile)
     val drawerItems = listOf(Screen.Chat, Screen.Accounts, Screen.Rules, Screen.Budgets, Screen.Portfolio, Screen.AdminUsers, Screen.Categories, Screen.ResetPassword)
     val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
 
@@ -148,6 +151,17 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Categories.route) { CategoriesScreen(categories = categoriesState.list, isLoading = categoriesState.isLoading, error = categoriesState.error, onLoad = { viewModel.loadCategories() }, onCreate = { n, t, c, d -> viewModel.createCategory(n, t, c, d) }, onDelete = { id -> viewModel.deleteCategory(id) }) }
 
             composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }, onUpdateEmail = { email -> viewModel.updateEmail(email) }, onLogout = { viewModel.logout() }) }
+
+            composable(Screen.More.route) { MoreScreen(items = listOf(
+                MoreItem("Analytics", Screen.Analytics.route) { Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Chat", Screen.Chat.route) { Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Accounts", Screen.Accounts.route) { Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Rules", Screen.Rules.route) { Icon(Icons.Default.Tag, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Budgets", Screen.Budgets.route) { Icon(Icons.Default.Savings, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Portfolio", Screen.Portfolio.route) { Icon(Icons.Default.MonetizationOn, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Categories", Screen.Categories.route) { Icon(Icons.Default.Label, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Users", Screen.AdminUsers.route) { Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+            ), onNavigate = { route -> navController.navigate(route) }) }
 
             composable(Screen.AdminUsers.route) { AdminUsersScreen(users = usersState.users, isLoading = usersState.isLoading, error = usersState.error, success = usersState.success, onLoad = { viewModel.loadUsers() }, onCreateUser = { e, p -> viewModel.createUser(e, p) }, onDeleteUser = { id -> viewModel.deleteUser(id) }) }
 
