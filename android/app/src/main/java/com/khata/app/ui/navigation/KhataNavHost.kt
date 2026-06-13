@@ -52,8 +52,8 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Setup : Screen("setup")
     data object Login : Screen("login")
     data object Dashboard : Screen("dashboard", "Dashboard", { Icon(Icons.Default.Home, contentDescription = null) })
-    data object Transactions : Screen("transactions", "Txns", { Icon(Icons.Default.Receipt, contentDescription = null) })
-    data object Chat : Screen("chat", "Claude", { Icon(Icons.Default.Chat, contentDescription = null) })
+    data object Transactions : Screen("transactions", "Transactions", { Icon(Icons.Default.Receipt, contentDescription = null) })
+    data object Chat : Screen("chat", "Ask Claude", { Icon(Icons.Default.Chat, contentDescription = null) })
     data object Upload : Screen("upload", "Add", { Icon(Icons.Default.AddCircle, contentDescription = null) })
     data object Analytics : Screen("analytics", "Analytics", { Icon(Icons.Default.Analytics, contentDescription = null) })
     data object AdminUsers : Screen("admin_users")
@@ -87,6 +87,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val context = LocalContext.current
 
     val isDark by themeManager.isDarkFlow.collectAsState(initial = false)
+    var blurMode by remember { mutableStateOf(true) }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
@@ -137,7 +138,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
             composable(Screen.Setup.route) { SetupScreen(isLoading = authState.isLoading, error = authState.error, onSetup = { e, p -> viewModel.setup(e, p) }) }
             composable(Screen.Login.route) { LoginScreen(isLoading = authState.isLoading, error = authState.error, onLogin = { e, p -> viewModel.login(e, p) }) }
 
-            composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, onRefresh = { viewModel.refreshDashboard() }, onNavigateToTransactions = { cat ->
+            composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, blurMode = blurMode, onRefresh = { viewModel.refreshDashboard() }, onNavigateToTransactions = { cat ->
                 viewModel.updateTxnFilter(TxnFilter(category = cat))
                 navController.navigate(Screen.Transactions.route)
             }) }
@@ -167,7 +168,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.AddTransaction.route) { AddTransactionScreen(isLoading = authState.isLoading, error = authState.error, onAdd = { viewModel.createTxn(it) }, onBack = { navController.popBackStack() }) }
 
-            composable(Screen.Accounts.route) { AccountsScreen(accounts = accountsState.accounts, isLoading = accountsState.isLoading, error = accountsState.error, onLoad = { viewModel.loadAccounts() }, onCreate = { l, i -> viewModel.createAccount(l, i) }, onDelete = { id -> viewModel.deleteAccount(id) }) }
+            composable(Screen.Accounts.route) { AccountsScreen(accounts = accountsState.accounts, isLoading = accountsState.isLoading, error = accountsState.error, blurMode = blurMode, onLoad = { viewModel.loadAccounts() }, onCreate = { l, i -> viewModel.createAccount(l, i) }, onDelete = { id -> viewModel.deleteAccount(id) }) }
 
             composable(Screen.Rules.route) { RulesScreen(rules = rulesState.rules, isLoading = rulesState.isLoading, error = rulesState.error, onLoad = { viewModel.loadRules() }, onCreate = { p, c -> viewModel.createRule(p, c) }, onDelete = { id -> viewModel.deleteRule(id) }, onApply = { viewModel.applyRules() }) }
 
@@ -177,7 +178,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Categories.route) { CategoriesScreen(categories = categoriesState.list, isLoading = categoriesState.isLoading, error = categoriesState.error, onLoad = { viewModel.loadCategories() }, onCreate = { n, t, c, d -> viewModel.createCategory(n, t, c, d) }, onDelete = { id -> viewModel.deleteCategory(id) }) }
 
-            composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }, onUpdateEmail = { email -> viewModel.updateEmail(email) }, onLogout = { viewModel.logout() }) }
+            composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, blurMode = blurMode, onToggleBlur = { blurMode = !blurMode }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }, onUpdateEmail = { email -> viewModel.updateEmail(email) }, onLogout = { viewModel.logout() }) }
 
             composable(Screen.More.route) { MoreScreen(items = listOf(
                 MoreItem("Analytics", Screen.Analytics.route) { Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },

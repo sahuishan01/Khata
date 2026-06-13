@@ -57,15 +57,15 @@ export function UploadPage() {
           <div className="card">
             <input ref={ref} type="file" accept=".csv,.xls,.xlsx" className="sr-only" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
             <div className={`upload-zone${dragOver ? ' drag-over' : ''}`} onClick={() => !loading && ref.current?.click()} onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) upload(f) }}>
-              <Upload size={20} style={{ color: 'var(--accent-text)', margin: '0 auto 8px', display: 'block' }} />
-              <p style={{ color: 'var(--text-heading)', fontWeight: 500, fontSize: 14, marginBottom: 2 }}>{loading ? 'Uploading…' : 'Upload bank statement'}</p>
+              <Upload size={20} style={{ color: 'var(--brand)', margin: '0 auto 8px', display: 'block' }} />
+              <p style={{ color: 'var(--text)', fontWeight: 500, fontSize: 14, marginBottom: 2 }}>{loading ? 'Uploading…' : 'Upload bank statement'}</p>
               <p className="text-muted" style={{ fontSize: 12 }}>{loading ? 'Please wait…' : 'CSV or Excel · drag & drop or click'}</p>
             </div>
             {result && !parseFailed && !result.type && (
-              <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--green)', fontSize: 13 }}><CheckCircle size={15} /><span><strong>{result.bank_detected}</strong> — {result.rows_parsed} rows, <strong>{result.inserted} new</strong>, {result.skipped_duplicates} duplicates</span></div>
+              <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--income)', fontSize: 13 }}><CheckCircle size={15} /><span><strong>{result.bank_detected}</strong> — {result.rows_parsed} rows, <strong>{result.inserted} new</strong>, {result.skipped_duplicates} duplicates</span></div>
             )}
             {parseFailed && (
-              <div className="flex gap-2 mt-3" style={{ background: 'var(--amber-dim)', border: '1px solid rgba(217, 119, 6, 0.2)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--amber)', fontSize: 13 }}>
+              <div className="flex gap-2 mt-3" style={{ background: 'rgba(224,163,58,.1)', border: '1px solid rgba(217, 119, 6, 0.2)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--warn)', fontSize: 13 }}>
                 <AlertTriangle size={15} /><span><strong>{result!.rows_parsed} rows found but 0 could be parsed.</strong> Bank detected: <strong>{result!.bank_detected}</strong></span>
               </div>
             )}
@@ -98,9 +98,9 @@ export function UploadPage() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 0, marginTop: 20, background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', width: 'fit-content', marginRight: 'auto', marginLeft: 'auto' }}>
-        <button onClick={() => setTab('upload')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--accent)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
-        <button onClick={() => setTab('manual')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--accent)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
+      <div style={{ display: 'flex', gap: 0, marginTop: 20, background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--hairline)', overflow: 'hidden', width: 'fit-content', marginRight: 'auto', marginLeft: 'auto' }}>
+        <button onClick={() => setTab('upload')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--brand)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
+        <button onClick={() => setTab('manual')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--brand)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
       </div>
     </div>
   )

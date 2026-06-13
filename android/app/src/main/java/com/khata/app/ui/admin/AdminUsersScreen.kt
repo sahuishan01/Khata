@@ -92,20 +92,32 @@ fun AdminUsersScreen(
                     Text("Users", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
 
-                    users.forEach { user ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(user.email, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                Text(user.role, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = { onDeleteUser(user.id) }) {
-                                Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
+                    if (users.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("👥", fontSize = 28.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text("No users yet", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.height(2.dp))
+                                Text("Add users using the form above to grant them access.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    } else {
+                        users.forEach { user ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(user.email, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    Text(user.role, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = { onDeleteUser(user.id) }) {
+                                    Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        }
                     }
                 }
             }

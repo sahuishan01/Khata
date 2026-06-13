@@ -50,11 +50,23 @@ fun CategoriesScreen(
                         Text(if (cat.txnType == "income") "Income" else "Expense", fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                     Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = { onDelete(cat.id) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) }
+                    IconButton(onClick = { onDelete(cat.id) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) }
                 }
             }
         }
-        if (categories.isEmpty()) item { Text("No categories yet", modifier = Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (categories.isEmpty()) item {
+            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🏷️", fontSize = 32.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("No categories yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Create categories to organize your transactions into income and expense types.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { showDialog = true }) { Text("Create a category") }
+                }
+            }
+        }
     }
 
     if (showDialog) {

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.Budget
 import com.khata.app.api.BudgetStatus
+import com.khata.app.util.formatINR
 
 @Composable
 fun BudgetsScreen(
@@ -45,27 +46,39 @@ fun BudgetsScreen(
         }
         items(budgets, key = { it.id }) { b ->
             val s = getStatus(b.category); val pct = s?.pct ?: 0.0
-            val barColor = if (pct >= 100) Color(0xFFE17055) else if (pct >= 80) Color(0xFFFDCB6E) else Color(0xFF00B894)
+            val barColor = if (pct >= 100) Color(0xFFEE6B4D) else if (pct >= 80) Color(0xFFE0A33A) else Color(0xFF2EC27E)
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
                 Column(Modifier.padding(14.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer) { Text(b.category, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp) }
                         Spacer(Modifier.width(8.dp))
-                        Text("₹${String.format("%,.0f", b.monthlyLimit)}/mo", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${formatINR(b.monthlyLimit)}/mo", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.weight(1f))
                         if (pct >= 80) Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp), tint = barColor)
                         Text("${"%.0f".format(pct)}%", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = barColor)
                         Spacer(Modifier.width(8.dp))
-                        IconButton(onClick = { onDelete(b.id) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) }
+                        IconButton(onClick = { onDelete(b.id) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) }
                     }
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
                         Box(Modifier.fillMaxWidth(fraction = (pct / 100.0).toFloat().coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor))
                     }
-                    if (s != null) Text("Spent: ₹${String.format("%,.0f", s.spent)} / ₹${String.format("%,.0f", b.monthlyLimit)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    if (s != null) Text("Spent: ${formatINR(s.spent)} / ${formatINR(b.monthlyLimit)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
-        if (budgets.isEmpty()) item { Text("No budgets set", modifier = Modifier.padding(vertical = 20.dp).fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (budgets.isEmpty()) item {
+            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🎯", fontSize = 32.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("No budgets set", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Set a monthly limit per category to get alerts before you overspend.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = {}) { Text("Set your first budget") }
+                }
+            }
+        }
     }
 }

@@ -36,7 +36,7 @@ export function LoginPage() {
       <div className="auth-card">
         <div className="auth-logo">
           <div className="sidebar-logo" style={{ width: 40, height: 40, fontSize: 18 }}>₹</div>
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.4px' }}>Khata</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px' }}>Khata</span>
         </div>
 
         <h2 style={{ fontSize: 18, textAlign: 'center', marginBottom: 6 }}>Welcome back</h2>

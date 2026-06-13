@@ -119,7 +119,7 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
             left: popPos.left,
             width: 280,
             background: 'var(--surface)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--hairline)',
             borderRadius: 'var(--r-lg)',
             boxShadow: 'var(--shadow-lg)',
             padding: 14,
@@ -160,7 +160,7 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
               }
             }}
             className="btn btn-ghost btn-sm"
-            style={{ color: 'var(--accent-text)', marginBottom: 10, padding: '2px 0' }}
+            style={{ color: 'var(--brand)', marginBottom: 10, padding: '2px 0' }}
           >
             {isNew ? <><ArrowLeft size={12} /> Choose existing</> : <><Plus size={12} /> Create new category</>}
           </button>
@@ -177,9 +177,9 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
                 value={s}
                 checked={scope === s}
                 onChange={() => setScope(s)}
-                style={{ marginTop: 1, accentColor: 'var(--accent)' }}
+                style={{ marginTop: 1, accentColor: 'var(--brand)' }}
               />
-              <span style={{ color: 'var(--text-heading)' }}>{SCOPE_LABELS[s]}</span>
+              <span style={{ color: 'var(--text)' }}>{SCOPE_LABELS[s]}</span>
             </label>
           ))}
 

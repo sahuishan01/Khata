@@ -18,8 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MonthBucket
 
-private val SpendColor = Color(0xFFE17055)
-private val EarnColor = Color(0xFF00B894)
+private val SpendColor = Color(0xFFEE6B4D)
+private val EarnColor = Color(0xFF2EC27E)
 
 @Composable
 fun MonthlyBarChart(

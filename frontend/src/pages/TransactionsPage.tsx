@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { CategoryEditor } from '../components/CategoryEditor'
+import { formatINR, formatDate } from '../utils/format'
 
 interface TxnRow {
   id: string; value_date: string; description: string
@@ -47,7 +48,7 @@ function getDateRange(preset: DatePreset, from: string, to: string): { from?: st
   }
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+
 
 
 export function TransactionsPage() {
@@ -257,7 +258,7 @@ export function TransactionsPage() {
                           cursor: 'pointer', userSelect: 'none',
                           textAlign: col === 'amount' ? 'right' : 'left',
                           whiteSpace: 'nowrap',
-                          color: sortBy === col ? 'var(--accent-text)' : undefined,
+                          color: sortBy === col ? 'var(--brand)' : undefined,
                         }}
                       >
                         {label}
@@ -266,25 +267,25 @@ export function TransactionsPage() {
                           : <span style={{ opacity: 0.3 }}>↕</span>}
                       </th>
                     ))}
-                    <th style={{ whiteSpace: 'nowrap' }}>Flags</th>
+                    <th style={{ width: 80 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.data.map(t => (
-                    <tr key={t.id}>
+                    <tr key={t.id} className="txn-row">
                       <td style={{ whiteSpace: 'nowrap', color: 'var(--text-2)', fontSize: 12 }}>
-                        {t.value_date}
+                        {formatDate(t.value_date)}
                       </td>
-                      <td className="truncate" style={{ maxWidth: 220, color: 'var(--text-heading)' }}>
+                      <td className="txn-desc" style={{ color: 'var(--text)' }}>
                         {t.description}
                         {t.notes && <span style={{ fontSize: 11, color: 'var(--text-2)', marginLeft: 6 }}>📝</span>}
                       </td>
                       <td style={{
                         textAlign: 'right', fontVariantNumeric: 'tabular-nums',
                         fontWeight: 600, whiteSpace: 'nowrap',
-                        color: t.direction === 'debit' ? 'var(--red)' : 'var(--green)',
+                        color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)',
                       }}>
-                        {t.direction === 'debit' ? '−' : '+'}{fmt(t.amount)}
+                        {formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}
                       </td>
                       <td>
                         <CategoryEditor
@@ -292,13 +293,12 @@ export function TransactionsPage() {
                           allCategories={categories} onUpdated={handleCategoryUpdate}
                         />
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
+                      <td className="txn-actions">
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          {t.is_transfer && <span className="badge badge-amber" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => toggleTransfer(t.id, false)}>↔</span>}
                           <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px' }} onClick={() => { setEditingNotes(editingNotes === t.id ? null : t.id); setNoteText(t.notes || '') }} title="Notes">
                             <FileText size={12} />
                           </button>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_transfer ? 'var(--amber)' : 'var(--text-2)' }} onClick={() => toggleTransfer(t.id, !t.is_transfer)} title="Toggle transfer">
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_transfer ? 'var(--warn)' : 'var(--text-2)' }} onClick={() => toggleTransfer(t.id, !t.is_transfer)} title="Toggle transfer">
                             <Repeat size={12} />
                           </button>
                         </div>
@@ -321,13 +321,13 @@ export function TransactionsPage() {
             {list.data.map(t => (
               <div key={t.id} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '12px 14px', borderBottom: '1px solid var(--border)',
+                padding: '12px 14px', borderBottom: '1px solid var(--hairline)',
               }}>
                 <div
                   className="txn-icon"
                   style={{
-                    background: t.direction === 'debit' ? 'var(--red-dim)' : 'var(--green-dim)',
-                    color: t.direction === 'debit' ? 'var(--red)' : 'var(--green)',
+                    background: t.direction === 'debit' ? 'var(--expense-soft)' : 'var(--income-soft)',
+                    color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)',
                     flexShrink: 0, marginTop: 1,
                   }}
                 >
@@ -336,17 +336,17 @@ export function TransactionsPage() {
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    color: 'var(--text-heading)', fontSize: 13, fontWeight: 500,
+                    color: 'var(--text)', fontSize: 13, fontWeight: 500,
                     lineHeight: 1.35, marginBottom: 5,
                     display: '-webkit-box', WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    wordBreak: 'break-all',
+                    wordBreak: 'break-word',
                   }}>
                     {t.description}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                      {t.value_date}
+                      {formatDate(t.value_date)}
                     </span>
                     <CategoryEditor
                       txnId={t.id} current={t.category} description={t.description}
@@ -355,9 +355,9 @@ export function TransactionsPage() {
                     <span style={{
                       marginLeft: 'auto', fontWeight: 700, fontSize: 13.5,
                       whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
-                      color: t.direction === 'debit' ? 'var(--red)' : 'var(--green)',
+                      color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)',
                     }}>
-                      {t.direction === 'debit' ? '−' : '+'}{fmt(t.amount)}
+                      {formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}
                     </span>
                   </div>
                 </div>
@@ -390,6 +390,14 @@ export function TransactionsPage() {
         #txn-table  { display: block; }
         #txn-cards  { display: none; }
         #mobile-sort{ display: none; }
+        .txn-desc {
+          max-width: 220px;
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+          overflow: hidden; word-break: break-word;
+        }
+        .txn-actions { opacity: 0; transition: opacity 0.12s; width: 80px; }
+        .txn-row:hover .txn-actions { opacity: 1; }
+        .txn-row:hover .txn-actions button { min-height: 28px; }
         @media (max-width: 640px) {
           #txn-table  { display: none; }
           #txn-cards  { display: block; }

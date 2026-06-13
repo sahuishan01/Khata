@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { EmptyState } from '../components/EmptyState'
+import { formatINR } from '../utils/format'
 
 interface Budget { id: string; category: string; monthly_limit: number }
 interface BudgetStatus { category: string; monthly_limit: number; spent: number; pct: number }
@@ -61,30 +63,30 @@ export function BudgetsPage() {
       {budgets.map(b => {
         const s = getStatus(b.category)
         const pct = s?.pct ?? 0
-        const barColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--amber)' : 'var(--green)'
+        const barColor = pct >= 100 ? 'var(--expense)' : pct >= 80 ? 'var(--warn)' : 'var(--income)'
         return (
           <div key={b.id} className="card" style={{ marginBottom: 10, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <div>
                 <span className="badge badge-purple" style={{ fontSize: 12 }}>{b.category}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 8 }}>
-                  ₹{b.monthly_limit.toLocaleString('en-IN')} / month
+                  {formatINR(b.monthly_limit)} / month
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {pct >= 80 && <AlertTriangle size={15} style={{ color: barColor }} />}
                 <span style={{ fontWeight: 700, fontSize: 14, color: barColor }}>{pct.toFixed(0)}%</span>
-                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => del(b.id)}><Trash2 size={14} /></button>
+                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => del(b.id)}><Trash2 size={14} /></button>
               </div>
             </div>
-            <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: 6, background: 'var(--hairline)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: barColor, borderRadius: 3, transition: 'width 0.3s' }} />
             </div>
-            {s && <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>Spent: ₹{s.spent.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / ₹{b.monthly_limit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>}
+            {s && <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>Spent: {formatINR(s.spent)} / {formatINR(b.monthly_limit)}</div>}
           </div>
         )
       })}
-      {budgets.length === 0 && <p className="text-muted" style={{ textAlign: 'center', padding: 20 }}>No budgets set yet. Add one above.</p>}
+      {budgets.length === 0 && <EmptyState icon="🎯" title="No budgets yet" description="Set a monthly limit per category to get alerts before you overspend." action={{ label: 'Set your first budget', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder*="Category"]')?.focus() }} />}
     </div>
   )
 }

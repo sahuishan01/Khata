@@ -14,10 +14,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.UserAccount
+import com.khata.app.util.maskIdentifier
 
 @Composable
 fun AccountsScreen(
     accounts: List<UserAccount>, isLoading: Boolean, error: String?,
+    blurMode: Boolean = true,
     onLoad: () -> Unit, onCreate: (String, String) -> Unit, onDelete: (String) -> Unit
 ) {
     LaunchedEffect(Unit) { onLoad() }
@@ -46,11 +48,23 @@ fun AccountsScreen(
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text(a.label, fontSize = 14.sp, fontWeight = FontWeight.Medium); Text(a.identifier, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Column(Modifier.weight(1f)) { Text(a.label, fontSize = 14.sp, fontWeight = FontWeight.Medium); Text(if (blurMode) maskIdentifier(a.identifier) else a.identifier, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     IconButton(onClick = { onDelete(a.id) }) { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                 }
             }
         }
-        if (accounts.isEmpty()) item { Text("No accounts added", modifier = Modifier.padding(vertical = 20.dp).fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (accounts.isEmpty()) item {
+            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🏦", fontSize = 32.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("No accounts added", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Link your bank, UPI, or wallet accounts to track all your balances and transfers in one place.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = {}) { Text("Add an account") }
+                }
+            }
+        }
     }
 }

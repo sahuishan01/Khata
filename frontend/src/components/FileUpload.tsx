@@ -61,9 +61,9 @@ export function FileUpload({ onSuccess }: { onSuccess: () => void }) {
       >
         <Upload
           size={20}
-          style={{ color: 'var(--accent-text)', margin: '0 auto 8px', display: 'block' }}
+          style={{ color: 'var(--brand)', margin: '0 auto 8px', display: 'block' }}
         />
-        <p style={{ color: 'var(--text-heading)', fontWeight: 500, fontSize: 14, marginBottom: 2 }}>
+        <p style={{ color: 'var(--text)', fontWeight: 500, fontSize: 14, marginBottom: 2 }}>
           {loading ? 'Uploading…' : 'Upload bank statement'}
         </p>
         <p className="text-muted" style={{ fontSize: 12 }}>
@@ -72,7 +72,7 @@ export function FileUpload({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       {result && !parseFailed && (
-        <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--green)', fontSize: 13 }}>
+        <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--income)', fontSize: 13 }}>
           <CheckCircle size={15} style={{ flexShrink: 0 }} />
           <span>
             <strong>{result.bank_detected}</strong> — {result.rows_parsed} rows,{' '}
@@ -84,11 +84,11 @@ export function FileUpload({ onSuccess }: { onSuccess: () => void }) {
 
       {parseFailed && (
         <div className="flex gap-2 mt-3" style={{
-          background: 'var(--amber-dim)',
+          background: 'rgba(224,163,58,.1)',
           border: '1px solid rgba(217, 119, 6, 0.2)',
           borderRadius: 'var(--r-md)',
           padding: '10px 14px',
-          color: 'var(--amber)',
+          color: 'var(--warn)',
           fontSize: 13,
         }}>
           <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />

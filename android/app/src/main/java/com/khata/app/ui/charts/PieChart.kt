@@ -21,10 +21,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.CategoryBucket
+import com.khata.app.util.formatINR
 
 private val PieColors = listOf(
-    Color(0xFF6C5CE7), Color(0xFF00B894), Color(0xFFE17055),
-    Color(0xFFFDCB6E), Color(0xFF74B9FF), Color(0xFFA29BFE),
+    Color(0xFF8479F2), Color(0xFF2EC27E), Color(0xFFEE6B4D),
+    Color(0xFFE0A33A), Color(0xFF74B9FF), Color(0xFFA29BFE),
     Color(0xFF55EFC4), Color(0xFFFF7675), Color(0xFFFD79A8),
     Color(0xFF81ECEC), Color(0xFFFAB1A0), Color(0xFF636E72),
 )
@@ -63,7 +64,7 @@ fun CategoryPieChart(
                 startAngle += sweepAngle
             }
             drawContext.canvas.nativeCanvas.drawText(
-                "${total.toInt()}",
+                formatINR(total),
                 size.width / 2,
                 size.height / 2 + 6,
                 android.graphics.Paint().apply {
@@ -98,7 +99,7 @@ fun CategoryPieChart(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text("₹${String.format("%,.0f", bucket.amount)}", fontSize = 12.sp,
+                    Text(formatINR(bucket.amount), fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     Text("${"%.1f".format(bucket.pct)}%", fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)

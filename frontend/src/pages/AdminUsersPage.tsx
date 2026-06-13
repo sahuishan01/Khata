@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
+import { EmptyState } from '../components/EmptyState'
 
 interface User {
   id: string
@@ -108,7 +109,7 @@ export function AdminUsersPage() {
         <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Users</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+            <tr style={{ borderBottom: '1px solid var(--hairline)', textAlign: 'left' }}>
               <th style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Email</th>
               <th style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Role</th>
               <th style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', color: 'var(--text-muted)' }}></th>
@@ -116,7 +117,7 @@ export function AdminUsersPage() {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <tr key={u.id} style={{ borderBottom: '1px solid var(--hairline)' }}>
                 <td style={{ padding: '10px 12px' }}>{u.email}</td>
                 <td style={{ padding: '10px 12px' }}>
                   <span style={{
@@ -144,9 +145,7 @@ export function AdminUsersPage() {
               </tr>
             ))}
             {users.length === 0 && (
-              <tr>
-                <td colSpan={3} style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>No users yet</td>
-              </tr>
+              <tr><td colSpan={3} style={{ padding: 20 }}><EmptyState icon="👥" title="No users yet" description="Add users to your organization so they can access shared financial data." action={{ label: 'Add user', onClick: () => document.querySelector<HTMLInputElement>('input[type="email"]')?.focus() }} /></td></tr>
             )}
           </tbody>
         </table>
