@@ -27,16 +27,18 @@ jobs:
           cache-read-only: false
 
       - name: Build debug APK
-        run: gradlew.bat assembleDebug --build-cache --parallel
-        working-directory: ./android
+        run: .\gradlew.bat assembleDebug --build-cache --parallel
+        working-directory: android
+        shell: cmd
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Get version from tag
         id: version
-        run: echo version=%GITHUB_REF_NAME:~1% >> %GITHUB_OUTPUT%
+        run: echo version=%GITHUB_REF_NAME:~1% > %GITHUB_OUTPUT%
         shell: cmd
+        working-directory: android
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
