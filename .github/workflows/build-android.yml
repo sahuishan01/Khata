@@ -22,8 +22,8 @@ jobs:
           distribution: temurin
 
       - name: Create local.properties from ANDROID_HOME
-        run: echo sdk.dir=%ANDROID_HOME:\=/% > android\local.properties
-        shell: cmd
+        run: $p=$env:ANDROID_HOME.Trim(); $p=$p.Replace('\','/'); "sdk.dir=$p" | Out-File -FilePath android\local.properties -Encoding utf8
+        shell: pwsh
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
