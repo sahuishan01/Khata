@@ -369,10 +369,8 @@ private fun TransactionCard(
                 Box {
                     FilterChip(selected = false, onClick = { showCatMenu = true }, label = { Text(txn.category.take(8), fontSize = 9.sp, maxLines = 1) }, modifier = Modifier.height(28.dp))
                     DropdownMenu(expanded = showCatMenu, onDismissRequest = { showCatMenu = false }, modifier = Modifier.heightIn(max = 240.dp)) {
-                        Column(Modifier.verticalScroll(rememberScrollState())) {
-                            allCategories.forEach { cat ->
-                                DropdownMenuItem(text = { Text(cat, fontSize = 11.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false }, modifier = Modifier.height(36.dp))
-                            }
+                        allCategories.forEach { cat ->
+                            DropdownMenuItem(text = { Text(cat, fontSize = 11.sp) }, onClick = { onUpdateCategory?.invoke(txn.id, cat); showCatMenu = false }, modifier = Modifier.height(36.dp))
                         }
                         HorizontalDivider()
                         OutlinedTextField(value = newCat, onValueChange = { newCat = it }, placeholder = { Text("New…", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.padding(horizontal = 8.dp).height(40.dp))
