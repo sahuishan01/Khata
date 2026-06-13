@@ -83,8 +83,8 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val currentDestination = navBackStackEntry?.destination
     val scope = rememberCoroutineScope()
 
-    val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Upload, Screen.Analytics)
-    val drawerItems = listOf(Screen.Chat, Screen.Accounts, Screen.Rules, Screen.Budgets, Screen.Portfolio, Screen.AdminUsers)
+    val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Upload, Screen.Analytics, Screen.Profile)
+    val drawerItems = listOf(Screen.Chat, Screen.Accounts, Screen.Rules, Screen.Budgets, Screen.Portfolio, Screen.AdminUsers, Screen.Categories, Screen.ResetPassword)
     val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
 
     var uploadResult by remember { mutableStateOf<String?>(null) }
