@@ -41,6 +41,7 @@ class MainViewModel @Inject constructor(
     private val _portfolioState = MutableStateFlow(PortfolioUiState()); val portfolioState: StateFlow<PortfolioUiState> = _portfolioState.asStateFlow()
     private val _categoriesState = MutableStateFlow(CategoriesUiState()); val categoriesState: StateFlow<CategoriesUiState> = _categoriesState.asStateFlow()
     private val _txnFilterState = MutableStateFlow(TxnFilter()); val txnFilterState: StateFlow<TxnFilter> = _txnFilterState.asStateFlow()
+    private val _cachedTxns = MutableStateFlow<TxnListResponse?>(null); val cachedTxns: StateFlow<TxnListResponse?> = _cachedTxns.asStateFlow()
 
     fun updateTxnFilter(filter: TxnFilter) { _txnFilterState.value = filter }
 
@@ -74,11 +75,13 @@ class MainViewModel @Inject constructor(
 
     fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null) { viewModelScope.launch { try {
         _txnState.value = _txnState.value.copy(isLoading = true, error = null)
+        _txnFilterState.value = TxnFilter(sortBy, sortDir, category, from, to)
         val t = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to)
         val txnCats = repository.listCategories()
         val managedCats = try { repository.listCategoriesV2().map { it.name } } catch (_: Exception) { emptyList() }
         val allCats = (txnCats + managedCats).distinct().sorted()
         _txnState.value = TxnUiState(txns = t, categories = allCats)
+        _cachedTxns.value = t
     } catch (e: Exception) { _txnState.value = _txnState.value.copy(isLoading = false, error = e.message ?: "Failed") } }}
 
     fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleTransfer(id, v); loadTransactions() } catch (_: Exception) {} }}

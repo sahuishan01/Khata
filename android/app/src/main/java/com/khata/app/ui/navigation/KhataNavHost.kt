@@ -84,6 +84,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val budgetsState by viewModel.budgetsState.collectAsState()
     val portfolioState by viewModel.portfolioState.collectAsState()
     val categoriesState by viewModel.categoriesState.collectAsState()
+    val cachedTxnsState by viewModel.cachedTxns.collectAsState()
     val context = LocalContext.current
 
     val isDark by themeManager.isDarkFlow.collectAsState(initial = false)
