@@ -96,11 +96,17 @@ fun TransactionsScreen(
         onLoad(sortBy, sortDir, selectedCategory, from, to)
     }
 
-    LaunchedEffect(sortBy, sortDir, selectedCategory, selectedPreset) { reload() }
+    // Initial load only when no data exists (handles first visit + cache miss)
+    LaunchedEffect(Unit) {
+        if (txnState == null && initialCategory == null) reload()
+    }
 
-    // Load data only if empty (first visit triggers from NavHost)
-    LaunchedEffect(txnState) {
-        if (txnState == null) reload()
+    // Apply initial category filter when navigating from dashboard
+    LaunchedEffect(initialCategory) {
+        if (initialCategory != null) {
+            selectedCategory = initialCategory
+            reload()
+        }
     }
 
     // Date picker dialogs
@@ -169,6 +175,7 @@ fun TransactionsScreen(
                     onClick = {
                         selectedPreset = i
                         if (i == presets.size - 1) showCustomDatePicker = true
+                        reload()
                     },
                     label = { Text(preset.label, fontSize = 10.sp) },
                     modifier = Modifier.height(30.dp)
@@ -235,10 +242,10 @@ fun TransactionsScreen(
                     )
                 }
                 DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                    DropdownMenuItem(text = { Text("Date: newest first") }, onClick = { sortBy = "date"; sortDir = "desc"; showSortMenu = false })
-                    DropdownMenuItem(text = { Text("Date: oldest first") }, onClick = { sortBy = "date"; sortDir = "asc"; showSortMenu = false })
-                    DropdownMenuItem(text = { Text("Amount: highest first") }, onClick = { sortBy = "amount"; sortDir = "desc"; showSortMenu = false })
-                    DropdownMenuItem(text = { Text("Amount: lowest first") }, onClick = { sortBy = "amount"; sortDir = "asc"; showSortMenu = false })
+                    DropdownMenuItem(text = { Text("Date: newest first") }, onClick = { sortBy = "date"; sortDir = "desc"; showSortMenu = false; reload() })
+                    DropdownMenuItem(text = { Text("Date: oldest first") }, onClick = { sortBy = "date"; sortDir = "asc"; showSortMenu = false; reload() })
+                    DropdownMenuItem(text = { Text("Amount: highest first") }, onClick = { sortBy = "amount"; sortDir = "desc"; showSortMenu = false; reload() })
+                    DropdownMenuItem(text = { Text("Amount: lowest first") }, onClick = { sortBy = "amount"; sortDir = "asc"; showSortMenu = false; reload() })
                 }
             }
 
@@ -250,9 +257,9 @@ fun TransactionsScreen(
                         Text(selectedCategory ?: "All", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     DropdownMenu(expanded = showCatFilter, onDismissRequest = { showCatFilter = false }) {
-                        DropdownMenuItem(text = { Text("All categories") }, onClick = { selectedCategory = null; showCatFilter = false })
+                        DropdownMenuItem(text = { Text("All categories") }, onClick = { selectedCategory = null; showCatFilter = false; reload() })
                         categories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat) }, onClick = { selectedCategory = cat; showCatFilter = false })
+                            DropdownMenuItem(text = { Text(cat) }, onClick = { selectedCategory = cat; showCatFilter = false; reload() })
                         }
                     }
                 }

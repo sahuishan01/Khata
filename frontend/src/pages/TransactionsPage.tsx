@@ -62,15 +62,17 @@ export function TransactionsPage() {
   const [customTo, setCustomTo]     = useState('')
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [noteText, setNoteText]     = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const categoryFilter = searchParams.get('category') ?? ''
 
   const fetchPage = (
     p: number, by = sortBy, dir = sortDir,
-    cat = categoryFilter, preset = datePreset, cf = customFrom, ct = customTo,
+    cat = categoryFilter, preset = datePreset, cf = customFrom, ct = customTo, search = searchQuery,
   ) => {
     const params = new URLSearchParams({ page: String(p), per_page: '50', sort_by: by, sort_dir: dir })
     if (cat) params.set('category', cat)
+    if (search) params.set('search', search)
     const { from, to } = getDateRange(preset, cf, ct)
     if (from) params.set('from', from)
     if (to)   params.set('to', to)
@@ -79,7 +81,7 @@ export function TransactionsPage() {
 
   useEffect(() => {
     setPage(1)
-    fetchPage(1, sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo)
+    fetchPage(1, sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery)
     Promise.all([
       api.get<string[]>('/txns/categories'),
       api.get<any[]>('/categories').catch(() => ({ data: [] as any[] })),
@@ -89,7 +91,7 @@ export function TransactionsPage() {
       const managedNames = managed.map((c: any) => c.name)
       setCategories([...new Set([...txnCats, ...managedNames])].sort())
     })
-  }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo])
+  }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery])
 
   useEffect(() => {
     fetchPage(page)
@@ -149,6 +151,15 @@ export function TransactionsPage() {
             </span>
           )}
         </div>
+
+        {/* Search input */}
+        <input
+          className="form-input"
+          style={{ width: 200, padding: '6px 10px', fontSize: 13 }}
+          placeholder="Search payee or ref…"
+          value={searchQuery}
+          onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
+        />
 
         {/* Mobile sort dropdown */}
         <div id="mobile-sort" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
