@@ -39,7 +39,6 @@ data class TxnRow(
     val description: String, val amount: Double, val direction: String,
     val category: String, val bank: String,
     @SerializedName("is_transfer") val isTransfer: Boolean,
-    @SerializedName("is_investment") val isInvestment: Boolean,
     val notes: String
 )
 
@@ -87,5 +86,4 @@ data class CreateTxnReq(
 
 // Transfer / Investment toggles
 data class ToggleTransferReq(@SerializedName("is_transfer") val isTransfer: Boolean)
-data class ToggleInvestmentReq(@SerializedName("is_investment") val isInvestment: Boolean)
 data class UpdateNotesReq(val notes: String)

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, TrendingUp, FileText } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { CategoryEditor } from '../components/CategoryEditor'
 
 interface TxnRow {
   id: string; value_date: string; description: string
   amount: number; direction: string; bank: string; category: string
-  is_transfer: boolean; is_investment: boolean; notes: string
+  is_transfer: boolean; notes: string
 }
 interface TxnList { data: TxnRow[]; total: number; page: number; per_page: number }
 
@@ -116,13 +116,6 @@ export function TransactionsPage() {
     try {
       await api.patch(`/txns/${id}/transfer`, { is_transfer: val })
       setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, is_transfer: val } : t) } : l)
-    } catch {}
-  }
-
-  const toggleInvestment = async (id: string, val: boolean) => {
-    try {
-      await api.patch(`/txns/${id}/investment`, { is_investment: val })
-      setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, is_investment: val } : t) } : l)
     } catch {}
   }
 
@@ -276,15 +269,11 @@ export function TransactionsPage() {
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                           {t.is_transfer && <span className="badge badge-amber" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => toggleTransfer(t.id, false)}>↔</span>}
-                          {t.is_investment && <span className="badge badge-blue" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => toggleInvestment(t.id, false)}>I</span>}
                           <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px' }} onClick={() => { setEditingNotes(editingNotes === t.id ? null : t.id); setNoteText(t.notes || '') }} title="Notes">
                             <FileText size={12} />
                           </button>
                           <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_transfer ? 'var(--amber)' : 'var(--text-2)' }} onClick={() => toggleTransfer(t.id, !t.is_transfer)} title="Toggle transfer">
                             <Repeat size={12} />
-                          </button>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_investment ? 'var(--blue)' : 'var(--text-2)' }} onClick={() => toggleInvestment(t.id, !t.is_investment)} title="Toggle investment">
-                            <TrendingUp size={12} />
                           </button>
                         </div>
                         {editingNotes === t.id && (

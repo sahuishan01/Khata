@@ -64,7 +64,6 @@ fun TransactionsScreen(
     initialCategory: String? = null,
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
-    onToggleInvestment: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
     onUpdateCategory: ((String, String) -> Unit)? = null
 ) {
@@ -292,7 +291,7 @@ fun TransactionsScreen(
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory) }
+                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory) }
                 }
             }
 
@@ -320,7 +319,6 @@ private fun TransactionCard(
     txn: TxnRow,
     allCategories: List<String> = emptyList(),
     onToggleTransfer: (String, Boolean) -> Unit,
-    onToggleInvestment: (String, Boolean) -> Unit,
     onUpdateNotes: (String, String) -> Unit,
     onUpdateCategory: ((String, String) -> Unit)? = null
 ) {
@@ -360,7 +358,6 @@ private fun TransactionCard(
                         Text(txn.valueDate, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         if (txn.isTransfer) { Spacer(Modifier.width(4.dp)); Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiaryContainer) { Text("↔", fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) } }
-                        if (txn.isInvestment) { Spacer(Modifier.width(4.dp)); Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Text("I", fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.secondary) } }
                         Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                             Text(txn.category, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -374,7 +371,6 @@ private fun TransactionCard(
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilterChip(selected = txn.isTransfer, onClick = { onToggleTransfer(txn.id, !txn.isTransfer) }, label = { Text("↔", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
-                FilterChip(selected = txn.isInvestment, onClick = { onToggleInvestment(txn.id, !txn.isInvestment) }, label = { Text("I", fontSize = 10.sp, fontWeight = FontWeight.Bold) }, modifier = Modifier.height(28.dp))
                 FilterChip(selected = showNotes, onClick = { showNotes = !showNotes; if (showNotes) notesText = txn.notes }, label = { Text("📝", fontSize = 10.sp) }, modifier = Modifier.height(28.dp))
                 Box {
                     FilterChip(selected = false, onClick = { showCatMenu = true }, label = { Text(txn.category.take(8), fontSize = 9.sp, maxLines = 1) }, modifier = Modifier.height(28.dp))
