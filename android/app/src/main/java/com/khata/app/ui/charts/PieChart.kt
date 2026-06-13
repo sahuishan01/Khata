@@ -2,6 +2,7 @@ package com.khata.app.ui.charts
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +32,8 @@ private val PieColors = listOf(
 @Composable
 fun CategoryPieChart(
     data: List<CategoryBucket>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCategoryClick: ((String) -> Unit)? = null
 ) {
     if (data.isEmpty()) return
 
@@ -76,7 +78,10 @@ fun CategoryPieChart(
         Column(modifier = Modifier.weight(1f)) {
             data.forEachIndexed { index, bucket ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (onCategoryClick != null) Modifier.clickable { onCategoryClick(bucket.category) } else Modifier)
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {

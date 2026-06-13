@@ -55,6 +55,8 @@ jobs:
         run: |
           copy "app\build\outputs\apk\debug\app-debug.apk" "app\build\outputs\apk\debug\khata_$($env:VERSION)-debug.apk"
           copy "app\build\outputs\apk\release\app-release.apk" "app\build\outputs\apk\release\khata_$($env:VERSION)-release.apk"
+          remove-item "app\build\outputs\apk\debug\app-debug.apk"
+          remove-item "app\build\outputs\apk\release\app-release.apk"
         shell: powershell
         working-directory: android
         env:
