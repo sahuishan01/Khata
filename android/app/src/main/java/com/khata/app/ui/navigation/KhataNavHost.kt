@@ -23,7 +23,9 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
 import com.khata.app.ui.accounts.AccountsScreen
 import com.khata.app.ui.addtxn.AddTransactionScreen
@@ -91,7 +93,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
     val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Upload, Screen.More, Screen.Profile)
     val drawerItems = listOf(Screen.Chat, Screen.Accounts, Screen.Rules, Screen.Budgets, Screen.Portfolio, Screen.AdminUsers, Screen.Categories, Screen.ResetPassword)
-    val showBottomBar = authState.isLoggedIn && currentDestination?.route in bottomNavItems.map { it.route }
+    val showBottomBar = authState.isLoggedIn && currentDestination?.route != null && bottomNavItems.any { currentDestination?.route?.startsWith(it.route) == true }
 
     var uploadResult by remember { mutableStateOf<String?>(null) }
 
@@ -106,7 +108,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
     LaunchedEffect(authState.isLoggedIn, authState.setupRequired) {
         val dest = navController.currentDestination?.route
         when {
-            authState.isLoggedIn && dest != Screen.Dashboard.route -> navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+            authState.isLoggedIn && dest?.startsWith(Screen.Dashboard.route) != true -> navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
             authState.setupRequired && dest != Screen.Setup.route -> navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
             !authState.isLoggedIn && !authState.setupRequired && dest != Screen.Login.route -> navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
         }
@@ -119,7 +121,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
                             icon = screen.icon, label = { Text(screen.label, fontSize = 10.sp) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            selected = currentDestination?.route?.startsWith(screen.route) == true,
                             onClick = { navController.navigate(screen.route) { popUpTo(navController.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } }
                         )
                     }
@@ -139,7 +141,13 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }) }
 
-            composable(Screen.Transactions.route) { TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onToggleInvestment = { id, v -> viewModel.toggleInvestment(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }, onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) }) }
+            composable(
+                Screen.Transactions.route + "?category={category}",
+                arguments = listOf(navArgument("category") { type = NavType.StringType; nullable = true; defaultValue = null })
+            ) { entry ->
+                val cat = entry.arguments?.getString("category")
+                TransactionsScreen(txnState = txnState.txns, categories = txnState.categories, isLoading = txnState.isLoading, error = txnState.error, initialCategory = cat, onLoad = { s, d, c, f, t -> viewModel.loadTransactions(s, d, c, f, t) }, onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) }, onToggleInvestment = { id, v -> viewModel.toggleInvestment(id, v) }, onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) }, onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) })
+            }
 
             composable(Screen.Chat.route) { ChatScreen(messages = chatState.messages, isLoading = chatState.isLoading, error = chatState.error, onLoad = { viewModel.loadChatHistory() }, onSend = { q -> viewModel.sendChatMessage(q) }) }
 
