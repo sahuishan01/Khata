@@ -57,7 +57,7 @@ pub async fn list_txns(
 
     let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version
            FROM transactions
            WHERE user_id = $1
              AND ($2::text IS NULL OR category = $2)
@@ -217,7 +217,7 @@ pub async fn get_analysis(
     // Largest single expense
     let largest = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version
            FROM transactions
             WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            ORDER BY amount DESC LIMIT 1"#,
@@ -408,7 +408,7 @@ pub async fn get_txn(
 
     let row = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version
            FROM transactions WHERE id = $1 AND user_id = $2"#,
     )
     .bind(txn_id)
@@ -436,7 +436,7 @@ pub async fn update_notes(
         .execute(&mut *tx).await?;
 
     let result = sqlx::query(
-        "UPDATE transactions SET notes = $1 WHERE id = $2 AND user_id = $3"
+        "UPDATE transactions SET notes = $1, version = version + 1 WHERE id = $2 AND user_id = $3"
     )
     .bind(&req.notes)
     .bind(txn_id)
@@ -480,11 +480,11 @@ pub async fn create_txn(
     let row = sqlx::query_as::<_, TxnRow>(
         r#"INSERT INTO transactions
            (user_id, bank, account_label, txn_date, value_date, description, raw_description,
-            amount, direction, category, bank_ref, notes, fingerprint)
+            amount, direction, category, bank_ref, notes, version, fingerprint)
            VALUES ($1, 'Manual', 'Manual', $2, $3, $4, $4, $5, $6, $7, $8, $9, gen_random_uuid()::text)
            RETURNING id, txn_date, value_date, description,
                      amount::float8, direction, balance::float8, bank, bank_ref, category,
-                     is_transfer, notes"#,
+                     is_transfer, notes, version"#,
     )
     .bind(user_id)
     .bind(txn_date)
@@ -495,6 +495,7 @@ pub async fn create_txn(
     .bind(req.category.trim())
     .bind(req.bank_ref)
     .bind(req.notes.unwrap_or_default())
+    .bind(1) // version
     .fetch_one(&mut *tx)
     .await
     .map_err(|_| AppError::BadRequest("Failed to create transaction".into()))?;
@@ -569,4 +570,81 @@ pub async fn get_recurring(
         .collect();
 
     Ok(Json(recurring))
+}
+
+pub async fn sync_txns(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Json(batch): Json<Vec<SyncTxn>>,
+) -> Result<Json<SyncResult>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let mut success: Vec<String> = Vec::new();
+    let mut conflicts: Vec<SyncConflict> = Vec::new();
+
+    for item in &batch {
+        let id = uuid::Uuid::parse_str(&item.id).map_err(|_| AppError::BadRequest("Invalid UUID".into()))?;
+
+        // Get current server version
+        let server: Option<(i32,)> = sqlx::query_as(
+            "SELECT version FROM transactions WHERE id = $1 AND user_id = $2"
+        )
+        .bind(id).bind(user_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AppError::BadRequest("DB error".into()))?;
+
+        let Some((server_version,)) = server else {
+            // Transaction doesn't exist on server — skip
+            success.push(item.id.clone());
+            continue;
+        };
+
+        if server_version != item.version {
+            // Conflict! Fetch full server txn for conflict resolution
+            let server_txn = sqlx::query_as::<_, TxnRow>(
+                r#"SELECT id, txn_date, value_date, description,
+                          amount::float8, direction, balance::float8, bank, bank_ref, category,
+                          is_transfer, notes, version
+                   FROM transactions WHERE id = $1 AND user_id = $2"#,
+            )
+            .bind(id).bind(user_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| AppError::BadRequest("DB error".into()))?
+            .unwrap();
+
+            conflicts.push(SyncConflict {
+                id: item.id.clone(),
+                local_version: item.version,
+                server_version,
+                server_txn,
+            });
+            continue;
+        }
+
+        // Version matches — apply updates
+        if let Some(cat) = &item.category {
+            sqlx::query("UPDATE transactions SET category = $1, version = version + 1 WHERE id = $2 AND user_id = $3")
+                .bind(cat).bind(id).bind(user_id)
+                .execute(&mut *tx).await?;
+        }
+        if let Some(notes) = &item.notes {
+            sqlx::query("UPDATE transactions SET notes = $1, version = version + 1 WHERE id = $2 AND user_id = $3")
+                .bind(notes).bind(id).bind(user_id)
+                .execute(&mut *tx).await?;
+        }
+        if let Some(is_transfer) = item.is_transfer {
+            sqlx::query("UPDATE transactions SET is_transfer = $1, version = version + 1 WHERE id = $2 AND user_id = $3")
+                .bind(is_transfer).bind(id).bind(user_id)
+                .execute(&mut *tx).await?;
+        }
+
+        success.push(item.id.clone());
+    }
+
+    tx.commit().await?;
+    Ok(Json(SyncResult { success, conflicts }))
 }

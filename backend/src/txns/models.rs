@@ -43,6 +43,7 @@ pub struct TxnRow {
     pub category: String,
     pub is_transfer: bool,
     pub notes: String,
+    pub version: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -154,4 +155,27 @@ pub struct RecurringTxn {
     pub frequency: String,
     pub months: i64,
     pub category: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SyncTxn {
+    pub id: String,
+    pub version: i32,
+    pub category: Option<String>,
+    pub notes: Option<String>,
+    pub is_transfer: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncResult {
+    pub success: Vec<String>,
+    pub conflicts: Vec<SyncConflict>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncConflict {
+    pub id: String,
+    pub local_version: i32,
+    pub server_version: i32,
+    pub server_txn: TxnRow,
 }
