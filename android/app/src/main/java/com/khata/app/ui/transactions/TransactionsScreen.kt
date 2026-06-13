@@ -1,5 +1,6 @@
 package com.khata.app.ui.transactions
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -60,6 +61,7 @@ fun TransactionsScreen(
     categories: List<String>,
     isLoading: Boolean,
     error: String?,
+    initialCategory: String? = null,
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onToggleInvestment: (String, Boolean) -> Unit = { _, _ -> },
@@ -68,7 +70,7 @@ fun TransactionsScreen(
 ) {
     var sortBy by remember { mutableStateOf("date") }
     var sortDir by remember { mutableStateOf("desc") }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var selectedCategory by remember { mutableStateOf(initialCategory) }
     var selectedPreset by remember { mutableStateOf(0) }
     var customFrom by remember { mutableStateOf("") }
     var customTo by remember { mutableStateOf("") }
@@ -263,20 +265,6 @@ fun TransactionsScreen(
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            if (isLoading && txnState != null) {
-                // Show loading overlay on top of existing data
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(28.dp),
-                        strokeWidth = 3.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
             if (isLoading && txnState == null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -298,15 +286,32 @@ fun TransactionsScreen(
                 return@Column
             }
 
-        Text("${txnState?.total ?: 0} transactions", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(8.dp))
+            // Content
+            Column {
+                Text("${txnState?.total ?: 0} transactions", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory) }
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onToggleInvestment = onToggleInvestment, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory) }
+                }
+            }
+
+            // Loading overlay on top
+            if (isLoading && txnState != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
-    }
-    }
-}
 
 @Composable
 private fun TransactionCard(
