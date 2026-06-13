@@ -36,9 +36,8 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo version=%GITHUB_REF_NAME:~1% > %GITHUB_OUTPUT%
-        shell: cmd
-        working-directory: android
+        run: echo "version=$($env:GITHUB_REF_NAME -replace '^v','')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        shell: pwsh
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
