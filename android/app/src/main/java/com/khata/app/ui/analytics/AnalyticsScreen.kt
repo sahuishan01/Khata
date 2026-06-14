@@ -42,15 +42,13 @@ fun AnalyticsScreen(
     var categoryChartType by remember { mutableStateOf("donut") } // "donut" or "list"
     val toggles = remember {
         mutableStateListOf(
-            SectionToggle("monthly_bar", "Monthly Bar Chart"),
-            SectionToggle("net_line", "Net Worth Line Chart"),
-            SectionToggle("waterfall", "Surplus/Deficit Waterfall"),
+            SectionToggle("monthly_bar", "Monthly Trend"),
+            SectionToggle("net_line", "Net Worth Trend"),
+            SectionToggle("waterfall", "Surplus/Deficit"),
             SectionToggle("category", "Category Breakdown"),
             SectionToggle("comparison", "Month Comparison"),
-            SectionToggle("summary_cards", "Summary Cards"),
-            SectionToggle("largest", "Largest Expense"),
-            SectionToggle("monthly_table", "Monthly Table"),
-            SectionToggle("top_debits", "Top Spending"),
+            SectionToggle("monthly_table", "Monthly Summary"),
+            SectionToggle("insights", "Insights"),
         )
     }
 
@@ -238,57 +236,29 @@ fun AnalyticsScreen(
             }
         }
 
-        // Summary cards
-        if (toggles.find { it.key == "summary_cards" }?.visible == true) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    KhataCard(Modifier.weight(1f)) {
-                        KhataCardBody {
-                            Text("AVG DAILY", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
-                            Text(formatINR(analysis.avgDailySpend), fontSize = 16.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                        }
-                    }
-                    KhataCard(Modifier.weight(1f)) {
-                        KhataCardBody {
-                            Text("SAVINGS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
-                            Text("${"%.1f".format(analysis.savingsRatePct)}%", fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                                color = if (analysis.savingsRatePct >= 20) KhataColors.income else KhataColors.expense)
-                        }
-                    }
-                    KhataCard(Modifier.weight(1f)) {
-                        KhataCardBody {
-                            Text("TXNS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
-                            Text("${analysis.totalTransactions}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    KhataCard(Modifier.weight(1f)) {
-                        KhataCardBody {
-                            Text("NET", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
-                            val net = stats.totalEarned - stats.totalSpent
-                            Text(formatINR(net), fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                                color = if (net >= 0) KhataColors.income else KhataColors.expense,
-                                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                        }
-                    }
-                }
-            }
-        }
-
-        // Largest expense
-        if (toggles.find { it.key == "largest" }?.visible == true && analysis.largestExpense != null) {
+        // Insights
+        if (toggles.find { it.key == "insights" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("LARGEST EXPENSE")
+                    KhataCardHeader("INSIGHTS")
                     KhataCardBody {
-                        Text(formatINR(analysis.largestExpense!!.amount), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                        Text(analysis.largestExpense!!.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(formatDate(analysis.largestExpense!!.valueDate), fontSize = 12.sp, color = KhataColors.text2)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(shape = MaterialTheme.shapes.small, color = KhataColors.brandSoft) {
+                                Text("Savings rate: ${"%.0f".format(analysis.savingsRatePct)}% of income", fontSize = 13.sp, modifier = Modifier.padding(10.dp))
+                            }
+                            if (analysis.monthComparison.lastMonth > 0) {
+                                val dir = if (analysis.monthComparison.changePct > 0) "up" else "down"
+                                Surface(shape = MaterialTheme.shapes.small, color = if (analysis.monthComparison.changePct > 0) KhataColors.expenseSoft else KhataColors.incomeSoft) {
+                                    Text("Spending $dir ${"%.0f".format(kotlin.math.abs(analysis.monthComparison.changePct))}% vs last month", fontSize = 13.sp, modifier = Modifier.padding(10.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Monthly table
+        // Monthly summary
         if (toggles.find { it.key == "monthly_table" }?.visible == true && stats.monthly.isNotEmpty()) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
@@ -306,24 +276,6 @@ fun AnalyticsScreen(
                                 Text(formatINR(net, sign = true), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                     color = if (net >= 0) KhataColors.income else KhataColors.expense,
                                     style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                            }
-                            HorizontalDivider(color = KhataColors.hairline)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Top debits
-        if (toggles.find { it.key == "top_debits" }?.visible == true) {
-            item {
-                KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("TOP SPENDING")
-                    KhataCardBody {
-                        stats.topDebits.take(7).forEach { t ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(t.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
                             HorizontalDivider(color = KhataColors.hairline)
                         }

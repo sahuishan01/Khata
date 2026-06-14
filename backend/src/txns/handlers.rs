@@ -245,6 +245,119 @@ pub async fn get_analysis(
     }))
 }
 
+// ── Analytics Explore ─────────────────────────────────────────────────────────
+
+pub async fn get_analytics_explore(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Query(params): Query<AnalyticsQuery>,
+) -> Result<Json<AnalyticsResponse>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx)
+        .await?;
+
+    let group_col = match params.group_by.as_deref() {
+        Some("payee") => "description",
+        Some("account") => "account_label",
+        Some("week") => "to_char(value_date, 'IYYY-\"W\"IW')",
+        Some("month") => "to_char(value_date, 'YYYY-MM')",
+        _ => "category",
+    };
+
+    let dim_where = match params.dimension.as_deref() {
+        Some("earned") => "AND direction = 'credit'".to_string(),
+        Some("net") => String::new(),
+        _ => "AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')".to_string(),
+    };
+
+    let mut wheres = vec![format!("user_id = $1")];
+    let mut bind_idx = 2;
+
+    if let Some(ref from) = params.from {
+        wheres.push(format!("value_date >= ${}", bind_idx));
+        bind_idx += 1;
+    }
+    if let Some(ref to) = params.to {
+        wheres.push(format!("value_date <= ${}", bind_idx));
+        bind_idx += 1;
+    }
+    if let Some(ref cat) = params.category {
+        wheres.push(format!("category = ${}", bind_idx));
+        bind_idx += 1;
+    }
+    if let Some(ref bank) = params.bank {
+        wheres.push(format!("bank = ${}", bind_idx));
+        bind_idx += 1;
+    }
+    if let Some(ref dir) = params.direction {
+        if dir == "debit" {
+            wheres.push("direction = 'debit'".to_string());
+        } else if dir == "credit" {
+            wheres.push("direction = 'credit'".to_string());
+        }
+    }
+
+    let where_clause = wheres.join(" AND ");
+
+    let sql = format!(
+        "SELECT {} AS label, SUM(amount)::float8 AS value \
+         FROM transactions WHERE {} {} \
+         GROUP BY label ORDER BY value DESC LIMIT 20",
+        group_col, where_clause, dim_where
+    );
+
+    let mut q = sqlx::query_as::<_, (String, f64)>(&sql);
+    q = q.bind(user_id);
+    if let Some(ref from) = params.from {
+        q = q.bind(from);
+    }
+    if let Some(ref to) = params.to {
+        q = q.bind(to);
+    }
+    if let Some(ref cat) = params.category {
+        q = q.bind(cat);
+    }
+    if let Some(ref bank) = params.bank {
+        q = q.bind(bank);
+    }
+
+    let rows: Vec<(String, f64)> = q
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Query error: {e}")))?;
+
+    let total: f64 = rows.iter().map(|(_, v)| v).sum();
+    let labels: Vec<String> = rows.iter().map(|(l, _)| l.clone()).collect();
+    let values: Vec<f64> = rows.iter().map(|(_, v)| *v).collect();
+
+    let comparison_values = None;
+
+    let mut insights = vec![];
+    if let Some((top_label, top_val)) = rows.first() {
+        if total > 0.0 {
+            let pct = top_val / total * 100.0;
+            insights.push(format!(
+                "{} ({:.0}%) of spending goes to {}",
+                pct.round(),
+                top_label
+            ));
+        }
+    }
+
+    tx.commit().await?;
+
+    Ok(Json(AnalyticsResponse {
+        series: AnalyticsSeries {
+            labels,
+            values,
+            comparison_values,
+            total,
+        },
+        insights,
+    }))
+}
+
 // ── Category management ───────────────────────────────────────────────────────
 
 /// Return all distinct categories for this user (used to populate dropdown).

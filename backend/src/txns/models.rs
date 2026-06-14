@@ -138,6 +138,34 @@ pub struct AnalysisStats {
     pub total_invested: f64,
 }
 
+// ── Analytics Explore ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AnalyticsQuery {
+    pub from: Option<NaiveDate>,
+    pub to: Option<NaiveDate>,
+    pub group_by: Option<String>,
+    pub dimension: Option<String>,
+    pub category: Option<String>,
+    pub bank: Option<String>,
+    pub direction: Option<String>,
+    pub compare: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnalyticsSeries {
+    pub labels: Vec<String>,
+    pub values: Vec<f64>,
+    pub comparison_values: Option<Vec<f64>>,
+    pub total: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnalyticsResponse {
+    pub series: AnalyticsSeries,
+    pub insights: Vec<String>,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct AccountBalance {
     pub bank: String,
