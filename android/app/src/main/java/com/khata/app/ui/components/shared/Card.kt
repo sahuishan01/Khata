@@ -21,14 +21,14 @@ import com.khata.app.ui.theme.KhataColors
 fun KhataCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(13.dp),
         color = KhataColors.surface,
         border = null,
     ) {
         Column(modifier = Modifier.drawBehind {
             drawRoundRect(
                 color = KhataColors.hairline,
-                cornerRadius = CornerRadius(16.dp.toPx()),
+                cornerRadius = CornerRadius(13.dp.toPx()),
                 style = Stroke(1.dp.toPx()),
             )
             // subtle top inner highlight
@@ -46,15 +46,15 @@ fun KhataCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
 @Composable
 fun KhataCardHeader(title: String, modifier: Modifier = Modifier, action: @Composable () -> Unit = {}) {
     Row(
-        modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        modifier = modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted, letterSpacing = 0.8.sp, modifier = Modifier.weight(1f))
+        Text(title, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted, letterSpacing = 0.5.sp, modifier = Modifier.weight(1f))
         action()
     }
 }
 
 @Composable
 fun KhataCardBody(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+    Column(modifier = modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
 }

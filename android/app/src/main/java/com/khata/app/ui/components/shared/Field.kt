@@ -19,10 +19,10 @@ fun KhataField(
 ) {
     OutlinedTextField(
         value = value, onValueChange = onValueChange,
-        placeholder = { if (placeholder.isNotEmpty()) Text(placeholder, fontSize = 13.sp) },
+        placeholder = { if (placeholder.isNotEmpty()) Text(placeholder, fontSize = 11.sp) },
         singleLine = singleLine, modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+        shape = RoundedCornerShape(9.dp),
+        textStyle = LocalTextStyle.current.copy(fontSize = 11.sp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = KhataColors.brand,
             unfocusedBorderColor = KhataColors.hairline,

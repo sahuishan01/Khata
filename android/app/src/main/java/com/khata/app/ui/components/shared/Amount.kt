@@ -4,6 +4,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -15,7 +16,7 @@ import com.khata.app.util.formatINR
 fun KhataAmount(
     rupees: Double,
     sign: Boolean = false,
-    size: TextUnit = 15.sp,
+    size: TextUnit = 11.5.sp,
     modifier: Modifier = Modifier,
 ) {
     val color = when {
@@ -27,7 +28,8 @@ fun KhataAmount(
         text = formatINR(rupees, sign = sign),
         color = color,
         fontSize = size,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Monospace,
         style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
         textAlign = TextAlign.End,
         modifier = modifier,
