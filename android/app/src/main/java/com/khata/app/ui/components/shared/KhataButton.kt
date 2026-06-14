@@ -23,16 +23,16 @@ fun KhataButton(
     when (variant) {
         ButtonVariant.Primary -> Button(
             onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
-            shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = KhataColors.brand)
+            shape = RoundedCornerShape(999.dp), colors = ButtonDefaults.buttonColors(containerColor = KhataColors.brand)
         ) { content() }
         ButtonVariant.Secondary -> OutlinedButton(
             onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
-            shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = KhataColors.text),
+            shape = RoundedCornerShape(999.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = KhataColors.text),
             border = ButtonDefaults.outlinedButtonBorder(enabled = enabled)
         ) { content() }
         ButtonVariant.Danger -> OutlinedButton(
             onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
-            shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = KhataColors.expense),
+            shape = RoundedCornerShape(999.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = KhataColors.expense),
             border = ButtonDefaults.outlinedButtonBorder(enabled = false).copy(brush = SolidColor(KhataColors.expense))
         ) { content() }
         ButtonVariant.Ghost -> TextButton(
