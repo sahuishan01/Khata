@@ -18,6 +18,7 @@ import com.khata.app.ui.theme.KhataColors
 
 enum class ConflictStrategy { Override, KeepExisting, Merge }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConflictScreen(
     conflicts: List<SyncConflict>,
@@ -87,9 +88,10 @@ fun ConflictScreen(
                         DiffRow("Direction", conflict.localTxn.direction, conflict.serverTxn.direction)
 
                         Spacer(Modifier.height(8.dp))
+                        val cur = getStrategy(conflict.clientId)
                         StrategyDropdown(
-                            label = "Override" to "Keep existing",
-                            selected = getStrategy(conflict.clientId),
+                            label = when (cur) { ConflictStrategy.Override -> "Override (local wins)"; ConflictStrategy.KeepExisting -> "Keep existing (server wins)"; ConflictStrategy.Merge -> "Merge (field-level)" },
+                            selected = cur,
                             onSelect = { perItemStrategies = perItemStrategies + (conflict.clientId to it) }
                         )
                     }
