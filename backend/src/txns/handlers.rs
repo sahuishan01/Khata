@@ -358,6 +358,115 @@ pub async fn get_analytics_explore(
     }))
 }
 
+// ── Analytics Detail ──────────────────────────────────────────────────────────
+
+pub async fn get_analytics_detail(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Query(params): Query<DetailQuery>,
+) -> Result<Json<DetailResponse>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let mut wheres = vec!["user_id = $1".to_string()];
+    let mut bind_idx = 2;
+    if let Some(ref cat) = params.category {
+        wheres.push(format!("category = ${}", bind_idx)); bind_idx += 1;
+    }
+    if let Some(ref m) = params.month {
+        wheres.push(format!("to_char(value_date, 'YYYY-MM') = ${}", bind_idx)); bind_idx += 1;
+    }
+    if let Some(ref p) = params.payee {
+        wheres.push(format!("description = ${}", bind_idx)); bind_idx += 1;
+    }
+    let w = wheres.join(" AND ");
+
+    let (total_spent, total_earned, txn_count): (f64, f64, i64) = sqlx::query_as(
+        &format!("SELECT COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8, COUNT(*)::bigint FROM transactions WHERE {}", w)
+    ).bind(user_id)
+    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
+    .fetch_one(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let trend: Vec<MonthBucket> = sqlx::query_as(
+        &format!("SELECT to_char(value_date, 'YYYY-MM') AS month, COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8 AS spent, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8 AS earned FROM transactions WHERE {} GROUP BY month ORDER BY month DESC LIMIT 12", w)
+    ).bind(user_id)
+    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
+    .fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let top_payees: Vec<TopMerchant> = sqlx::query_as(
+        &format!("SELECT description, SUM(amount)::float8 AS total FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY total DESC LIMIT 10", w)
+    ).bind(user_id)
+    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
+    .fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let top_categories: Vec<CategoryBucket> = sqlx::query_as(
+        &format!("SELECT category, SUM(amount)::float8 AS amount, COUNT(*)::bigint AS txn_count, 0.0 AS pct FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY amount DESC LIMIT 10", w)
+    ).bind(user_id)
+    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
+    .fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    tx.commit().await?;
+    Ok(Json(DetailResponse { total_spent, total_earned, txn_count, trend, top_payees, top_categories }))
+}
+
+pub async fn get_analytics_highlights(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+) -> Result<Json<HighlightsResponse>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let highest_earning_month: Option<(String, f64)> = sqlx::query_as(
+        "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let highest_spending_month: Option<(String, f64)> = sqlx::query_as(
+        "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type='investment') GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let biggest_expense: Option<TxnRow> = sqlx::query_as(
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let biggest_income: Option<TxnRow> = sqlx::query_as(
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let top_payee: Option<(String, f64)> = sqlx::query_as(
+        "SELECT description, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY SUM(amount) DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let most_frequent_payee: Option<(String, i64)> = sqlx::query_as(
+        "SELECT description, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' GROUP BY description ORDER BY COUNT(*) DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let top_category: Option<(String, f64, i64)> = sqlx::query_as(
+        "SELECT category, SUM(amount)::float8, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    let best_savings_month: Option<(String, f64)> = sqlx::query_as(
+        "SELECT to_char(value_date, 'YYYY-MM') AS month, \
+         (COALESCE(SUM(amount) FILTER (WHERE direction='credit'),0) - \
+          COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0))::float8 / \
+         NULLIF(SUM(amount) FILTER (WHERE direction='credit'),0) * 100.0 AS savings_rate \
+         FROM transactions WHERE user_id = $1 GROUP BY month ORDER BY savings_rate DESC LIMIT 1"
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    tx.commit().await?;
+    Ok(Json(HighlightsResponse {
+        highest_earning_month: highest_earning_month.map(|(m, v)| MonthBucket { month: m, spent: 0.0, earned: v }),
+        highest_spending_month: highest_spending_month.map(|(m, v)| MonthBucket { month: m, spent: v, earned: 0.0 }),
+        biggest_expense,
+        biggest_income,
+        top_payee: top_payee.map(|(d, v)| TopMerchant { description: d, total: v }),
+        most_frequent_payee,
+        top_category: top_category.map(|(c, a, t)| CategoryBucket { category: c, amount: a, txn_count: t, pct: 0.0 }),
+        best_savings_month: best_savings_month.map(|(m, r)| (m, r)),
+    }))
+}
+
 // ── Category management ───────────────────────────────────────────────────────
 
 /// Return all distinct categories for this user (used to populate dropdown).

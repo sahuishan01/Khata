@@ -17,6 +17,7 @@ import { PortfolioPage } from './pages/PortfolioPage'
 import { MorePage } from './pages/MorePage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { DetailViewPage } from './pages/DetailViewPage'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -44,6 +45,7 @@ export function App() {
         <Route path="/portfolio"    element={<AppLayout><PortfolioPage /></AppLayout>} />
         <Route path="/categories"   element={<AppLayout><CategoriesPage /></AppLayout>} />
         <Route path="/analytics"    element={<AppLayout><AnalyticsPage /></AppLayout>} />
+        <Route path="/analytics/detail" element={<AppLayout><DetailViewPage /></AppLayout>} />
         <Route path="/more"         element={<AppLayout><MorePage /></AppLayout>} />
         <Route path="/admin/users"  element={<AppLayout><AdminUsersPage /></AppLayout>} />
         <Route path="*"             element={<Navigate to="/" replace />} />

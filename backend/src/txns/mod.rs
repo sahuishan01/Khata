@@ -14,6 +14,8 @@ pub fn router() -> Router<AppState> {
         .route("/dashboard", get(handlers::get_dashboard))
         .route("/analysis", get(handlers::get_analysis))
         .route("/analytics/explore", get(handlers::get_analytics_explore))
+        .route("/analytics/detail", get(handlers::get_analytics_detail))
+        .route("/analytics/highlights", get(handlers::get_analytics_highlights))
         .route("/categories", get(handlers::list_categories))
         .route("/:id", get(handlers::get_txn))
         .route("/:id/category", put(handlers::update_category))
