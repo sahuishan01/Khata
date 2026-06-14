@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
-import { EmptyState } from '../components/EmptyState'
+import { Screen, Card, CardBody, ListRow, ListRowText, Field, Button, Chip, EmptyState } from '../components/shared'
 
 interface User {
   id: string
@@ -65,91 +65,37 @@ export function AdminUsersPage() {
   }
 
   return (
-    <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Manage Users</h1>
-      <p className="text-muted" style={{ marginBottom: 24 }}>Add and manage user accounts</p>
-
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Add User</h2>
-        <form onSubmit={createUser}>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input
-              type="email"
-              className="form-input"
-              placeholder="user@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Min. 8 characters"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
-
-          {error && <p className="text-error mb-3">{error}</p>}
-          {success && <p className="text-success mb-3">{success}</p>}
-
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Adding…' : 'Add User'}
-          </button>
-        </form>
+    <Screen title="Manage Users">
+      <div style={{ marginBottom: 24 }}>
+        <Card>
+          <CardBody>
+            <form onSubmit={createUser} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Field type="email" placeholder="user@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+              <Field type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+              {error && <p style={{ fontSize: 13, color: 'var(--expense)' }}>{error}</p>}
+              {success && <p style={{ fontSize: 13, color: 'var(--income)' }}>{success}</p>}
+              <Button disabled={loading}>{loading ? 'Adding…' : 'Add User'}</Button>
+            </form>
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="card">
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Users</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--hairline)', textAlign: 'left' }}>
-              <th style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Email</th>
-              <th style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Role</th>
-              <th style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', color: 'var(--text-muted)' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid var(--hairline)' }}>
-                <td style={{ padding: '10px 12px' }}>{u.email}</td>
-                <td style={{ padding: '10px 12px' }}>
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: u.role === 'admin' ? 'var(--primary-light)' : 'var(--bg-subtle)',
-                    color: u.role === 'admin' ? 'var(--primary)' : 'var(--text-muted)',
-                  }}>
-                    {u.role}
-                  </span>
-                </td>
-                <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ color: 'var(--danger, #e53e3e)' }}
-                    onClick={() => deleteUser(u.id, u.email)}
-                    disabled={deleting === u.id}
-                  >
-                    {deleting === u.id ? '…' : 'Delete'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 && (
-              <tr><td colSpan={3} style={{ padding: 20 }}><EmptyState icon="👥" title="No users yet" description="Add users to your organization so they can access shared financial data." action={{ label: 'Add user', onClick: () => document.querySelector<HTMLInputElement>('input[type="email"]')?.focus() }} /></td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <Card>
+        {users.length === 0 && <EmptyState icon="👥" title="No users yet" description="Add users to your organization so they can access shared financial data." action={{ label: 'Add user', onClick: () => document.querySelector<HTMLInputElement>('input[type="email"]')?.focus() }} />}
+        {users.map(u => (
+          <ListRow
+            key={u.id}
+            leading={<Chip color={u.role === 'admin' ? 'purple' : 'gray'}>{u.role}</Chip>}
+            trailing={
+              <Button variant="danger" size="sm" onClick={() => deleteUser(u.id, u.email)} disabled={deleting === u.id}>
+                {deleting === u.id ? '…' : 'Delete'}
+              </Button>
+            }
+          >
+            <ListRowText primary={u.email} />
+          </ListRow>
+        ))}
+      </Card>
+    </Screen>
   )
 }

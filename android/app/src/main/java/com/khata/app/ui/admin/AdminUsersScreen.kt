@@ -3,7 +3,6 @@ package com.khata.app.ui.admin
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -13,6 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.khata.app.ui.components.shared.ButtonVariant
+import com.khata.app.ui.components.shared.KhataButton
+import com.khata.app.ui.components.shared.KhataCard
+import com.khata.app.ui.components.shared.KhataCardBody
+import com.khata.app.ui.components.shared.KhataCardHeader
+import com.khata.app.ui.components.shared.KhataEmptyState
+import com.khata.app.ui.components.shared.KhataField
+import com.khata.app.ui.components.shared.KhataListRow
+import com.khata.app.ui.components.shared.KhataListRowText
 
 @Composable
 fun AdminUsersScreen(
@@ -39,28 +47,20 @@ fun AdminUsersScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Add User", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(12.dp))
-
-                    OutlinedTextField(
+            KhataCard(Modifier.fillMaxWidth()) {
+                KhataCardHeader("Add User")
+                KhataCardBody {
+                    KhataField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Email") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        placeholder = "Email"
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    OutlinedTextField(
+                    KhataField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        placeholder = "Password"
                     )
 
                     if (error != null) {
@@ -73,11 +73,10 @@ fun AdminUsersScreen(
                     }
 
                     Spacer(Modifier.height(12.dp))
-                    Button(
+                    KhataButton(
                         onClick = { onCreateUser(email, password); email = ""; password = "" },
                         enabled = !isLoading && email.isNotBlank() && password.length >= 8,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         if (isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text("Add User")
@@ -87,37 +86,24 @@ fun AdminUsersScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Users", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-
-                    if (users.isEmpty()) {
-                        Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("👥", fontSize = 28.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text("No users yet", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.height(2.dp))
-                                Text("Add users using the form above to grant them access.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    } else {
-                        users.forEach { user ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(user.email, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                    Text(user.role, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                IconButton(onClick = { onDeleteUser(user.id) }) {
+            KhataCard(Modifier.fillMaxWidth()) {
+                KhataCardHeader("Users")
+                if (users.isEmpty()) {
+                    KhataEmptyState(
+                        emoji = "\uD83D\uDC65",
+                        title = "No users yet",
+                        description = "Add users using the form above to grant them access."
+                    )
+                } else {
+                    users.forEach { user ->
+                        KhataListRow(
+                            content = { KhataListRowText(primary = user.email, secondary = user.role) },
+                            trailing = {
+                                KhataButton(onClick = { onDeleteUser(user.id) }, variant = ButtonVariant.Ghost) {
                                     Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                        }
+                        )
                     }
                 }
             }
