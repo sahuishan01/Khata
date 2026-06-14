@@ -65,4 +65,14 @@ interface KhataApi {
     @GET("api/categories") suspend fun listCategoriesV2(): List<Category>
     @POST("api/categories") suspend fun createCategory(@Body body: CreateCategoryReq): Category
     @DELETE("api/categories/{id}") suspend fun deleteCategory(@Path("id") id: String): MessageResponse
+
+    // Sync
+    @GET("api/txns/sync/pull")
+    suspend fun syncPull(@Query("since_rev") sinceRev: Long = 0, @Query("limit") limit: Int = 200): SyncPullResponse
+
+    @POST("api/txns/sync/push")
+    suspend fun syncPush(@Body ops: List<SyncPushOp>): SyncPushResult
+
+    @POST("api/txns/sync/resolve")
+    suspend fun syncResolve(@Body resolutions: List<SyncPushOp>): List<SyncAccepted>
 }

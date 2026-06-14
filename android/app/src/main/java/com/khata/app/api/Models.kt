@@ -42,7 +42,11 @@ data class TxnRow(
     val description: String, val amount: Double, val direction: String,
     val category: String, val bank: String,
     @SerializedName("is_transfer") val isTransfer: Boolean,
-    val notes: String
+    val notes: String,
+    @SerializedName("client_id") val clientId: String? = null,
+    val rev: Long = 0,
+    @SerializedName("base_rev") val baseRev: Long = 0,
+    val deleted: Boolean = false,
 )
 
 data class ChatHistoryResponse(val id: String, val role: String, val content: String, @SerializedName("sql_used") val sqlUsed: String?)
@@ -90,3 +94,54 @@ data class CreateTxnReq(
 // Transfer / Investment toggles
 data class ToggleTransferReq(@SerializedName("is_transfer") val isTransfer: Boolean)
 data class UpdateNotesReq(val notes: String)
+
+// Sync models
+data class SyncPullResponse(
+    val txns: List<TxnRow>,
+    @SerializedName("new_rev") val newRev: Long,
+    @SerializedName("has_more") val hasMore: Boolean,
+)
+
+data class SyncPushOp(
+    @SerializedName("client_id") val clientId: String,
+    @SerializedName("base_rev") val baseRev: Long,
+    val amount: Double? = null,
+    val direction: String? = null,
+    val description: String? = null,
+    val category: String? = null,
+    @SerializedName("txn_date") val txnDate: String? = null,
+    @SerializedName("value_date") val valueDate: String? = null,
+    val notes: String? = null,
+    @SerializedName("is_transfer") val isTransfer: Boolean = false,
+    val deleted: Boolean = false,
+)
+
+data class SyncPushResult(
+    val accepted: List<SyncAccepted>,
+    val conflicts: List<SyncConflictDetail>,
+)
+
+data class SyncAccepted(
+    @SerializedName("client_id") val clientId: String,
+    @SerializedName("server_rev") val serverRev: Long,
+)
+
+data class SyncConflictDetail(
+    @SerializedName("client_id") val clientId: String,
+    @SerializedName("base_rev") val baseRev: Long,
+    @SerializedName("server_rev") val serverRev: Long,
+    @SerializedName("server_txn") val serverTxn: TxnRow,
+    @SerializedName("local_txn") val localTxn: Any? = null,
+)
+
+fun TxnRow.toLocal() = com.khata.app.data.LocalTransaction(
+    clientId = this.clientId?.toString() ?: "",
+    description = this.description,
+    amount = this.amount,
+    direction = this.direction,
+    category = this.category,
+    valueDate = this.valueDate.toString(),
+    rev = this.rev,
+    baseRev = this.baseRev,
+    deleted = this.deleted,
+)

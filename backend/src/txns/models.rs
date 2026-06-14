@@ -44,6 +44,11 @@ pub struct TxnRow {
     pub is_transfer: bool,
     pub notes: String,
     pub version: i32,
+    pub rev: i64,
+    pub base_rev: i64,
+    pub deleted: bool,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub client_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,4 +240,53 @@ pub struct SyncConflict {
     pub local_version: i32,
     pub server_version: i32,
     pub server_txn: TxnRow,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SyncPullQuery {
+    pub since_rev: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncPullResponse {
+    pub txns: Vec<TxnRow>,
+    pub new_rev: i64,
+    pub has_more: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SyncPushOp {
+    pub client_id: Uuid,
+    pub base_rev: i64,
+    pub amount: Option<f64>,
+    pub direction: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub txn_date: Option<NaiveDate>,
+    pub value_date: Option<NaiveDate>,
+    pub notes: Option<String>,
+    pub is_transfer: Option<bool>,
+    pub deleted: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncPushResult {
+    pub accepted: Vec<SyncAccepted>,
+    pub conflicts: Vec<SyncConflictDetail>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncAccepted {
+    pub client_id: Uuid,
+    pub server_rev: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncConflictDetail {
+    pub client_id: Uuid,
+    pub base_rev: i64,
+    pub server_rev: i64,
+    pub server_txn: TxnRow,
+    pub local_txn: serde_json::Value,
 }

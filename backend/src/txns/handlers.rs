@@ -57,7 +57,8 @@ pub async fn list_txns(
 
     let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
+                  rev, base_rev, deleted, updated_at, client_id
            FROM transactions
            WHERE user_id = $1
              AND ($2::text IS NULL OR category = $2)
@@ -217,7 +218,8 @@ pub async fn get_analysis(
     // Largest single expense
     let largest = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
+                  rev, base_rev, deleted, updated_at, client_id
            FROM transactions
             WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            ORDER BY amount DESC LIMIT 1"#,
@@ -427,11 +429,11 @@ pub async fn get_analytics_highlights(
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let biggest_expense: Option<TxnRow> = sqlx::query_as(
-        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let biggest_income: Option<TxnRow> = sqlx::query_as(
-        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     let top_payee: Option<(String, f64)> = sqlx::query_as(
@@ -630,7 +632,8 @@ pub async fn get_txn(
 
     let row = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
-                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version
+                  amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
+                  rev, base_rev, deleted, updated_at, client_id
            FROM transactions WHERE id = $1 AND user_id = $2"#,
     )
     .bind(txn_id)
@@ -704,9 +707,10 @@ pub async fn create_txn(
            (user_id, bank, account_label, txn_date, value_date, description, raw_description,
             amount, direction, category, bank_ref, notes, version, fingerprint)
            VALUES ($1, 'Manual', 'Manual', $2, $3, $4, $4, $5, $6, $7, $8, $9, gen_random_uuid()::text)
-           RETURNING id, txn_date, value_date, description,
-                     amount::float8, direction, balance::float8, bank, bank_ref, category,
-                     is_transfer, notes, version"#,
+            RETURNING id, txn_date, value_date, description,
+                      amount::float8, direction, balance::float8, bank, bank_ref, category,
+                      is_transfer, notes, version,
+                      rev, base_rev, deleted, updated_at, client_id"#,
     )
     .bind(user_id)
     .bind(txn_date)
@@ -829,7 +833,8 @@ pub async fn sync_txns(
             let server_txn = sqlx::query_as::<_, TxnRow>(
                 r#"SELECT id, txn_date, value_date, description,
                           amount::float8, direction, balance::float8, bank, bank_ref, category,
-                          is_transfer, notes, version
+                          is_transfer, notes, version,
+                          rev, base_rev, deleted, updated_at, client_id
                    FROM transactions WHERE id = $1 AND user_id = $2"#,
             )
             .bind(id).bind(user_id)
@@ -869,4 +874,154 @@ pub async fn sync_txns(
 
     tx.commit().await?;
     Ok(Json(SyncResult { success, conflicts }))
+}
+
+pub async fn sync_pull(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Query(params): Query<SyncPullQuery>,
+) -> Result<Json<SyncPullResponse>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let since = params.since_rev.unwrap_or(0);
+    let limit = params.limit.unwrap_or(200).min(1000);
+
+    let rows = sqlx::query_as::<_, TxnRow>(
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, \
+         balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
+         rev, base_rev, deleted, updated_at, client_id \
+         FROM transactions WHERE user_id = $1 AND rev > $2 \
+         ORDER BY rev ASC LIMIT $3"
+    )
+    .bind(user_id).bind(since).bind(limit)
+    .fetch_all(&mut *tx).await?;
+
+    let new_rev = rows.last().map(|r| r.rev).unwrap_or(since);
+    let has_more = rows.len() as i64 >= limit;
+
+    tx.commit().await?;
+    Ok(Json(SyncPullResponse { txns: rows, new_rev, has_more }))
+}
+
+pub async fn sync_push(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Json(ops): Json<Vec<SyncPushOp>>,
+) -> Result<Json<SyncPushResult>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let mut accepted = vec![];
+    let mut conflicts = vec![];
+
+    for op in ops {
+        let server_row: Option<(i64, i64, String)> = sqlx::query_as(
+            "SELECT rev, base_rev, description FROM transactions WHERE client_id = $1 AND user_id = $2"
+        )
+        .bind(op.client_id).bind(user_id)
+        .fetch_optional(&mut *tx).await?;
+
+        match server_row {
+            None => {
+                let new_rev: i64 = sqlx::query_scalar(
+                    "INSERT INTO transactions (user_id, client_id, description, amount, direction, category, \
+                     txn_date, value_date, notes, is_transfer, deleted, rev, base_rev) \
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, 1) \
+                     ON CONFLICT (client_id, user_id) DO UPDATE SET rev = transactions.rev + 1 \
+                     RETURNING rev"
+                )
+                .bind(user_id).bind(op.client_id)
+                .bind(op.description.unwrap_or_default())
+                .bind(op.amount.unwrap_or(0.0))
+                .bind(op.direction.unwrap_or("debit".into()))
+                .bind(op.category.unwrap_or("Miscellaneous".into()))
+                .bind(op.txn_date.unwrap_or(chrono::Utc::now().date_naive()))
+                .bind(op.value_date.unwrap_or(chrono::Utc::now().date_naive()))
+                .bind(op.notes)
+                .bind(op.is_transfer.unwrap_or(false))
+                .bind(op.deleted.unwrap_or(false))
+                .fetch_one(&mut *tx).await?;
+                accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
+            }
+            Some((server_rev, _, _)) if server_rev == op.base_rev => {
+                let new_rev = server_rev + 1;
+                sqlx::query(
+                    "UPDATE transactions SET rev = $1, base_rev = rev, \
+                     description = COALESCE($3, description), amount = COALESCE($4, amount), \
+                     direction = COALESCE($5, direction), category = COALESCE($6, category), \
+                     notes = COALESCE($7, notes), is_transfer = COALESCE($8, is_transfer), \
+                     deleted = COALESCE($9, deleted), updated_at = NOW() \
+                     WHERE client_id = $2 AND user_id = $10"
+                )
+                .bind(new_rev).bind(op.client_id)
+                .bind(&op.description).bind(op.amount)
+                .bind(&op.direction).bind(&op.category)
+                .bind(&op.notes).bind(op.is_transfer)
+                .bind(op.deleted).bind(user_id)
+                .execute(&mut *tx).await?;
+                accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
+            }
+            Some((server_rev, _, _)) => {
+                let txn: TxnRow = sqlx::query_as(
+                    "SELECT id, txn_date, value_date, description, amount::float8, direction, \
+                     balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
+                     rev, base_rev, deleted, updated_at, client_id \
+                     FROM transactions WHERE client_id = $1 AND user_id = $2"
+                )
+                .bind(op.client_id).bind(user_id)
+                .fetch_one(&mut *tx).await?;
+                conflicts.push(SyncConflictDetail {
+                    client_id: op.client_id,
+                    base_rev: op.base_rev,
+                    server_rev,
+                    server_txn: txn,
+                    local_txn: serde_json::json!(op),
+                });
+            }
+        }
+    }
+
+    tx.commit().await?;
+    Ok(Json(SyncPushResult { accepted, conflicts }))
+}
+
+pub async fn sync_resolve(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Json(resolutions): Json<Vec<SyncPushOp>>,
+) -> Result<Json<Vec<SyncAccepted>>, AppError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+        .execute(&mut *tx).await?;
+
+    let mut accepted = vec![];
+    for op in resolutions {
+        let server_rev: Option<(i64,)> = sqlx::query_as(
+            "SELECT rev FROM transactions WHERE client_id = $1 AND user_id = $2"
+        ).bind(op.client_id).bind(user_id).fetch_optional(&mut *tx).await?;
+
+        if let Some((rev,)) = server_rev {
+            let new_rev = rev + 1;
+            sqlx::query(
+                "UPDATE transactions SET rev = $1, description = COALESCE($3, description), \
+                 amount = COALESCE($4, amount), direction = COALESCE($5, direction), \
+                 category = COALESCE($6, category), notes = COALESCE($7, notes), \
+                 is_transfer = COALESCE($8, is_transfer), deleted = COALESCE($9, deleted), \
+                 updated_at = NOW() WHERE client_id = $2 AND user_id = $10"
+            )
+            .bind(new_rev).bind(op.client_id)
+            .bind(&op.description).bind(op.amount)
+            .bind(&op.direction).bind(&op.category)
+            .bind(&op.notes).bind(op.is_transfer)
+            .bind(op.deleted).bind(user_id)
+            .execute(&mut *tx).await?;
+            accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
+        }
+    }
+
+    tx.commit().await?;
+    Ok(Json(accepted))
 }
