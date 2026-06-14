@@ -72,10 +72,6 @@ fun TransactionsScreen(
 ) {
     var sortBy by remember(filter) { mutableStateOf(filter.sortBy) }
     var sortDir by remember(filter) { mutableStateOf(filter.sortDir) }
-    var selectedCategory by remember(filter) { mutableStateOf(filter.category) }
-    var selectedPreset by remember(filter) { mutableStateOf(filter.preset) }
-    var customFrom by remember(filter) { mutableStateOf(filter.from ?: "") }
-    var customTo by remember(filter) { mutableStateOf(filter.to ?: "") }
     var showSortMenu by remember { mutableStateOf(false) }
     var showCatFilter by remember { mutableStateOf(false) }
     var showCustomDatePicker by remember { mutableStateOf(false) }
@@ -99,18 +95,14 @@ fun TransactionsScreen(
 
     val fmt = DateTimeFormatter.ISO_LOCAL_DATE
 
-    fun getDateParams(): Pair<String?, String?> {
-        val preset = presets[selectedPreset]
-        return if (selectedPreset == presets.size - 1) { // Custom
-            customFrom.ifBlank { null } to customTo.ifBlank { null }
+    fun reload() {
+        val preset = presets[filter.preset]
+        val (from, to) = if (filter.preset == presets.size - 1) {
+            (filter.from?.ifBlank { null }) to (filter.to?.ifBlank { null })
         } else {
             preset.from to preset.to
         }
-    }
-
-    fun reload() {
-        val (from, to) = getDateParams()
-        onLoad(sortBy, sortDir, selectedCategory, from, to, selectedPreset)
+        onLoad(sortBy, sortDir, filter.category, from, to, filter.preset)
     }
 
     // Initial load only when no data exists
@@ -121,7 +113,7 @@ fun TransactionsScreen(
     // Date picker dialogs
     if (showFromPicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = customFrom.ifBlank { null }
+            initialSelectedDateMillis = (filter.from ?: "").ifBlank { null }
                 ?.let { LocalDate.parse(it, fmt).toEpochDay() * 86400000 }
                 ?: System.currentTimeMillis()
         )
@@ -130,7 +122,7 @@ fun TransactionsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        customFrom = LocalDate.ofEpochDay(millis / 86400000).format(fmt)
+                        val newFrom = LocalDate.ofEpochDay(millis / 86400000).format(fmt); onFilterChange(filter.copy(from = newFrom))
                     }
                     showFromPicker = false
                     reload()
@@ -146,7 +138,7 @@ fun TransactionsScreen(
 
     if (showToPicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = customTo.ifBlank { null }
+            initialSelectedDateMillis = (filter.to ?: "").ifBlank { null }
                 ?.let { LocalDate.parse(it, fmt).toEpochDay() * 86400000 }
                 ?: System.currentTimeMillis()
         )
@@ -155,7 +147,7 @@ fun TransactionsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        customTo = LocalDate.ofEpochDay(millis / 86400000).format(fmt)
+                        val newTo = LocalDate.ofEpochDay(millis / 86400000).format(fmt); onFilterChange(filter.copy(to = newTo))
                     }
                     showToPicker = false
                     reload()
@@ -190,9 +182,11 @@ fun TransactionsScreen(
         ) {
             presets.forEachIndexed { i, preset ->
                 FilterChip(
-                    selected = selectedPreset == i,
+                    selected = filter.preset == i,
                     onClick = {
-                        selectedPreset = i
+                        val newPreset = i
+                        val p = presets[i]
+                        onFilterChange(filter.copy(preset = newPreset, from = p.from ?: "", to = p.to ?: ""))
                         if (i == presets.size - 1) showCustomDatePicker = true
                         reload()
                     },
@@ -203,7 +197,7 @@ fun TransactionsScreen(
         }
 
         // Custom date inputs
-        if (selectedPreset == presets.size - 1) {
+        if (filter.preset == presets.size - 1) {
             Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -211,8 +205,8 @@ fun TransactionsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
-                    value = customFrom,
-                    onValueChange = { customFrom = it },
+                    value = filter.from ?: "",
+                    onValueChange = { onFilterChange(filter.copy(from = it)) },
                     label = { Text("From", fontSize = 11.sp) },
                     placeholder = { Text("YYYY-MM-DD", fontSize = 10.sp) },
                     modifier = Modifier.weight(1f).height(52.dp),
@@ -226,8 +220,8 @@ fun TransactionsScreen(
                 )
                 Text("—", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
-                    value = customTo,
-                    onValueChange = { customTo = it },
+                    value = filter.to ?: "",
+                    onValueChange = { onFilterChange(filter.copy(to = it)) },
                     label = { Text("To", fontSize = 11.sp) },
                     placeholder = { Text("YYYY-MM-DD", fontSize = 10.sp) },
                     modifier = Modifier.weight(1f).height(52.dp),
@@ -273,12 +267,12 @@ fun TransactionsScreen(
                     FilledTonalButton(onClick = { showCatFilter = true }, modifier = Modifier.height(36.dp)) {
                         Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(selectedCategory ?: "All", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(filter.category ?: "All", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     DropdownMenu(expanded = showCatFilter, onDismissRequest = { showCatFilter = false }) {
-                        DropdownMenuItem(text = { Text("All categories") }, onClick = { selectedCategory = null; showCatFilter = false; reload() })
+                        DropdownMenuItem(text = { Text("All categories") }, onClick = { onFilterChange(filter.copy(category = null)); showCatFilter = false; reload() })
                         categories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat) }, onClick = { selectedCategory = cat; showCatFilter = false; reload() })
+                            DropdownMenuItem(text = { Text(cat) }, onClick = { onFilterChange(filter.copy(category = cat)); showCatFilter = false; reload() })
                         }
                     }
                 }
@@ -312,7 +306,7 @@ fun TransactionsScreen(
                         Text("No transactions found", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Try changing the date range or upload a new statement", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(16.dp))
-                        Button(onClick = { selectedPreset = 0; reload() }) { Text("Show all time") }
+                        Button(onClick = { onFilterChange(filter.copy(preset = 0, from = null, to = null)); reload() }) { Text("Show all time") }
                     }
                 }
                 return@Column

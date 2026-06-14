@@ -181,7 +181,7 @@ fun AnalyticsScreen(
                     KhataCardBody {
                         if (analysis.categoryBreakdown.isNotEmpty()) {
                             if (categoryChartType == "donut") {
-                                CategoryPieChart(data = analysis.categoryBreakdown)
+                                CategoryPieChart(data = analysis.categoryBreakdown, onCategoryClick = { c -> onNavigateToDetail("category", c) })
                             } else {
                                 analysis.categoryBreakdown.forEach { c ->
                                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onNavigateToDetail("category", c.category) }, horizontalArrangement = Arrangement.SpaceBetween) {
