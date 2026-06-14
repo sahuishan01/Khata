@@ -7,17 +7,17 @@
   --sidebar-w: 232px;
   --nav-h: 56px;
 
-  --bg: #0E0E13;
-  --surface: #17171F;
-  --surface-2: #1F1F2A;
-  --hairline: #2A2A38;
+  --bg: #0C0C11;
+  --surface: #14141C;
+  --surface-2: #1A1A24;
+  --surface-3: #21212E;
+  --hairline: rgba(255,255,255,0.07);
   --text: #F2F2F5;
   --text-2: #9A9AA8;
   --text-muted: #6B6B78;
   --brand: #8479F2;
   --brand-press: #6F62E6;
   --brand-soft: rgba(132,121,242,.16);
-  --brand-glow: rgba(132,121,242,0.3);
   --income: #2EC27E;
   --income-soft: rgba(46,194,126,.14);
   --expense: #EE6B4D;
@@ -29,6 +29,21 @@
   --shadow: 0 2px 8px rgba(0,0,0,0.35);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* Card surface with subtle top highlight */
+.card, .panel, .more-card {
+  background: var(--surface);
+  position: relative;
+}
+.card::before, .panel::before, .more-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 1px; right: 1px;
+  height: 1px;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  pointer-events: none;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
