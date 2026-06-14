@@ -8,7 +8,7 @@ import java.util.UUID
 
 @Entity(
     tableName = "transactions",
-    indices = [Index(value = ["client_id"]), Index(value = ["rev"])]
+    indices = [Index(value = ["clientId"]), Index(value = ["rev"])]
 )
 data class LocalTransaction(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
