@@ -216,7 +216,7 @@ fun AnalyticsScreen(
         }
 
         // Month comparison
-        if (toggles.find { it.key == "comparison" }?.visible == true && analysis.monthComparison.lastMonth > 0) {
+        if (toggles.find { it.key == "comparison" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth().clickable {
                     val now = java.time.LocalDate.now()
