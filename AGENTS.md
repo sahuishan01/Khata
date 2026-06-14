@@ -19,6 +19,8 @@ Keep the app version below 1.0 (pre-release, e.g. 0.x.y) until the user explicit
 
 Always ask if the previous build was successful before changing the version number. The last successful build tag is the reference point.
 
+After the user confirms a build was successful, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
+
 
 ## Design
 - Read DESIGN.md for design related instructions
