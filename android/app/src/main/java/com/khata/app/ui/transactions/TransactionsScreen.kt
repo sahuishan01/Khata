@@ -95,14 +95,18 @@ fun TransactionsScreen(
 
     val fmt = DateTimeFormatter.ISO_LOCAL_DATE
 
-    fun reload() {
-        val preset = presets[filter.preset]
-        val (from, to) = if (filter.preset == presets.size - 1) {
-            (filter.from?.ifBlank { null }) to (filter.to?.ifBlank { null })
+    fun reload(presetOverride: Int? = null, fromOverride: String? = null, toOverride: String? = null, categoryOverride: String? = null) {
+        val p = presetOverride ?: filter.preset
+        val cat = categoryOverride ?: filter.category
+        val f = fromOverride ?: filter.from
+        val t = toOverride ?: filter.to
+        val presetDef = presets[p]
+        val (from, to) = if (p == presets.size - 1) {
+            f?.ifBlank { null } to t?.ifBlank { null }
         } else {
-            preset.from to preset.to
+            presetDef.from to presetDef.to
         }
-        onLoad(sortBy, sortDir, filter.category, from, to, filter.preset)
+        onLoad(sortBy, sortDir, cat, from, to, p)
     }
 
     // Initial load only when no data exists
@@ -122,10 +126,9 @@ fun TransactionsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        val newFrom = LocalDate.ofEpochDay(millis / 86400000).format(fmt); onFilterChange(filter.copy(from = newFrom))
+                        val newFrom = LocalDate.ofEpochDay(millis / 86400000).format(fmt); onFilterChange(filter.copy(from = newFrom)); reload(fromOverride = newFrom)
                     }
                     showFromPicker = false
-                    reload()
                 }) { Text("OK") }
             },
             dismissButton = {
@@ -147,10 +150,9 @@ fun TransactionsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        val newTo = LocalDate.ofEpochDay(millis / 86400000).format(fmt); onFilterChange(filter.copy(to = newTo))
+                        val newTo = LocalDate.ofEpochDay(millis / 86400000).format(fmt); onFilterChange(filter.copy(to = newTo)); reload(toOverride = newTo)
                     }
                     showToPicker = false
-                    reload()
                 }) { Text("OK") }
             },
             dismissButton = {
@@ -186,9 +188,11 @@ fun TransactionsScreen(
                     onClick = {
                         val newPreset = i
                         val p = presets[i]
-                        onFilterChange(filter.copy(preset = newPreset, from = p.from ?: "", to = p.to ?: ""))
+                        val newFrom = p.from ?: ""
+                        val newTo = p.to ?: ""
+                        onFilterChange(filter.copy(preset = newPreset, from = newFrom, to = newTo))
                         if (i == presets.size - 1) showCustomDatePicker = true
-                        reload()
+                        reload(presetOverride = newPreset, fromOverride = newFrom, toOverride = newTo)
                     },
                     label = { Text(preset.label, fontSize = 10.sp) },
                     modifier = Modifier.height(30.dp)
@@ -209,9 +213,9 @@ fun TransactionsScreen(
                     onValueChange = { onFilterChange(filter.copy(from = it)) },
                     label = { Text("From", fontSize = 11.sp) },
                     placeholder = { Text("YYYY-MM-DD", fontSize = 10.sp) },
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 12.sp),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, lineHeight = 18.sp),
                     trailingIcon = {
                         IconButton(onClick = { showFromPicker = true }) {
                             Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -224,9 +228,9 @@ fun TransactionsScreen(
                     onValueChange = { onFilterChange(filter.copy(to = it)) },
                     label = { Text("To", fontSize = 11.sp) },
                     placeholder = { Text("YYYY-MM-DD", fontSize = 10.sp) },
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 12.sp),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, lineHeight = 18.sp),
                     trailingIcon = {
                         IconButton(onClick = { showToPicker = true }) {
                             Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -270,9 +274,9 @@ fun TransactionsScreen(
                         Text(filter.category ?: "All", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     DropdownMenu(expanded = showCatFilter, onDismissRequest = { showCatFilter = false }) {
-                        DropdownMenuItem(text = { Text("All categories") }, onClick = { onFilterChange(filter.copy(category = null)); showCatFilter = false; reload() })
+                        DropdownMenuItem(text = { Text("All categories") }, onClick = { onFilterChange(filter.copy(category = null)); showCatFilter = false; reload(categoryOverride = null) })
                         categories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat) }, onClick = { onFilterChange(filter.copy(category = cat)); showCatFilter = false; reload() })
+                            DropdownMenuItem(text = { Text(cat) }, onClick = { onFilterChange(filter.copy(category = cat)); showCatFilter = false; reload(categoryOverride = cat) })
                         }
                     }
                 }
@@ -306,7 +310,7 @@ fun TransactionsScreen(
                         Text("No transactions found", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Try changing the date range or upload a new statement", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(16.dp))
-                        Button(onClick = { onFilterChange(filter.copy(preset = 0, from = null, to = null)); reload() }) { Text("Show all time") }
+                        Button(onClick = { onFilterChange(filter.copy(preset = 0, from = null, to = null)); reload(presetOverride = 0, fromOverride = null, toOverride = null) }) { Text("Show all time") }
                     }
                 }
                 return@Column

@@ -314,7 +314,7 @@ export function AnalyticsPage() {
                 <CardBody>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {analysis.savings_rate_pct !== undefined && (
-                      <div style={{ padding: '10px 12px', background: 'var(--brand-soft)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }} onClick={() => navigate(`/analytics/detail?month=${new Date().toISOString().slice(0,7)}`)}>
+                      <div style={{ padding: '10px 12px', background: 'var(--brand-soft)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }} onClick={() => navigate('/transactions')}>
                         Savings rate: <strong>{analysis.savings_rate_pct.toFixed(0)}%</strong> of income <ArrowRight size={12} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
                       </div>
                     )}

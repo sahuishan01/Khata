@@ -249,10 +249,7 @@ fun AnalyticsScreen(
                     KhataCardHeader("INSIGHTS")
                     KhataCardBody {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Surface(shape = MaterialTheme.shapes.small, color = KhataColors.brandSoft, modifier = Modifier.clickable {
-                                val now = java.time.LocalDate.now()
-                                onNavigateToDetail("month", now.format(java.time.format.DateTimeFormatter.ofPattern("YYYY-MM")))
-                            }) {
+                            Surface(shape = MaterialTheme.shapes.small, color = KhataColors.brandSoft, modifier = Modifier.clickable { onNavigateToDetail("all", "") }) {
                                 Text("Savings rate: ${"%.0f".format(analysis.savingsRatePct)}% of income", fontSize = 13.sp, modifier = Modifier.padding(10.dp))
                             }
                             if (analysis.monthComparison.lastMonth > 0) {
