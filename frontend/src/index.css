@@ -1,11 +1,13 @@
 :root {
   --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --r-xl: 20px;
+  --r-md: 10px;
+  --r-lg: 13px;
+  --r-xl: 13px;
+  --r-stat: 12px;
   --r-pill: 999px;
   --sidebar-w: 232px;
   --nav-h: 56px;
+  --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --bg: #0C0C11;
   --surface: #14141C;

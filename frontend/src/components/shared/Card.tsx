@@ -3,9 +3,10 @@ import { ReactNode } from 'react'
 const cardStyle: React.CSSProperties = {
   background: 'var(--surface)',
   border: '1px solid var(--hairline)',
-  borderRadius: 16,
+  borderRadius: 13,
   position: 'relative',
   overflow: 'hidden',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
 }
 
 export function Card({ children, style, className, onClick }: { children: ReactNode; style?: React.CSSProperties; className?: string; onClick?: () => void }) {
@@ -19,13 +20,13 @@ export function Card({ children, style, className, onClick }: { children: ReactN
 
 export function CardHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 0' }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
+      <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{title}</span>
       {action}
     </div>
   )
 }
 
 export function CardBody({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ padding: 16, ...style }}>{children}</div>
+  return <div style={{ padding: 12, ...style }}>{children}</div>
 }

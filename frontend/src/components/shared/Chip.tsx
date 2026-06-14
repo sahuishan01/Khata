@@ -41,11 +41,13 @@ export function Pill({ children, active, onClick }: { children: ReactNode; activ
     <button
       onClick={onClick}
       style={{
-        padding: '4px 10px', fontSize: 12, borderRadius: 999, fontWeight: 500,
+        padding: '6px 11px', fontSize: 10, fontWeight: 600, borderRadius: 999,
         border: active ? 'none' : '1px solid var(--hairline)',
-        background: active ? 'var(--brand)' : 'var(--surface-2)',
-        color: active ? 'white' : 'var(--text)',
-        cursor: 'pointer', transition: 'all 0.12s', minHeight: 32,
+        background: active ? 'var(--brand-soft)' : 'var(--surface-2)',
+        color: active ? 'var(--brand)' : 'var(--text-2)',
+        borderColor: active ? 'transparent' : undefined,
+        cursor: 'pointer', transition: 'all 0.12s',
+        whiteSpace: 'nowrap',
       }}
     >
       {children}

@@ -17,14 +17,9 @@ const colors = {
 export function StatCard({ icon, label, value, color = 'brand' }: StatCardProps) {
   const c = colors[color]
   return (
-    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'default' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 8, background: c.bg, color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
-          {icon}
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 12, padding: 11, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+      <div style={{ fontSize: 9.5, color: 'var(--text-2)' }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: c.color, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum" 1' }}>
         {value}
       </div>
     </div>
