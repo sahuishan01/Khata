@@ -13,6 +13,7 @@ pub fn router() -> Router<AppState> {
         .route("/sync", post(handlers::sync_txns))
         .route("/dashboard", get(handlers::get_dashboard))
         .route("/analysis", get(handlers::get_analysis))
+        .route("/analytics/explore", get(handlers::get_analytics_explore))
         .route("/categories", get(handlers::list_categories))
         .route("/:id", get(handlers::get_txn))
         .route("/:id/category", put(handlers::update_category))

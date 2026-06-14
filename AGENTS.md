@@ -10,6 +10,7 @@ Changes made to the web frontend should also be applied to the Android app, and 
 - `/rules` (web) ↔ `RulesScreen.kt` (Android)
 - `/budgets` (web) ↔ `BudgetsScreen.kt` (Android)
 - `/portfolio` (web) ↔ `PortfolioScreen.kt` (Android)
+- `/analytics` (web) ↔ `AnalyticsScreen.kt` (Android)
 - `/chat` (web) ↔ `ChatScreen.kt` (Android)
 - `/admin/users` (web) ↔ `AdminUsersScreen.kt` (Android)
 - `/categories` (web) ↔ `CategoriesScreen.kt` (Android)
