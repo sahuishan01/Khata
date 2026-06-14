@@ -24,6 +24,11 @@ fun RulesScreen(
 ) {
     LaunchedEffect(Unit) { onLoad() }
     var pattern by remember { mutableStateOf("") }; var category by remember { mutableStateOf("") }
+    var patternDialog by remember { mutableStateOf<String?>(null) }
+
+    patternDialog?.let { p ->
+        AlertDialog(onDismissRequest = { patternDialog = null }, title = { Text("Keyword Pattern") }, text = { Text(p, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) }, confirmButton = { TextButton(onClick = { patternDialog = null }) { Text("OK") } })
+    }
 
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -43,10 +48,6 @@ fun RulesScreen(
                     if (error != null) { Spacer(Modifier.height(6.dp)); Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
                 }
             }
-        }
-        var patternDialog by remember { mutableStateOf<String?>(null) }
-        patternDialog?.let { p ->
-            AlertDialog(onDismissRequest = { patternDialog = null }, title = { Text("Keyword Pattern") }, text = { Text(p, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) }, confirmButton = { TextButton(onClick = { patternDialog = null }) { Text("OK") } })
         }
         items(rules, key = { it.id }) { r ->
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
