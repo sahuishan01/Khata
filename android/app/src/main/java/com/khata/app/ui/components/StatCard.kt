@@ -53,7 +53,8 @@ fun StatCard(
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = accentColor,
-                        letterSpacing = (-0.5).sp
+                        letterSpacing = (-0.5).sp,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                     )
                     if (subtitle != null) {
                         Text(

@@ -3,6 +3,9 @@ package com.khata.app.ui.theme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
 object KhataColors {
     val bg = Color(0xFF0C0C11)
@@ -22,6 +25,27 @@ object KhataColors {
     val expenseSoft = Color(0x24EE6B4D)
     val warn = Color(0xFFE0A33A)
 }
+
+val KhataTypography = Typography(
+    bodyMedium = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        fontFeatureSettings = "tnum"
+    ),
+    titleMedium = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        fontFeatureSettings = "tnum"
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        fontFeatureSettings = "tnum"
+    ),
+)
 
 private val DarkColors = darkColorScheme(
     primary = KhataColors.brand,
@@ -52,6 +76,7 @@ fun KhataTheme(
 ) {
     MaterialTheme(
         colorScheme = DarkColors,
+        typography = KhataTypography,
         content = content
     )
 }

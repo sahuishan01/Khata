@@ -15,6 +15,7 @@ import { RulesPage } from './pages/RulesPage'
 import { BudgetsPage } from './pages/BudgetsPage'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { MorePage } from './pages/MorePage'
+import { CategoriesPage } from './pages/CategoriesPage'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -40,6 +41,7 @@ export function App() {
         <Route path="/rules"        element={<AppLayout><RulesPage /></AppLayout>} />
         <Route path="/budgets"      element={<AppLayout><BudgetsPage /></AppLayout>} />
         <Route path="/portfolio"    element={<AppLayout><PortfolioPage /></AppLayout>} />
+        <Route path="/categories"   element={<AppLayout><CategoriesPage /></AppLayout>} />
         <Route path="/more"         element={<AppLayout><MorePage /></AppLayout>} />
         <Route path="/admin/users"  element={<AppLayout><AdminUsersPage /></AppLayout>} />
         <Route path="*"             element={<Navigate to="/" replace />} />

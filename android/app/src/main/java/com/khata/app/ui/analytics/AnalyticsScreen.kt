@@ -201,7 +201,7 @@ fun AnalyticsScreen(
                                             Spacer(Modifier.width(6.dp))
                                             Text(c.category, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                         }
-                                        Text(formatINR(c.amount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(formatINR(c.amount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                                     }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                                 }
@@ -227,7 +227,7 @@ fun AnalyticsScreen(
                     Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
                             Text("This month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 18.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text("vs last month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -249,7 +249,7 @@ fun AnalyticsScreen(
                     Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
                         Column(Modifier.padding(12.dp)) {
                             Text("AVG DAILY", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                            Text(formatINR(analysis.avgDailySpend), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(formatINR(analysis.avgDailySpend), fontSize = 16.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         }
                     }
                     Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
@@ -270,7 +270,8 @@ fun AnalyticsScreen(
                             Text("NET", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                             val net = stats.totalEarned - stats.totalSpent
                             Text(formatINR(net), fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                                color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error)
+                                color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         }
                     }
                 }
@@ -285,7 +286,7 @@ fun AnalyticsScreen(
                         Text("LARGEST EXPENSE", fontSize = 11.sp, fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
                         Spacer(Modifier.height(8.dp))
-                        Text(formatINR(analysis.largestExpense!!.amount), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        Text(formatINR(analysis.largestExpense!!.amount), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         Text(analysis.largestExpense!!.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(formatDate(analysis.largestExpense!!.valueDate), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -306,12 +307,13 @@ fun AnalyticsScreen(
                             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) { Text(month.month, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(formatINR(month.spent), fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
-                                    Text(formatINR(month.earned), fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                                    Text(formatINR(month.spent), fontSize = 11.sp, color = MaterialTheme.colorScheme.error, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                    Text(formatINR(month.earned), fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 Text(formatINR(net, sign = true), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                    color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error)
+                                    color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         }
@@ -331,7 +333,7 @@ fun AnalyticsScreen(
                         stats.topDebits.take(7).forEach { t ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(t.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         }

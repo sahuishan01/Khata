@@ -12,6 +12,8 @@ Changes made to the web frontend should also be applied to the Android app, and 
 - `/portfolio` (web) ↔ `PortfolioScreen.kt` (Android)
 - `/chat` (web) ↔ `ChatScreen.kt` (Android)
 - `/admin/users` (web) ↔ `AdminUsersScreen.kt` (Android)
+- `/categories` (web) ↔ `CategoriesScreen.kt` (Android)
+- `/more` (web) ↔ `MoreScreen.kt` (Android)
 
 Keep the app version below 1.0 (pre-release, e.g. 0.x.y) until the user explicitly says it's production-ready.
 

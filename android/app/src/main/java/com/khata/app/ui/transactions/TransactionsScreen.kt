@@ -416,7 +416,8 @@ private fun TransactionCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true), fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                        color = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+                        color = if (txn.direction == "debit") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                     Box {
                         IconButton(onClick = { showOverflow = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "More", modifier = Modifier.size(16.dp)) }
                         DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {

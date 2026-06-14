@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import { formatINR } from '../utils/format'
+import { EmptyState } from '../components/EmptyState'
 
 interface Asset { id: string; name: string; asset_type: string; value: number; recorded_at: string }
 interface Liability { id: string; name: string; liability_type: string; value: number; recorded_at: string }
@@ -80,7 +81,7 @@ export function PortfolioPage() {
               <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => delAsset(a.id)}><Trash2 size={13} /></button>
             </div>
           ))}
-          {(snap?.assets.length ?? 0) === 0 && <p className="text-muted" style={{ fontSize: 12 }}>No assets yet. Add investments, property, or valuables to track your net worth.</p>}
+          {(snap?.assets.length ?? 0) === 0 && <EmptyState icon="💎" title="No assets yet" description="Add investments, property, or valuables to track your net worth." action={{ label: 'Add asset', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder="Name"]')?.focus() }} />}
         </div>
 
         <div className="card">
@@ -99,7 +100,7 @@ export function PortfolioPage() {
               <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => delLiab(l.id)}><Trash2 size={13} /></button>
             </div>
           ))}
-          {(snap?.liabilities.length ?? 0) === 0 && <p className="text-muted" style={{ fontSize: 12 }}>No liabilities yet. Add loans, credit card debt, or other obligations.</p>}
+          {(snap?.liabilities.length ?? 0) === 0 && <EmptyState icon="📋" title="No liabilities yet" description="Add loans, credit card debt, or other obligations." action={{ label: 'Add liability', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder="Name"]')?.focus() }} />}
         </div>
       </div>
     </div>
