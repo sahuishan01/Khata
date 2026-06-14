@@ -3,6 +3,7 @@ package com.khata.app.data
 import android.content.Context
 import com.khata.app.api.KhataApi
 import com.khata.app.api.SyncPushOp
+import com.khata.app.api.toLocal
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
