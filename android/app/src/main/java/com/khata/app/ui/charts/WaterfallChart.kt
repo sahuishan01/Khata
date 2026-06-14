@@ -4,10 +4,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -17,12 +16,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MonthBucket
-import com.khata.app.util.formatINR
+import com.khata.app.ui.theme.KhataColors
 
-private val SpendColor = Color(0xFFEE6B4D)
-private val EarnColor = Color(0xFF2EC27E)
-private val NetPosColor = Color(0xFF8479F2)
-private val NetNegColor = Color(0xFFEE6B4D)
+private val NetPosColor = KhataColors.brand
+private val NetNegColor = KhataColors.expense
 
 @Composable
 fun WaterfallChart(
@@ -61,22 +58,12 @@ fun WaterfallChart(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             reversed.forEach { month ->
-                val net = month.earned - month.spent
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    Text(
-                        month.month.takeLast(2),
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        formatINR(kotlin.math.abs(net)),
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (net >= 0) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.error,
-                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
-                    )
-                }
+                Text(
+                    month.month.takeLast(2),
+                    fontSize = 9.sp,
+                    color = KhataColors.text2,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
             }
         }
 
@@ -84,10 +71,10 @@ fun WaterfallChart(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            Box(modifier = Modifier.size(10.dp, 10.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp)).background(NetPosColor))
-            Text(" Surplus  ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Box(modifier = Modifier.size(10.dp, 10.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp)).background(NetNegColor))
-            Text(" Deficit", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(modifier = Modifier.size(10.dp, 10.dp).clip(RoundedCornerShape(2.dp)).background(NetPosColor))
+            Text(" Surplus  ", fontSize = 11.sp, color = KhataColors.text2)
+            Box(modifier = Modifier.size(10.dp, 10.dp).clip(RoundedCornerShape(2.dp)).background(NetNegColor))
+            Text(" Deficit", fontSize = 11.sp, color = KhataColors.text2)
         }
     }
 }

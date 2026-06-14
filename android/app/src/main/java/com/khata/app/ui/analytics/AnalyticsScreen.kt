@@ -3,7 +3,6 @@ package com.khata.app.ui.analytics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -20,6 +19,10 @@ import com.khata.app.api.AnalysisStats
 import com.khata.app.api.DashboardStats
 import com.khata.app.ui.charts.*
 import com.khata.app.util.formatDate
+import com.khata.app.ui.components.shared.KhataCard
+import com.khata.app.ui.components.shared.KhataCardBody
+import com.khata.app.ui.components.shared.KhataCardHeader
+import com.khata.app.ui.theme.KhataColors
 import com.khata.app.util.formatINR
 
 private data class SectionToggle(
@@ -71,7 +74,7 @@ fun AnalyticsScreen(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text("Category View", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Category View", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = KhataColors.text2)
                     Row {
                         FilterChip(
                             selected = categoryChartType == "donut",
@@ -105,7 +108,7 @@ fun AnalyticsScreen(
             ) {
                 Column {
                     Text("Analytics", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Text("Insights & summaries", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Insights & summaries", fontSize = 13.sp, color = KhataColors.text2)
                 }
                 FilledTonalIconButton(onClick = { showCustomize = true }) {
                     Icon(Icons.Default.Tune, contentDescription = "Customize")
@@ -125,7 +128,7 @@ fun AnalyticsScreen(
         if (stats == null || analysis == null) {
             item {
                 Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    Text("Upload a statement to see analytics", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Upload a statement to see analytics", color = KhataColors.text2)
                 }
             }
             return@LazyColumn
@@ -134,11 +137,9 @@ fun AnalyticsScreen(
         // Monthly bar chart
         if (toggles.find { it.key == "monthly_bar" }?.visible == true) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("MONTHLY TREND", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(12.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("MONTHLY TREND")
+                    KhataCardBody {
                         MonthlyBarChart(data = stats.monthly)
                     }
                 }
@@ -148,11 +149,9 @@ fun AnalyticsScreen(
         // Net worth line chart
         if (toggles.find { it.key == "net_line" }?.visible == true) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("NET WORTH TREND", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(8.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("NET WORTH TREND")
+                    KhataCardBody {
                         NetWorthLineChart(data = stats.monthly)
                     }
                 }
@@ -162,11 +161,9 @@ fun AnalyticsScreen(
         // Waterfall
         if (toggles.find { it.key == "waterfall" }?.visible == true) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("SURPLUS / DEFICIT", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(8.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("SURPLUS / DEFICIT")
+                    KhataCardBody {
                         WaterfallChart(data = stats.monthly)
                     }
                 }
@@ -176,14 +173,11 @@ fun AnalyticsScreen(
         // Category breakdown
         if (toggles.find { it.key == "category" }?.visible == true) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("SPENDING BY CATEGORY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                            Text(categoryChartType.uppercase(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.height(12.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("SPENDING BY CATEGORY") {
+                        Text(categoryChartType.uppercase(), fontSize = 9.sp, color = KhataColors.text2)
+                    }
+                    KhataCardBody {
                         if (analysis.categoryBreakdown.isNotEmpty()) {
                             if (categoryChartType == "donut") {
                                 CategoryPieChart(data = analysis.categoryBreakdown)
@@ -203,7 +197,7 @@ fun AnalyticsScreen(
                                         }
                                         Text(formatINR(c.amount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                                     }
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                    HorizontalDivider(color = KhataColors.hairline)
                                 }
                             }
                         } else {
@@ -212,7 +206,7 @@ fun AnalyticsScreen(
                                 Spacer(Modifier.height(4.dp))
                                 Text("No spending data yet", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                 Spacer(Modifier.height(2.dp))
-                                Text("Upload more statements to see category breakdowns", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Upload more statements to see category breakdowns", fontSize = 12.sp, color = KhataColors.text2)
                             }
                         }
                     }
@@ -223,19 +217,21 @@ fun AnalyticsScreen(
         // Month comparison
         if (toggles.find { it.key == "comparison" }?.visible == true && analysis.monthComparison.lastMonth > 0) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("This month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 18.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("vs last month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                "${if (analysis.monthComparison.changePct > 0) "↑" else "↓"} ${"%.1f".format(kotlin.math.abs(analysis.monthComparison.changePct))}%",
-                                fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                                color = if (analysis.monthComparison.changePct > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-                            )
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardBody {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column {
+                                Text("This month", fontSize = 12.sp, color = KhataColors.text2)
+                                Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 18.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("vs last month", fontSize = 12.sp, color = KhataColors.text2)
+                                Text(
+                                    "${if (analysis.monthComparison.changePct > 0) "↑" else "↓"} ${"%.1f".format(kotlin.math.abs(analysis.monthComparison.changePct))}%",
+                                    fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                                    color = if (analysis.monthComparison.changePct > 0) KhataColors.expense else KhataColors.income
+                                )
+                            }
                         }
                     }
                 }
@@ -246,31 +242,31 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "summary_cards" }?.visible == true) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("AVG DAILY", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    KhataCard(Modifier.weight(1f)) {
+                        KhataCardBody {
+                            Text("AVG DAILY", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
                             Text(formatINR(analysis.avgDailySpend), fontSize = 16.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         }
                     }
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("SAVINGS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    KhataCard(Modifier.weight(1f)) {
+                        KhataCardBody {
+                            Text("SAVINGS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
                             Text("${"%.1f".format(analysis.savingsRatePct)}%", fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                                color = if (analysis.savingsRatePct >= 20) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error)
+                                color = if (analysis.savingsRatePct >= 20) KhataColors.income else KhataColors.expense)
                         }
                     }
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("TXNS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    KhataCard(Modifier.weight(1f)) {
+                        KhataCardBody {
+                            Text("TXNS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
                             Text("${analysis.totalTransactions}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                    Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("NET", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    KhataCard(Modifier.weight(1f)) {
+                        KhataCardBody {
+                            Text("NET", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = KhataColors.textMuted)
                             val net = stats.totalEarned - stats.totalSpent
                             Text(formatINR(net), fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                                color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                                color = if (net >= 0) KhataColors.income else KhataColors.expense,
                                 style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         }
                     }
@@ -281,14 +277,12 @@ fun AnalyticsScreen(
         // Largest expense
         if (toggles.find { it.key == "largest" }?.visible == true && analysis.largestExpense != null) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("LARGEST EXPENSE", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(8.dp))
-                        Text(formatINR(analysis.largestExpense!!.amount), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("LARGEST EXPENSE")
+                    KhataCardBody {
+                        Text(formatINR(analysis.largestExpense!!.amount), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         Text(analysis.largestExpense!!.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(formatDate(analysis.largestExpense!!.valueDate), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatDate(analysis.largestExpense!!.valueDate), fontSize = 12.sp, color = KhataColors.text2)
                     }
                 }
             }
@@ -297,25 +291,23 @@ fun AnalyticsScreen(
         // Monthly table
         if (toggles.find { it.key == "monthly_table" }?.visible == true && stats.monthly.isNotEmpty()) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("MONTHLY SUMMARY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(8.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("MONTHLY SUMMARY")
+                    KhataCardBody {
                         stats.monthly.reversed().forEach { month ->
                             val net = month.earned - month.spent
                             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) { Text(month.month, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(formatINR(month.spent), fontSize = 11.sp, color = MaterialTheme.colorScheme.error, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                                    Text(formatINR(month.earned), fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                    Text(formatINR(month.spent), fontSize = 11.sp, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                    Text(formatINR(month.earned), fontSize = 11.sp, color = KhataColors.income, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 Text(formatINR(net, sign = true), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                    color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+                                    color = if (net >= 0) KhataColors.income else KhataColors.expense,
                                     style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                            HorizontalDivider(color = KhataColors.hairline)
                         }
                     }
                 }
@@ -325,17 +317,15 @@ fun AnalyticsScreen(
         // Top debits
         if (toggles.find { it.key == "top_debits" }?.visible == true) {
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("TOP SPENDING", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(8.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("TOP SPENDING")
+                    KhataCardBody {
                         stats.topDebits.take(7).forEach { t ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(t.description, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                            HorizontalDivider(color = KhataColors.hairline)
                         }
                     }
                 }
