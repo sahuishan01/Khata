@@ -167,11 +167,18 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Analytics.route) { AnalyticsScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, onRefresh = { viewModel.refreshDashboard() }, onNavigateToDetail = { key, value ->
                 when (key) {
-                    "category" -> { viewModel.updateTxnFilter(TxnFilter(category = value)) }
-                    "month" -> { viewModel.updateTxnFilter(TxnFilter(from = "$value-01", to = "$value-28", preset = 5)) }
-                    "payee" -> { viewModel.updateTxnFilter(TxnFilter(search = value)) }
+                    "category" -> { viewModel.updateTxnFilter(TxnFilter(category = value)); navController.navigate(Screen.Transactions.route) }
+                    "month" -> {
+                        val from = "$value-01"
+                        val lastDay = try { java.time.YearMonth.parse(value).lengthOfMonth() } catch (_: Exception) { 28 }
+                        val to = "$value-$lastDay"
+                        viewModel.updateTxnFilter(TxnFilter(from = from, to = to, preset = 5))
+                        navController.navigate(Screen.Transactions.route)
+                    }
+                    "payee" -> { viewModel.updateTxnFilter(TxnFilter(search = value)); navController.navigate(Screen.Transactions.route) }
+                    "all" -> { viewModel.updateTxnFilter(TxnFilter(preset = 0)); navController.navigate(Screen.Transactions.route) }
+                    else -> { navController.navigate(Screen.Transactions.route) }
                 }
-                navController.navigate(Screen.Transactions.route)
             }) }
 
             composable(Screen.AddTransaction.route) { AddTransactionScreen(isLoading = authState.isLoading, error = authState.error, onAdd = { viewModel.createTxn(it) }, onBack = { navController.popBackStack() }) }
