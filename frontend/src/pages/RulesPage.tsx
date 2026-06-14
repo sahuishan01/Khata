@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Plus, Trash2, Sparkles } from 'lucide-react'
-import { EmptyState } from '../components/EmptyState'
+import { Screen, Card, CardBody, ListRow, Field, Chip, Button, EmptyState } from '../components/shared'
 
 interface Rule {
   id: string; pattern: string; category: string
@@ -47,38 +47,43 @@ export function RulesPage() {
     finally { setApplying(false) }
   }
 
+  const applyAllBtn = (
+    <Button variant="secondary" size="sm" onClick={applyAll} disabled={applying}>
+      <Sparkles size={14} /> {applying ? 'Applying…' : 'Apply All'}
+    </Button>
+  )
+
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <h1 className="page-title">Category Rules</h1>
-        <button className="btn btn-secondary btn-sm" onClick={applyAll} disabled={applying}>
-          <Sparkles size={14} /> {applying ? 'Applying…' : 'Apply All'}
-        </button>
-      </div>
-      <p className="text-muted" style={{ marginBottom: 20 }}>Auto-categorize transactions by payee keywords</p>
-
-      <div className="card" style={{ marginBottom: 20 }}>
-        <form onSubmit={add} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input className="form-input" style={{ flex: 1, minWidth: 120 }} placeholder="Keyword (e.g. ZOMATO)" value={pattern} onChange={e => setPattern(e.target.value)} required />
-          <input className="form-input" style={{ flex: 1, minWidth: 120 }} placeholder="Category (e.g. Food & Dining)" value={category} onChange={e => setCategory(e.target.value)} required />
-          <button className="btn btn-primary" disabled={loading}><Plus size={15} /> Add Rule</button>
-        </form>
-        {error && <p className="text-error mt-3">{error}</p>}
-        {success && <p className="text-success mt-3">{success}</p>}
+    <Screen title="Category Rules" subtitle="Auto-categorize transactions by payee keywords" actions={applyAllBtn}>
+      <div style={{ marginBottom: 20 }}>
+        <Card>
+          <CardBody>
+            <form onSubmit={add} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Field style={{ flex: 1, minWidth: 120 }} placeholder="Keyword (e.g. ZOMATO)" value={pattern} onChange={e => setPattern(e.target.value)} required />
+              <Field style={{ flex: 1, minWidth: 120 }} placeholder="Category (e.g. Food & Dining)" value={category} onChange={e => setCategory(e.target.value)} required />
+              <Button disabled={loading}><Plus size={15} /> Add Rule</Button>
+            </form>
+            {error && <p className="text-error" style={{ marginTop: 12 }}>{error}</p>}
+            {success && <p className="text-success" style={{ marginTop: 12 }}>{success}</p>}
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
+      <Card>
         {rules.length === 0 && <EmptyState icon="🔤" title="No rules yet" description="Auto-categorize transactions by keyword. Add rules like ZOMATO → Food & Dining to save time." action={{ label: 'Create your first rule', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder*="keyword"]')?.focus() }} />}
         {rules.map(r => (
-          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--hairline)', overflow: 'hidden' }}>
-            <span className="badge badge-gray" style={{ fontFamily: 'monospace', fontSize: 12, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }} title={r.pattern}>{r.pattern}</span>
-            <span style={{ color: 'var(--text-2)' }}>→</span>
-            <span className="badge badge-purple">{r.category}</span>
-            <div style={{ flex: 1 }} />
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => del(r.id)}><Trash2 size={14} /></button>
-          </div>
+          <ListRow
+            key={r.id}
+            trailing={<Button variant="ghost" size="sm" style={{ color: 'var(--expense)' }} onClick={() => del(r.id)}><Trash2 size={14} /></Button>}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+              <Chip color="gray" title={r.pattern}>{r.pattern}</Chip>
+              <span style={{ color: 'var(--text-2)', flexShrink: 0 }}>→</span>
+              <Chip color="purple">{r.category}</Chip>
+            </div>
+          </ListRow>
         ))}
-      </div>
-    </div>
+      </Card>
+    </Screen>
   )
 }

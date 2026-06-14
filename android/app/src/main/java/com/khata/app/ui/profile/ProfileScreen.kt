@@ -14,6 +14,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MeResponse
+import com.khata.app.ui.components.shared.ButtonVariant
+import com.khata.app.ui.components.shared.KhataButton
+import com.khata.app.ui.components.shared.KhataCard
+import com.khata.app.ui.components.shared.KhataCardBody
+import com.khata.app.ui.components.shared.KhataField
 
 @Composable
 fun ProfileScreen(
@@ -42,20 +47,20 @@ fun ProfileScreen(
                     Spacer(Modifier.height(12.dp))
                     Text("Type DELETE to confirm:", fontSize = 13.sp)
                     Spacer(Modifier.height(6.dp))
-                    OutlinedTextField(value = clearConfirmText, onValueChange = { clearConfirmText = it }, placeholder = { Text("DELETE") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    KhataField(value = clearConfirmText, onValueChange = { clearConfirmText = it }, placeholder = "DELETE")
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showClearDialog = false; clearConfirmText = ""; onClearAllData() }, enabled = clearConfirmText == "DELETE") { Text("Clear Everything", color = MaterialTheme.colorScheme.error) }
+                KhataButton(onClick = { showClearDialog = false; clearConfirmText = ""; onClearAllData() }, variant = ButtonVariant.Ghost, enabled = clearConfirmText == "DELETE") { Text("Clear Everything", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showClearDialog = false; clearConfirmText = "" }) { Text("Cancel") } })
+            dismissButton = { KhataButton(onClick = { showClearDialog = false; clearConfirmText = "" }, variant = ButtonVariant.Ghost) { Text("Cancel") } })
     }
 
     if (showEmailDialog) {
         AlertDialog(onDismissRequest = { showEmailDialog = false }, title = { Text("Change Email") }, text = {
-            OutlinedTextField(value = newEmail, onValueChange = { newEmail = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        }, confirmButton = { TextButton(onClick = { onUpdateEmail(newEmail); showEmailDialog = false }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { showEmailDialog = false }) { Text("Cancel") } })
+            KhataField(value = newEmail, onValueChange = { newEmail = it })
+        }, confirmButton = { KhataButton(onClick = { onUpdateEmail(newEmail); showEmailDialog = false }, variant = ButtonVariant.Ghost) { Text("Save") } },
+            dismissButton = { KhataButton(onClick = { showEmailDialog = false }, variant = ButtonVariant.Ghost) { Text("Cancel") } })
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -64,23 +69,23 @@ fun ProfileScreen(
         Spacer(Modifier.height(20.dp))
 
         // Account
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.padding(16.dp)) {
+        KhataCard(Modifier.fillMaxWidth()) {
+            KhataCardBody {
                 Text("Account", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(40.dp)) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) } }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) { Text(user?.email ?: "Unknown", fontSize = 14.sp, fontWeight = FontWeight.Medium); Text(user?.role ?: "", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    TextButton(onClick = { newEmail = user?.email ?: ""; showEmailDialog = true }) { Text("Change", fontSize = 12.sp) }
+                    KhataButton(onClick = { newEmail = user?.email ?: ""; showEmailDialog = true }, variant = ButtonVariant.Ghost) { Text("Change", fontSize = 12.sp) }
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
 
         // Theme
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.padding(16.dp)) {
+        KhataCard(Modifier.fillMaxWidth()) {
+            KhataCardBody {
                 Text("Preferences", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -97,15 +102,15 @@ fun ProfileScreen(
         Spacer(Modifier.height(12.dp))
 
         // Actions
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.padding(16.dp)) {
+        KhataCard(Modifier.fillMaxWidth()) {
+            KhataCardBody {
                 Text("Actions", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = onResetPassword, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Reset Password") }
+                KhataButton(onClick = onResetPassword, variant = ButtonVariant.Secondary, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Reset Password") }
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { showClearDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Clear All Data") }
+                KhataButton(onClick = { showClearDialog = true }, variant = ButtonVariant.Danger, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Clear All Data") }
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Logout") }
+                KhataButton(onClick = onLogout, variant = ButtonVariant.Secondary, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Logout") }
             }
         }
 

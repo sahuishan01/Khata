@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
-import { formatINR } from '../utils/format'
-import { EmptyState } from '../components/EmptyState'
+import { Screen, Card, CardBody, ListRow, ListRowText, StatCard, Amount, Field, Select, Chip, Button, EmptyState } from '../components/shared'
 
 interface Asset { id: string; name: string; asset_type: string; value: number; recorded_at: string }
 interface Liability { id: string; name: string; liability_type: string; value: number; recorded_at: string }
@@ -38,71 +37,70 @@ export function PortfolioPage() {
   const delLiab = async (id: string) => { try { await api.delete(`/portfolio/liabilities/${id}`); await load() } catch { setError('Failed') } }
 
   return (
-    <div>
-      <h1 className="page-title" style={{ marginBottom: 4 }}>Portfolio</h1>
-      <p className="text-muted" style={{ marginBottom: 20 }}>Track your net worth — assets minus liabilities</p>
-
+    <Screen title="Portfolio" subtitle="Track your net worth — assets minus liabilities">
       {snap && (
-        <div className="grid grid-3 mb-4">
-          <div className="card" style={{ textAlign: 'center' }}>
-            <TrendingUp size={18} style={{ color: 'var(--income)', marginBottom: 6 }} />
-            <div className="stat-label">Total Assets</div>
-            <div className="stat-value" style={{ fontSize: 18, color: 'var(--income)' }}>{formatINR(snap.total_assets)}</div>
-          </div>
-          <div className="card" style={{ textAlign: 'center' }}>
-            <TrendingDown size={18} style={{ color: 'var(--expense)', marginBottom: 6 }} />
-            <div className="stat-label">Total Liabilities</div>
-            <div className="stat-value" style={{ fontSize: 18, color: 'var(--expense)' }}>{formatINR(snap.total_liabilities)}</div>
-          </div>
-          <div className="card" style={{ textAlign: 'center' }}>
-            <Wallet size={18} style={{ color: 'var(--brand)', marginBottom: 6 }} />
-            <div className="stat-label">Net Worth</div>
-            <div className="stat-value" style={{ fontSize: 18, color: snap.net_worth >= 0 ? 'var(--income)' : 'var(--expense)' }}>{formatINR(snap.net_worth)}</div>
-          </div>
+        <div className="grid grid-3" style={{ marginBottom: 16 }}>
+          <StatCard label="Total Assets" value={<Amount paise={snap.total_assets} size="lg" />} icon={<TrendingUp size={16} />} color="income" />
+          <StatCard label="Total Liabilities" value={<Amount paise={snap.total_liabilities} size="lg" />} icon={<TrendingDown size={16} />} color="expense" />
+          <StatCard label="Net Worth" value={<Amount paise={snap.net_worth} size="lg" />} icon={<Wallet size={16} />} color={snap.net_worth >= 0 ? 'income' : 'expense'} />
         </div>
       )}
 
-      {error && <p className="text-error mb-4">{error}</p>}
+      {error && <p className="text-error" style={{ marginBottom: 16 }}>{error}</p>}
 
-      <div className="grid grid-2 mb-4">
-        <div className="card">
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Assets</h2>
-          <form onSubmit={addAsset} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            <input className="form-input" style={{ flex: 1, minWidth: 100 }} placeholder="Name" value={assetName} onChange={e => setAssetName(e.target.value)} required />
-            <select className="form-input" style={{ width: 'auto' }} value={assetType} onChange={e => setAssetType(e.target.value)}>{ASSET_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}</select>
-            <input className="form-input" style={{ width: 100 }} type="number" step="0.01" placeholder="Value" value={assetValue} onChange={e => setAssetValue(e.target.value)} required />
-            <button className="btn btn-primary btn-sm"><Plus size={14} /></button>
-          </form>
-          {snap?.assets.map(a => (
-            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
-              <span className="badge badge-green" style={{ fontSize: 10 }}>{a.asset_type}</span>
-              <span style={{ flex: 1, fontSize: 13 }}>{a.name}</span>
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--income)' }}>{formatINR(a.value)}</span>
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => delAsset(a.id)}><Trash2 size={13} /></button>
-            </div>
-          ))}
-          {(snap?.assets.length ?? 0) === 0 && <EmptyState icon="💎" title="No assets yet" description="Add investments, property, or valuables to track your net worth." action={{ label: 'Add asset', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder="Name"]')?.focus() }} />}
-        </div>
+      <div className="grid grid-2" style={{ marginBottom: 16 }}>
+        <Card>
+          <CardBody>
+            <form onSubmit={addAsset} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              <Field style={{ flex: 1, minWidth: 100 }} placeholder="Name" value={assetName} onChange={e => setAssetName(e.target.value)} required />
+              <Select value={assetType} onChange={e => setAssetType(e.target.value)} style={{ width: 'auto' }}>{ASSET_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}</Select>
+              <Field style={{ width: 100 }} type="number" step="0.01" placeholder="Value" value={assetValue} onChange={e => setAssetValue(e.target.value)} required />
+              <Button size="sm"><Plus size={14} /></Button>
+            </form>
+            {snap?.assets.map(a => (
+              <ListRow
+                key={a.id}
+                leading={<Chip color="green">{a.asset_type}</Chip>}
+                trailing={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Amount paise={a.value} size="sm" />
+                    <Button variant="ghost" size="sm" style={{ color: 'var(--expense)' }} onClick={() => delAsset(a.id)}><Trash2 size={13} /></Button>
+                  </div>
+                }
+              >
+                <ListRowText primary={a.name} />
+              </ListRow>
+            ))}
+            {(snap?.assets.length ?? 0) === 0 && <EmptyState icon="💎" title="No assets yet" description="Add investments, property, or valuables to track your net worth." action={{ label: 'Add asset', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder="Name"]')?.focus() }} />}
+          </CardBody>
+        </Card>
 
-        <div className="card">
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Liabilities</h2>
-          <form onSubmit={addLiab} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            <input className="form-input" style={{ flex: 1, minWidth: 100 }} placeholder="Name" value={liabName} onChange={e => setLiabName(e.target.value)} required />
-            <select className="form-input" style={{ width: 'auto' }} value={liabType} onChange={e => setLiabType(e.target.value)}>{LIABILITY_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}</select>
-            <input className="form-input" style={{ width: 100 }} type="number" step="0.01" placeholder="Value" value={liabValue} onChange={e => setLiabValue(e.target.value)} required />
-            <button className="btn btn-primary btn-sm"><Plus size={14} /></button>
-          </form>
-          {snap?.liabilities.map(l => (
-            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
-              <span className="badge badge-red" style={{ fontSize: 10 }}>{l.liability_type}</span>
-              <span style={{ flex: 1, fontSize: 13 }}>{l.name}</span>
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--expense)' }}>{formatINR(l.value)}</span>
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--expense)' }} onClick={() => delLiab(l.id)}><Trash2 size={13} /></button>
-            </div>
-          ))}
-          {(snap?.liabilities.length ?? 0) === 0 && <EmptyState icon="📋" title="No liabilities yet" description="Add loans, credit card debt, or other obligations." action={{ label: 'Add liability', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder="Name"]')?.focus() }} />}
-        </div>
+        <Card>
+          <CardBody>
+            <form onSubmit={addLiab} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              <Field style={{ flex: 1, minWidth: 100 }} placeholder="Name" value={liabName} onChange={e => setLiabName(e.target.value)} required />
+              <Select value={liabType} onChange={e => setLiabType(e.target.value)} style={{ width: 'auto' }}>{LIABILITY_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}</Select>
+              <Field style={{ width: 100 }} type="number" step="0.01" placeholder="Value" value={liabValue} onChange={e => setLiabValue(e.target.value)} required />
+              <Button size="sm"><Plus size={14} /></Button>
+            </form>
+            {snap?.liabilities.map(l => (
+              <ListRow
+                key={l.id}
+                leading={<Chip color="red">{l.liability_type}</Chip>}
+                trailing={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Amount paise={l.value} size="sm" />
+                    <Button variant="ghost" size="sm" style={{ color: 'var(--expense)' }} onClick={() => delLiab(l.id)}><Trash2 size={13} /></Button>
+                  </div>
+                }
+              >
+                <ListRowText primary={l.name} />
+              </ListRow>
+            ))}
+            {(snap?.liabilities.length ?? 0) === 0 && <EmptyState icon="📋" title="No liabilities yet" description="Add loans, credit card debt, or other obligations." action={{ label: 'Add liability', onClick: () => document.querySelector<HTMLInputElement>('input[placeholder="Name"]')?.focus() }} />}
+          </CardBody>
+        </Card>
       </div>
-    </div>
+    </Screen>
   )
 }

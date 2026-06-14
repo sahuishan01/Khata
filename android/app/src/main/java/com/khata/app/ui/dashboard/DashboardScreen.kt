@@ -18,6 +18,12 @@ import com.khata.app.api.DashboardStats
 import com.khata.app.ui.charts.CategoryPieChart
 import com.khata.app.ui.charts.MonthlyBarChart
 import com.khata.app.ui.components.StatCard
+import com.khata.app.ui.components.shared.KhataAmount
+import com.khata.app.ui.components.shared.KhataCard
+import com.khata.app.ui.components.shared.KhataCardBody
+import com.khata.app.ui.components.shared.KhataCardHeader
+import com.khata.app.ui.components.shared.KhataListRow
+import com.khata.app.ui.components.shared.KhataListRowText
 import com.khata.app.util.formatDate
 import com.khata.app.util.formatINR
 import com.khata.app.util.maskDescription
@@ -102,7 +108,6 @@ fun DashboardScreen(
                 }
             }
 
-            // Invested row
             if ((analysis?.totalInvested ?: 0.0) > 0) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -137,7 +142,7 @@ fun DashboardScreen(
                         ) {
                             Column {
                                 Text("This month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 16.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                KhataAmount(analysis.monthComparison.thisMonth, size = 16.sp)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("vs last month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -156,28 +161,20 @@ fun DashboardScreen(
                 }
             }
 
-            // Monthly bar chart
             item {
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("MONTHLY TREND", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(12.dp))
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("MONTHLY TREND")
+                    KhataCardBody {
                         MonthlyBarChart(data = stats.monthly)
                     }
                 }
             }
 
-            // Category pie chart
             if (analysis != null && analysis.categoryBreakdown.isNotEmpty()) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("SPENDING BY CATEGORY", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                letterSpacing = 0.8.sp)
-                            Spacer(Modifier.height(12.dp))
+                    KhataCard(Modifier.fillMaxWidth()) {
+                        KhataCardHeader("SPENDING BY CATEGORY")
+                        KhataCardBody {
                             CategoryPieChart(data = analysis.categoryBreakdown, onCategoryClick = { cat -> onNavigateToTransactions(cat) })
                         }
                     }
@@ -186,18 +183,10 @@ fun DashboardScreen(
 
             if (analysis?.largestExpense != null) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("LARGEST EXPENSE", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                letterSpacing = 0.8.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Text(formatINR(analysis.largestExpense!!.amount), fontSize = 26.sp,
-                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error,
-                                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                    KhataCard(Modifier.fillMaxWidth()) {
+                        KhataCardHeader("LARGEST EXPENSE")
+                        KhataCardBody {
+                            KhataAmount(analysis.largestExpense!!.amount, size = 26.sp)
                             Text(maskDescription(analysis.largestExpense!!.description, blurMode), fontSize = 13.sp,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onBackground)
@@ -209,31 +198,13 @@ fun DashboardScreen(
             }
 
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("TOP SPENDING", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            letterSpacing = 0.8.sp)
-                        Spacer(Modifier.height(8.dp))
-                        stats.topDebits.take(7).forEach { t ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(t.description, fontSize = 13.sp, maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                            }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 2.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                            )
-                        }
+                KhataCard(Modifier.fillMaxWidth()) {
+                    KhataCardHeader("TOP SPENDING")
+                    stats.topDebits.take(7).forEach { t ->
+                        KhataListRow(
+                            content = { KhataListRowText(primary = t.description) },
+                            trailing = { KhataAmount(t.total, size = 13.sp) }
+                        )
                     }
                 }
             }
