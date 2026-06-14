@@ -114,8 +114,8 @@ fun TransactionsScreen(
     }
 
     // Initial load only when no data exists
-    LaunchedEffect(Unit) {
-        if (txnState == null) reload()
+    LaunchedEffect(filter) {
+        reload()
     }
 
     // Date picker dialogs
