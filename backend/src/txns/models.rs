@@ -166,6 +166,35 @@ pub struct AnalyticsResponse {
     pub insights: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DetailQuery {
+    pub category: Option<String>,
+    pub month: Option<String>,
+    pub payee: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DetailResponse {
+    pub total_spent: f64,
+    pub total_earned: f64,
+    pub txn_count: i64,
+    pub trend: Vec<MonthBucket>,
+    pub top_payees: Vec<TopMerchant>,
+    pub top_categories: Vec<CategoryBucket>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HighlightsResponse {
+    pub highest_earning_month: Option<MonthBucket>,
+    pub highest_spending_month: Option<MonthBucket>,
+    pub biggest_expense: Option<TxnRow>,
+    pub biggest_income: Option<TxnRow>,
+    pub top_payee: Option<TopMerchant>,
+    pub most_frequent_payee: Option<(String, i64)>,
+    pub top_category: Option<CategoryBucket>,
+    pub best_savings_month: Option<(String, f64)>,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct AccountBalance {
     pub bank: String,
