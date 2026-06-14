@@ -72,7 +72,8 @@ fun WaterfallChart(
                         fontSize = 8.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (net >= 0) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.error,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                     )
                 }
             }

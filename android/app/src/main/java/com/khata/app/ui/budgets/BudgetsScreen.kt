@@ -52,7 +52,7 @@ fun BudgetsScreen(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer) { Text(b.category, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp) }
                         Spacer(Modifier.width(8.dp))
-                        Text("${formatINR(b.monthlyLimit)}/mo", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${formatINR(b.monthlyLimit)}/mo", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         Spacer(Modifier.weight(1f))
                         if (pct >= 80) Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp), tint = barColor)
                         Text("${"%.0f".format(pct)}%", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = barColor)
@@ -63,7 +63,7 @@ fun BudgetsScreen(
                     Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
                         Box(Modifier.fillMaxWidth(fraction = (pct / 100.0).toFloat().coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor))
                     }
-                    if (s != null) Text("Spent: ${formatINR(s.spent)} / ${formatINR(b.monthlyLimit)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    if (s != null) Text("Spent: ${formatINR(s.spent)} / ${formatINR(b.monthlyLimit)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp), style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                 }
             }
         }
@@ -76,7 +76,7 @@ fun BudgetsScreen(
                     Spacer(Modifier.height(4.dp))
                     Text("Set a monthly limit per category to get alerts before you overspend.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = {}) { Text("Set your first budget") }
+                    Button(onClick = { /* form is always visible above */ }) { Text("Set your first budget") }
                 }
             }
         }

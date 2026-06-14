@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, Landmark, Tags, PiggyBank, Wallet, Shield } from 'lucide-react'
+import { MessageSquare, Landmark, Tags, PiggyBank, Wallet, Shield, Tag } from 'lucide-react'
 import { useAuth } from '../store/auth'
 
 interface MoreItem {
@@ -18,6 +18,7 @@ export function MorePage() {
     { label: 'Rules', route: '/rules', icon: <Tags size={22} /> },
     { label: 'Budgets', route: '/budgets', icon: <PiggyBank size={22} /> },
     { label: 'Portfolio', route: '/portfolio', icon: <Wallet size={22} /> },
+    { label: 'Categories', route: '/categories', icon: <Tag size={22} /> },
   ]
 
   if (user?.role === 'admin') {

@@ -100,7 +100,8 @@ fun CategoryPieChart(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(formatINR(bucket.amount), fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                     Text("${"%.1f".format(bucket.pct)}%", fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

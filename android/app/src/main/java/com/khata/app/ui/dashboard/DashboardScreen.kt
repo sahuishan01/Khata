@@ -137,7 +137,7 @@ fun DashboardScreen(
                         ) {
                             Column {
                                 Text("This month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(formatINR(analysis.monthComparison.thisMonth), fontSize = 16.sp, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("vs last month", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -196,7 +196,8 @@ fun DashboardScreen(
                                 letterSpacing = 0.8.sp)
                             Spacer(Modifier.height(8.dp))
                             Text(formatINR(analysis.largestExpense!!.amount), fontSize = 26.sp,
-                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error,
+                                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             Text(maskDescription(analysis.largestExpense!!.description, blurMode), fontSize = 13.sp,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onBackground)
@@ -225,7 +226,8 @@ fun DashboardScreen(
                                 Text(t.description, fontSize = 13.sp, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 Text(formatINR(t.total), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.error)
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                             }
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 2.dp),

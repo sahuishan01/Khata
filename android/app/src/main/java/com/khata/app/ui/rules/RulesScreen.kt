@@ -1,5 +1,6 @@
 package com.khata.app.ui.rules
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -43,10 +44,14 @@ fun RulesScreen(
                 }
             }
         }
+        var patternDialog by remember { mutableStateOf<String?>(null) }
+        patternDialog?.let { p ->
+            AlertDialog(onDismissRequest = { patternDialog = null }, title = { Text("Keyword Pattern") }, text = { Text(p, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) }, confirmButton = { TextButton(onClick = { patternDialog = null }) { Text("OK") } })
+        }
         items(rules, key = { it.id }) { r ->
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.widthIn(max = 200.dp)) { Text(r.pattern, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) }
+                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.widthIn(max = 200.dp).clickable { patternDialog = r.pattern }) { Text(r.pattern, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) }
                     Spacer(Modifier.width(8.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
@@ -65,7 +70,7 @@ fun RulesScreen(
                     Spacer(Modifier.height(4.dp))
                     Text("Add keyword-based rules to auto-categorize transactions. E.g. ZOMATO → Food & Dining.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp))
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = {}) { Text("Add your first rule") }
+                    Button(onClick = { /* form is always visible above */ }) { Text("Add your first rule") }
                 }
             }
         }
