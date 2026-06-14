@@ -5,10 +5,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 object KhataColors {
-    val bg = Color(0xFF0E0E13)
-    val surface = Color(0xFF17171F)
-    val surface2 = Color(0xFF1F1F2A)
-    val hairline = Color(0xFF2A2A38)
+    val bg = Color(0xFF0C0C11)
+    val surface = Color(0xFF14141C)
+    val surface2 = Color(0xFF1A1A24)
+    val surface3 = Color(0xFF21212E)
+    val hairline = Color(0x12FFFFFF)
     val text = Color(0xFFF2F2F5)
     val text2 = Color(0xFF9A9AA8)
     val textMuted = Color(0xFF6B6B78)
@@ -39,8 +40,9 @@ private val DarkColors = darkColorScheme(
     onSurface = KhataColors.text,
     surfaceVariant = KhataColors.surface2,
     onSurfaceVariant = KhataColors.text2,
+    surfaceTint = KhataColors.surface3,
     outline = KhataColors.hairline,
-    outlineVariant = Color(0xFF3A3550),
+    outlineVariant = KhataColors.hairline,
 )
 
 @Composable
