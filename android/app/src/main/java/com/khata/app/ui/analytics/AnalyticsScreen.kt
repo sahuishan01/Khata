@@ -1,5 +1,6 @@
 package com.khata.app.ui.analytics
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,7 +35,9 @@ fun AnalyticsScreen(
     stats: DashboardStats?,
     analysis: AnalysisStats?,
     isLoading: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onNavigateToDetail: (key: String, value: String) -> Unit = { _, _ -> },
+    onNavigateToTransactions: (filter: String) -> Unit = {},
 ) {
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -181,7 +184,7 @@ fun AnalyticsScreen(
                                 CategoryPieChart(data = analysis.categoryBreakdown)
                             } else {
                                 analysis.categoryBreakdown.forEach { c ->
-                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onNavigateToDetail("category", c.category) }, horizontalArrangement = Arrangement.SpaceBetween) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             val idx = analysis.categoryBreakdown.indexOf(c)
                                             Box(Modifier.size(10.dp).padding(0.dp).clip(androidx.compose.foundation.shape.CircleShape).background(listOf(
@@ -215,7 +218,10 @@ fun AnalyticsScreen(
         // Month comparison
         if (toggles.find { it.key == "comparison" }?.visible == true && analysis.monthComparison.lastMonth > 0) {
             item {
-                KhataCard(Modifier.fillMaxWidth()) {
+                KhataCard(Modifier.fillMaxWidth().clickable {
+                    val now = java.time.LocalDate.now()
+                    onNavigateToDetail("month", now.format(java.time.format.DateTimeFormatter.ofPattern("YYYY-MM")))
+                }) {
                     KhataCardBody {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column {
@@ -243,7 +249,10 @@ fun AnalyticsScreen(
                     KhataCardHeader("INSIGHTS")
                     KhataCardBody {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Surface(shape = MaterialTheme.shapes.small, color = KhataColors.brandSoft) {
+                            Surface(shape = MaterialTheme.shapes.small, color = KhataColors.brandSoft, modifier = Modifier.clickable {
+                                val now = java.time.LocalDate.now()
+                                onNavigateToDetail("month", now.format(java.time.format.DateTimeFormatter.ofPattern("YYYY-MM")))
+                            }) {
                                 Text("Savings rate: ${"%.0f".format(analysis.savingsRatePct)}% of income", fontSize = 13.sp, modifier = Modifier.padding(10.dp))
                             }
                             if (analysis.monthComparison.lastMonth > 0) {
@@ -266,7 +275,7 @@ fun AnalyticsScreen(
                     KhataCardBody {
                         stats.monthly.reversed().forEach { month ->
                             val net = month.earned - month.spent
-                            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable { onNavigateToDetail("month", month.month) }, verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) { Text(month.month, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(formatINR(month.spent), fontSize = 11.sp, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))

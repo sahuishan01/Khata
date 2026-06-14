@@ -165,7 +165,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Chat.route) { ChatScreen(messages = chatState.messages, isLoading = chatState.isLoading, error = chatState.error, onLoad = { viewModel.loadChatHistory() }, onSend = { q -> viewModel.sendChatMessage(q) }) }
 
-            composable(Screen.Analytics.route) { AnalyticsScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, onRefresh = { viewModel.refreshDashboard() }) }
+            composable(Screen.Analytics.route) { AnalyticsScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, onRefresh = { viewModel.refreshDashboard() }, onNavigateToDetail = { key, value -> navController.navigate("analytics_detail?$key=$value") }, onNavigateToTransactions = { filter -> navController.navigate("transactions?$filter") }) }
 
             composable(Screen.AddTransaction.route) { AddTransactionScreen(isLoading = authState.isLoading, error = authState.error, onAdd = { viewModel.createTxn(it) }, onBack = { navController.popBackStack() }) }
 
