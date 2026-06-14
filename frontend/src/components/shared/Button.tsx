@@ -14,8 +14,8 @@ const variants = {
 }
 
 const sizes = {
-  sm: { padding: '5px 10px', fontSize: 12 },
-  md: { padding: '8px 18px', fontSize: 13.5 },
+  sm: { padding: '5px 10px', fontSize: 11 },
+  md: { padding: '10px 18px', fontSize: 11.5 },
 }
 
 export function Button({ variant = 'primary', size = 'md', children, style, ...props }: ButtonProps) {
@@ -24,8 +24,8 @@ export function Button({ variant = 'primary', size = 'md', children, style, ...p
       {...props}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        borderRadius: 8, fontWeight: 500, cursor: 'pointer', border: 'none',
-        minHeight: 44, lineHeight: 1, whiteSpace: 'nowrap', textDecoration: 'none',
+        borderRadius: 999, fontWeight: 600, cursor: 'pointer', fontSize: 11.5,
+        lineHeight: 1, whiteSpace: 'nowrap', textDecoration: 'none',
         transition: 'all 0.15s',
         ...variants[variant], ...sizes[size],
         ...(props.disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}),

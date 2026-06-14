@@ -10,24 +10,20 @@ interface EmptyStateProps {
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
     <div style={{
-      textAlign: 'center', padding: '48px 24px',
-      background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-      border: '1px solid var(--hairline)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+      gap: 8, padding: '34px 10px',
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: '50%',
+        width: 42, height: 42, borderRadius: 11,
         background: 'var(--brand-soft)', color: 'var(--brand)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 24, margin: '0 auto 14px',
+        display: 'grid', placeItems: 'center', fontSize: 20,
       }}>
         {icon}
       </div>
-      <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{title}</h3>
-      <p style={{ color: 'var(--text-2)', fontSize: 13.5, maxWidth: 340, margin: '0 auto 18px', lineHeight: 1.5 }}>
-        {description}
-      </p>
+      <div style={{ fontSize: 13, fontWeight: 600 }}>{title}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-2)', maxWidth: '30ch' }}>{description}</div>
       {action && (
-        <button className="btn btn-primary" onClick={action.onClick}>{action.label}</button>
+        <div style={{ marginTop: 6, background: 'var(--brand)', color: '#fff', fontWeight: 600, fontSize: 11.5, borderRadius: 999, padding: '9px 18px', cursor: 'pointer' }} onClick={action.onClick}>{action.label}</div>
       )}
     </div>
   )

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Khata — Master Visual Reference</title>
+<style>
+  :root{
+    --bg:#0C0C11;--surface:#14141C;--surface-2:#1A1A24;--surface-3:#21212E;
+    --hairline:rgba(255,255,255,.07);--highlight:rgba(255,255,255,.04);
+    --text:#F2F2F5;--text-2:#9A9AA8;--text-muted:#6B6B78;
+    --brand:#8479F2;--brand-soft:rgba(132,121,242,.16);
+    --income:#2EC27E;--income-soft:rgba(46,194,126,.14);
+    --expense:#EE6B4D;--expense-soft:rgba(238,107,77,.14);--warn:#E0A33A;--warn-soft:rgba(224,163,58,.14);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    --num:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#08080B;font-family:var(--font);color:var(--text);padding:28px 18px 70px;}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;font-family:var(--num);}
+  .wrap{max-width:1240px;margin:0 auto;}
+
+  .intro h1{font-size:27px;font-weight:700;letter-spacing:-.02em;}
+  .intro p{color:var(--text-2);font-size:14px;margin-top:6px;max-width:74ch;}
+
+  .secti{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand);
+    margin:38px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--hairline);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:24px;margin-top:18px;padding:16px 18px;background:var(--surface);
+    border:1px solid var(--hairline);border-radius:14px;box-shadow:inset 0 1px 0 var(--highlight);}
+  .legend .lab{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
+  .legend .roles div{display:flex;align-items:center;gap:8px;margin-bottom:5px;color:var(--text-2);font-size:12px;}
+  .legend .sw{width:11px;height:11px;border-radius:3px;}
+  .ramp{display:flex;gap:6px;} .ramp .s{width:34px;height:34px;border-radius:7px;border:1px solid var(--hairline);}
+  .cur{font-family:var(--num);font-size:13px;color:var(--text-2);line-height:1.8;}
+  .prims{font-size:12px;color:var(--text-2);max-width:30ch;line-height:1.6;}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:30px;justify-content:center;}
+  figure{width:300px;} figcaption{margin-top:12px;font-size:13px;color:var(--text-2);text-align:center;}
+  figcaption b{color:var(--text);font-weight:600;}
+
+  .phone{width:300px;height:620px;background:var(--bg);border-radius:24px;overflow:hidden;
+    box-shadow:0 0 0 1px #1c1c22,0 18px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;}
+  .pbar{display:flex;justify-content:space-between;padding:9px 14px 4px;font-size:10px;color:var(--text-2);}
+  .phead{display:flex;align-items:center;gap:8px;padding:4px 14px 8px;}
+  .logo{width:24px;height:24px;border-radius:7px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:700;font-size:12px;}
+  .phead .nm{font-weight:700;font-size:13px;} .phead .back{font-size:16px;color:var(--text-2);}
+  .pbody{flex:1;overflow:hidden;padding:2px 14px 8px;}
+  .ptitle{font-size:18px;font-weight:700;letter-spacing:-.01em;margin:4px 0 2px;}
+  .ptitle .cnt{font-size:9.5px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--hairline);padding:2px 7px;border-radius:999px;margin-left:7px;vertical-align:middle;}
+  .psub{font-size:11px;color:var(--text-2);margin-bottom:12px;}
+
+  .card{background:var(--surface);border:1px solid var(--hairline);border-radius:13px;padding:12px;margin-bottom:10px;box-shadow:inset 0 1px 0 var(--highlight);}
+  .eyebrow{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:9px;}
+
+  .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px;}
+  .sgrid.three{grid-template-columns:1fr 1fr 1fr;}
+  .stat{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:11px;box-shadow:inset 0 1px 0 var(--highlight);}
+  .stat .l{font-size:9.5px;color:var(--text-2);} .stat .v{font-size:16px;font-weight:700;margin-top:4px;} .stat.three .v{font-size:14px;}
+  .v.brand{color:var(--brand);} .v.in{color:var(--income);} .v.out{color:var(--expense);} .v.warn{color:var(--warn);}
+
+  .bars{display:flex;align-items:flex-end;gap:3px;height:64px;margin-top:2px;}
+  .bars .b{flex:1;border-radius:2px 2px 0 0;}
+  .leg{display:flex;gap:12px;justify-content:center;font-size:9px;color:var(--text-2);margin-top:8px;}
+  .leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle;}
+
+  .row{display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:start;padding:9px 0;border-bottom:1px solid var(--hairline);}
+  .row:last-child{border-bottom:none;}
+  .ico{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:700;}
+  .ico.in{background:var(--income-soft);color:var(--income);} .ico.out{background:var(--expense-soft);color:var(--expense);}
+  .pn{font-size:11.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .rmeta{display:flex;gap:6px;align-items:center;margin-top:4px;}
+  .dt{font-size:9.5px;color:var(--text-muted);}
+  .chip{font-size:9.5px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--hairline);padding:2px 7px;border-radius:999px;}
+  .amt{font-size:11.5px;font-weight:700;text-align:right;white-space:nowrap;} .amt.in{color:var(--income);} .amt.out{color:var(--expense);}
+
+  .cat{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--hairline);font-size:11.5px;}
+  .cat:last-child{border-bottom:none;}
+  .cdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .cat .cn{flex:1;color:var(--text);} .cat .cv{font-family:var(--num);font-weight:700;font-size:11px;} .cat .pct{color:var(--text-muted);font-size:9.5px;width:30px;text-align:right;}
+  .chev{color:var(--text-muted);font-size:12px;}
+
+  .pills{display:flex;gap:6px;margin-bottom:11px;}
+  .pill{font-size:10px;font-weight:600;padding:6px 11px;border-radius:999px;background:var(--surface-2);border:1px solid var(--hairline);color:var(--text-2);white-space:nowrap;}
+  .pill.on{background:var(--brand-soft);border-color:transparent;color:var(--brand);}
+  .search{background:var(--surface-2);border:1px solid var(--hairline);border-radius:10px;padding:9px 11px;color:var(--text-muted);font-size:11px;margin-bottom:10px;box-shadow:inset 0 1px 0 var(--highlight);}
+  .fbar{display:flex;gap:6px;margin-bottom:10px;overflow:hidden;}
+  .fpill{font-size:10px;font-weight:600;padding:6px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--hairline);color:var(--text-2);white-space:nowrap;}
+  .fpill.on{background:var(--brand-soft);border-color:transparent;color:var(--brand);}
+
+  .hl{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--hairline);font-size:11px;}
+  .hl:last-child{border-bottom:none;} .hl .k{color:var(--text-2);} .hl .val{font-weight:700;font-family:var(--num);font-size:11px;}
+
+  .acct{display:flex;align-items:center;gap:10px;}
+  .av{width:34px;height:34px;border-radius:9px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:15px;}
+  .acct .em{font-size:11.5px;font-weight:600;} .acct .ro{font-size:10px;color:var(--text-muted);} .acct .ch{margin-left:auto;color:var(--brand);font-size:11px;font-weight:600;}
+  .toggle{display:flex;align-items:center;justify-content:space-between;font-size:12px;}
+  .sw-t{width:38px;height:22px;border-radius:999px;background:var(--brand);position:relative;}
+  .sw-t::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;right:3px;}
+  .btn{display:block;width:100%;text-align:center;font-size:11.5px;font-weight:600;border-radius:999px;padding:10px;margin-top:8px;border:1px solid var(--hairline);color:var(--text);background:transparent;}
+  .btn.danger{color:var(--expense);border-color:var(--expense-soft);}
+  .btn.primary{background:var(--brand);color:#fff;border-color:transparent;}
+
+  .field{background:var(--surface-2);border:1px solid var(--hairline);border-radius:9px;padding:9px 10px;color:var(--text-muted);font-size:11px;margin-bottom:8px;}
+  .selchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+  .selchip{font-size:10px;padding:6px 11px;border-radius:8px;border:1px solid var(--hairline);color:var(--text-2);background:var(--surface-2);}
+  .selchip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand);}
+  .addbtn{width:100%;background:var(--brand);color:#fff;font-weight:700;font-size:12px;border-radius:10px;padding:10px;margin-top:8px;text-align:center;}
+
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:34px 10px;}
+  .empty .g{width:42px;height:42px;border-radius:11px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:20px;}
+  .empty.err .g{background:var(--expense-soft);color:var(--expense);}
+  .empty .t{font-size:13px;font-weight:600;} .empty .d{font-size:11px;color:var(--text-2);max-width:30ch;}
+  .empty .pillbtn{margin-top:6px;background:var(--brand);color:#fff;font-weight:600;font-size:11.5px;border-radius:999px;padding:9px 18px;}
+  .empty.err .pillbtn{background:transparent;border:1px solid var(--hairline);color:var(--text);}
+
+  /* skeleton */
+  .sk{background:linear-gradient(90deg,var(--surface-2) 25%,#22222e 37%,var(--surface-2) 63%);
+    background-size:400% 100%;animation:sh 1.3s ease-in-out infinite;border-radius:6px;}
+  @keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+  @media (prefers-reduced-motion:reduce){.sk{animation:none}}
+  .skrow{display:grid;grid-template-columns:26px 1fr 54px;gap:9px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hairline);}
+  .skrow:last-child{border-bottom:none;}
+  .skrow .a{width:26px;height:26px;border-radius:7px;} .skrow .l1{height:11px;margin-bottom:7px;width:90%;} .skrow .l2{height:9px;width:55%;} .skrow .r{height:12px;}
+
+  /* conflict bits */
+  select.sel{appearance:none;-webkit-appearance:none;background:var(--surface-3);color:var(--text);border:1px solid var(--hairline);
+    border-radius:9px;padding:7px 26px 7px 10px;font:inherit;font-size:11px;font-weight:600;cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%239A9AA8' stroke-width='2'><path d='M2 3l3 3 3-3'/></svg>");
+    background-repeat:no-repeat;background-position:right 9px center;}
+  select.sel.brand{border-color:var(--brand);color:var(--brand);background-color:var(--brand-soft);}
+  .globalbar{background:var(--surface-2);border:1px solid var(--hairline);border-radius:11px;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;box-shadow:inset 0 1px 0 var(--highlight);}
+  .globalbar .gl{font-size:11px;font-weight:600;} .globalbar .gl span{display:block;color:var(--text-muted);font-size:9px;font-weight:400;}
+  .cflpayee{font-size:11px;font-weight:600;line-height:1.3;}
+  .badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:999px;}
+  .badge.warn{background:var(--warn-soft);color:var(--warn);}
+  .flabel{font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:9px 0 5px;}
+  .vals{display:flex;gap:7px;}
+  .val{flex:1;border:1px solid var(--hairline);border-radius:8px;padding:7px 8px;background:var(--surface-2);}
+  .val .who{font-size:8.5px;text-transform:uppercase;color:var(--text-muted);} .val .v2{font-size:11px;margin-top:2px;}
+  .val.chosen{border-color:var(--brand);background:var(--brand-soft);} .val.chosen .who{color:var(--brand);}
+  .resrow{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px solid var(--hairline);}
+  .reslabel{font-size:10.5px;font-weight:600;color:var(--text-2);}
+
+  .nav{display:flex;justify-content:space-around;padding:8px 4px 12px;border-top:1px solid var(--hairline);background:var(--surface);}
+  .nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:8.5px;color:var(--text-muted);}
+  .nav a.on{color:var(--brand);} .nav .gi{font-size:15px;}
+  .donut{width:84px;height:84px;border-radius:50%;margin:2px auto 8px;
+    background:conic-gradient(#8479F2 0 64%, #2EC27E 64% 85%, #EE6B4D 85% 92%, #E0A33A 92% 96%, #59c3e8 96% 100%);
+    -webkit-mask:radial-gradient(circle 26px at center, transparent 98%, #000 100%);mask:radial-gradient(circle 26px at center, transparent 98%, #000 100%);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="intro">
+    <h1>Khata — Master Visual Reference</h1>
+    <p>The single source of truth for how the app looks. One token system, one set of components, recombined across every screen and state. Build each page from the shared primitives (Screen, Card, StatCard, Field, Button, Pill, Chip, Amount, ListRow, EmptyState) — never restyle per page. If a screen here seems to need a new card or button, that's drift.</p>
+  </div>
+
+  <!-- FOUNDATIONS -->
+  <div class="secti">Foundations</div>
+  <div class="legend">
+    <div class="block roles">
+      <div class="lab">Color rule</div>
+      <div><span class="sw" style="background:var(--brand)"></span>Purple = actions only</div>
+      <div><span class="sw" style="background:var(--income)"></span>Green = money in</div>
+      <div><span class="sw" style="background:var(--expense)"></span>Red = money out / destructive</div>
+    </div>
+    <div class="block">
+      <div class="lab">Surface ramp (tinted, layered)</div>
+      <div class="ramp"><div class="s" style="background:#0C0C11"></div><div class="s" style="background:#14141C"></div><div class="s" style="background:#1A1A24"></div><div class="s" style="background:#21212E"></div></div>
+      <div style="font-size:9.5px;color:var(--text-muted);margin-top:8px;">bg · surface · surface-2 · surface-3 — cards use a 1px hairline border, not a big lightness jump</div>
+    </div>
+    <div class="block">
+      <div class="lab">Money (Indian, tabular)</div>
+      <div class="cur">₹14,58,879<br>−₹17,962.76<br>+₹20,304</div>
+    </div>
+    <div class="block">
+      <div class="lab">Primitives</div>
+      <div class="prims">Screen · Card · StatCard · Field · Button · Pill · Chip · Amount · ListRow · EmptyState · ProgressBar</div>
+    </div>
+  </div>
+
+  <!-- SCREENS -->
+  <div class="secti">Screens</div>
+  <div class="gallery">
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Dashboard</div><div class="psub">Your financial overview</div>
+          <div class="sgrid">
+            <div class="stat"><div class="l">Net Balance</div><div class="v brand num">₹21,093</div></div>
+            <div class="stat"><div class="l">This month spent</div><div class="v out num">₹1,06,762</div></div>
+            <div class="stat"><div class="l">This month earned</div><div class="v in num">₹1,37,125</div></div>
+            <div class="stat"><div class="l">Savings rate</div><div class="v warn num">1.4%</div></div>
+          </div>
+          <div class="card"><div class="eyebrow">This month · spend vs earn</div>
+            <div class="bars"><div class="b" style="height:60%;background:var(--expense)"></div><div class="b" style="height:80%;background:var(--income)"></div><div class="b" style="height:40%;background:var(--expense)"></div><div class="b" style="height:55%;background:var(--income)"></div><div class="b" style="height:70%;background:var(--expense)"></div><div class="b" style="height:90%;background:var(--income)"></div><div class="b" style="height:30%;background:var(--expense)"></div><div class="b" style="height:65%;background:var(--income)"></div></div>
+            <div class="leg"><span><i style="background:var(--expense)"></i>Spent</span><span><i style="background:var(--income)"></i>Earned</span></div></div>
+          <div class="card"><div class="eyebrow">Top categories</div>
+            <div class="cat"><span class="cdot" style="background:#8479F2"></span><span class="cn">Miscellaneous</span><span class="cv num">₹9,37,213</span><span class="pct num">64%</span></div>
+            <div class="cat"><span class="cdot" style="background:#2EC27E"></span><span class="cn">Transfer</span><span class="cv num">₹3,10,030</span><span class="pct num">21%</span></div>
+            <div class="cat"><span class="cdot" style="background:#EE6B4D"></span><span class="cn">Insurance</span><span class="cv num">₹91,397</span><span class="pct num">6%</span></div></div>
+        </div>
+        <nav class="nav"><a class="on"><span class="gi">▦</span>Dashboard</a><a><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Dashboard</b> — glanceable snapshot</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Transactions <span class="cnt num">517 total</span></div>
+          <div class="search">🔍 Search payee or ref…</div>
+          <div class="pills"><span class="pill on">All time</span><span class="pill">This week</span><span class="pill">This month</span></div>
+          <div class="card" style="padding:4px 12px;">
+            <div class="row"><div class="ico out">↓</div><div><div class="pn">ME DC SI 435584XXXXXX3420 HDFC LIFE INSUR</div><div class="rmeta"><span class="dt">31 Mar</span><span class="chip">Insurance ⌄</span></div></div><div class="amt out num">−₹10,053</div></div>
+            <div class="row"><div class="ico in">↑</div><div><div class="pn">UPI-SAGAR TANEJA-8949799784@AXL-PAYMENT</div><div class="rmeta"><span class="dt">31 Mar</span><span class="chip">Refund ⌄</span></div></div><div class="amt in num">+₹20,304</div></div>
+            <div class="row"><div class="ico in">↑</div><div><div class="pn">INTEREST PAID TILL 31-MAR-2026</div><div class="rmeta"><span class="dt">31 Mar</span><span class="chip">Interest ⌄</span></div></div><div class="amt in num">+₹866</div></div>
+            <div class="row"><div class="ico out">↓</div><div><div class="pn">UPI-CRED CLUB-CRED.CLUB@AXISB-PAYMENT ON CRED</div><div class="rmeta"><span class="dt">30 Mar</span><span class="chip">Utilities ⌄</span></div></div><div class="amt out num">−₹17,962.76</div></div>
+          </div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a class="on"><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Transactions</b> — full payee, inline category, signed amounts</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><span class="back">‹</span><div class="nm">Analytics</div></div>
+        <div class="pbody">
+          <div class="psub" style="margin-bottom:10px;">Explore &amp; understand — tap anything to drill in</div>
+          <div class="fbar"><span class="fpill on">This month ▾</span><span class="fpill">All accounts ▾</span><span class="fpill">All categories ▾</span></div>
+          <div class="card"><div class="eyebrow">Monthly trend</div>
+            <div class="bars"><div class="b" style="height:55%;background:var(--expense)"></div><div class="b" style="height:45%;background:var(--income)"></div><div class="b" style="height:70%;background:var(--expense)"></div><div class="b" style="height:90%;background:var(--income)"></div><div class="b" style="height:40%;background:var(--expense)"></div><div class="b" style="height:60%;background:var(--income)"></div><div class="b" style="height:80%;background:var(--expense)"></div><div class="b" style="height:50%;background:var(--income)"></div></div></div>
+          <div class="card"><div class="eyebrow">Highlights · tap to explore</div>
+            <div class="hl"><span class="k">Most spent month</span><span><span class="val out num">2025-10</span> <span class="chev">›</span></span></div>
+            <div class="hl"><span class="k">Top payee</span><span><span class="val num">ISHAN SAHU</span> <span class="chev">›</span></span></div>
+            <div class="hl"><span class="k">Best savings month</span><span><span class="val in num">2026-01</span> <span class="chev">›</span></span></div></div>
+          <div class="card"><div class="eyebrow">Spending by category</div><div class="donut"></div>
+            <div class="cat"><span class="cdot" style="background:#8479F2"></span><span class="cn">Miscellaneous</span><span class="chev">›</span></div>
+            <div class="cat"><span class="cdot" style="background:#2EC27E"></span><span class="cn">Transfer</span><span class="chev">›</span></div></div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a class="on"><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Analytics</b> — filter bar + tappable widgets (drill-down)</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><span class="back">‹</span><div class="nm">Insurance</div></div>
+        <div class="pbody">
+          <div class="card"><div class="eyebrow">This month</div>
+            <div style="font-size:22px;font-weight:700;" class="out num">−₹91,397</div>
+            <div style="font-size:10.5px;color:var(--text-2);margin-top:3px;">6.3% of total spending · 4 transactions</div>
+            <div class="bars" style="height:48px;margin-top:12px;"><div class="b" style="height:50%;background:var(--expense)"></div><div class="b" style="height:80%;background:var(--expense)"></div><div class="b" style="height:35%;background:var(--expense)"></div><div class="b" style="height:95%;background:var(--expense)"></div><div class="b" style="height:60%;background:var(--expense)"></div><div class="b" style="height:45%;background:var(--expense)"></div></div></div>
+          <div class="card" style="padding:4px 12px;"><div class="eyebrow" style="margin:9px 0;">Transactions</div>
+            <div class="row"><div class="ico out">↓</div><div><div class="pn">ME DC SI 435584XXXXXX3420 HDFC LIFE</div><div class="rmeta"><span class="dt">31 Mar</span></div></div><div class="amt out num">−₹10,053</div></div>
+            <div class="row"><div class="ico out">↓</div><div><div class="pn">LIC PREMIUM AUTO-DEBIT</div><div class="rmeta"><span class="dt">15 Mar</span></div></div><div class="amt out num">−₹80,884</div></div></div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a class="on"><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Detail view</b> — what a tap opens</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Settings</div><div class="psub">Account &amp; preferences</div>
+          <div class="card"><div class="eyebrow">Account</div>
+            <div class="acct"><div class="av">👤</div><div><div class="em">ishan20015.s@gmail.com</div><div class="ro">admin</div></div><div class="ch">Change</div></div></div>
+          <div class="card"><div class="eyebrow">Preferences</div><div class="toggle"><span>🌙 Dark mode</span><span class="sw-t"></span></div></div>
+          <div class="card"><div class="eyebrow">Actions</div><div class="btn">🔒 Reset password</div><div class="btn danger">🗑 Clear all data…</div><div class="btn">↪ Logout</div></div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a class="on"><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Settings</b> — card sections, stacked actions, danger separated</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><span class="back">‹</span><div class="nm">Portfolio</div></div>
+        <div class="pbody">
+          <div class="psub" style="margin:2px 0 12px;">Net worth tracker</div>
+          <div class="sgrid three">
+            <div class="stat three"><div class="l">Assets</div><div class="v in num">₹0</div></div>
+            <div class="stat three"><div class="l">Liabilities</div><div class="v out num">₹0</div></div>
+            <div class="stat three"><div class="l">Net Worth</div><div class="v brand num">₹0</div></div></div>
+          <div class="card"><div class="eyebrow">Add asset</div>
+            <div class="field">Name</div><div class="field">Value (₹)</div>
+            <div class="selchips"><span class="selchip on">bank</span><span class="selchip">mutual fund</span><span class="selchip">stock</span><span class="selchip">fd</span><span class="selchip">cash</span></div>
+            <div class="addbtn">＋ Add asset</div></div>
+          <div class="card empty"><div class="g">💰</div><div class="t">No assets yet</div><div class="d">Add bank accounts, funds, or stocks above.</div></div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a class="on"><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Portfolio</b> — stat cards, form + chips, empty state</figcaption>
+    </figure>
+
+  </div>
+
+  <!-- STATES -->
+  <div class="secti">States — every list screen needs these four</div>
+  <div class="gallery">
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Transactions <span class="cnt num">517 total</span></div>
+          <div class="search">🔍 Search payee or ref…</div>
+          <div class="pills"><span class="pill on">All time</span><span class="pill">This week</span></div>
+          <div class="card" style="padding:4px 12px;">
+            <div class="row"><div class="ico out">↓</div><div><div class="pn">ME DC SI 435584XXXXXX3420 HDFC LIFE</div><div class="rmeta"><span class="dt">31 Mar</span><span class="chip">Insurance ⌄</span></div></div><div class="amt out num">−₹10,053</div></div>
+            <div class="row"><div class="ico in">↑</div><div><div class="pn">UPI-SAGAR TANEJA-PAYMENT</div><div class="rmeta"><span class="dt">31 Mar</span><span class="chip">Refund ⌄</span></div></div><div class="amt in num">+₹20,304</div></div>
+            <div class="row"><div class="ico in">↑</div><div><div class="pn">INTEREST PAID TILL 31-MAR-2026</div><div class="rmeta"><span class="dt">31 Mar</span><span class="chip">Interest ⌄</span></div></div><div class="amt in num">+₹866</div></div>
+          </div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a class="on"><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Default</b> — data loaded</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Transactions</div>
+          <div class="search">🔍 Search payee or ref…</div>
+          <div class="pills"><span class="pill on">All time</span><span class="pill">This week</span></div>
+          <div class="card" style="padding:4px 12px;">
+            <div class="skrow"><div class="sk a"></div><div><div class="sk l1"></div><div class="sk l2"></div></div><div class="sk r"></div></div>
+            <div class="skrow"><div class="sk a"></div><div><div class="sk l1"></div><div class="sk l2"></div></div><div class="sk r"></div></div>
+            <div class="skrow"><div class="sk a"></div><div><div class="sk l1"></div><div class="sk l2"></div></div><div class="sk r"></div></div>
+            <div class="skrow"><div class="sk a"></div><div><div class="sk l1"></div><div class="sk l2"></div></div><div class="sk r"></div></div>
+            <div class="skrow"><div class="sk a"></div><div><div class="sk l1"></div><div class="sk l2"></div></div><div class="sk r"></div></div>
+          </div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a class="on"><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Loading</b> — skeleton, layout-stable</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Transactions</div>
+          <div class="search">🔍 Search payee or ref…</div>
+          <div class="pills"><span class="pill on">This month</span><span class="pill">This week</span></div>
+          <div class="empty"><div class="g">🧾</div><div class="t">No transactions found</div><div class="d">Try a different date range, or upload a statement.</div><div class="pillbtn">Show all time</div></div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a class="on"><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Empty</b> — icon + line + recovery action</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Transactions</div>
+          <div class="search">🔍 Search payee or ref…</div>
+          <div class="pills"><span class="pill on">All time</span><span class="pill">This week</span></div>
+          <div class="empty err"><div class="g">⚠</div><div class="t">Couldn't load transactions</div><div class="d">Check your connection. Your offline data is safe.</div><div class="pillbtn">Retry</div></div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a class="on"><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Error</b> — cause + reassurance + Retry</figcaption>
+    </figure>
+
+  </div>
+
+  <!-- SYNC -->
+  <div class="secti">Sync &amp; conflicts</div>
+  <div class="gallery">
+    <figure>
+      <div class="phone">
+        <div class="pbar"><span>9:45</span><span class="num">100%</span></div>
+        <div class="phead"><div class="logo">₹</div><div class="nm">Khata</div></div>
+        <div class="pbody">
+          <div class="ptitle">Resolve conflicts</div>
+          <div class="psub">2 offline edits clash with server changes.</div>
+          <div class="globalbar"><div class="gl">Apply to all<span>Sets every conflict</span></div><select class="sel brand"><option>Merge</option><option>Override</option><option>Keep existing</option></select></div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;gap:8px;"><div class="cflpayee">UPI-SAGAR TANEJA-PAYMENT</div></div>
+            <div class="flabel">Category</div><div class="vals"><div class="val"><div class="who">Yours</div><div class="v2">Miscellaneous</div></div><div class="val chosen"><div class="who">Server</div><div class="v2">Transfer</div></div></div>
+            <div class="resrow"><span class="reslabel">Resolution</span><select class="sel"><option>Merge</option><option>Override</option><option>Keep existing</option></select></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div class="cflpayee">HDFC LIFE INSUR</div><span class="badge warn">Amount</span></div>
+            <div class="flabel">Amount · changed both sides</div><div class="vals"><div class="val"><div class="who">Yours</div><div class="v2 num out">−₹10,053</div></div><div class="val"><div class="who">Server</div><div class="v2 num out">−₹10,530</div></div></div>
+            <div style="font-size:9.5px;color:var(--warn);margin-top:7px;">⚠ Money never auto-merges — pick one</div>
+          </div>
+        </div>
+        <nav class="nav"><a><span class="gi">▦</span>Dashboard</a><a><span class="gi">🧾</span>Txns</a><a><span class="gi">＋</span>Add</a><a><span class="gi">⋯</span>More</a><a><span class="gi">⚙</span>Settings</a></nav>
+      </div>
+      <figcaption><b>Conflict resolution</b> — global cascade, 3-way diff, money guarded</figcaption>
+    </figure>
+  </div>
+
+</div>
+</body>
+</html>
+

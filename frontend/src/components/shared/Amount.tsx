@@ -8,18 +8,20 @@ interface AmountProps {
 }
 
 const sizeStyles = {
-  sm: { fontSize: 12 },
-  md: { fontSize: 15 },
+  sm: { fontSize: 11.5 },
+  md: { fontSize: 14 },
   lg: { fontSize: 22 },
 }
 
-export function Amount({ paise, sign, size = 'md', className }: AmountProps) {
+export function Amount({ paise, sign, size = 'sm', className }: AmountProps) {
   return (
     <span
       className={className}
       style={{
         fontVariantNumeric: 'tabular-nums',
-        fontWeight: 600,
+        fontFeatureSettings: '"tnum" 1',
+        fontFamily: 'var(--font-mono, "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace)',
+        fontWeight: 700,
         whiteSpace: 'nowrap',
         ...sizeStyles[size],
         color: paise < 0 ? 'var(--expense)' : paise > 0 ? 'var(--income)' : 'var(--text)',
