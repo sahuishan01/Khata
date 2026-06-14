@@ -18,25 +18,26 @@ import androidx.compose.ui.unit.sp
 import com.khata.app.ui.theme.KhataColors
 
 @Composable
-fun KhataCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun KhataCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         color = KhataColors.surface,
         border = null,
     ) {
-        Box(modifier = Modifier.drawBehind {
+        Column(modifier = Modifier.drawBehind {
             drawRoundRect(
                 color = KhataColors.hairline,
                 cornerRadius = CornerRadius(16.dp.toPx()),
                 style = Stroke(1.dp.toPx()),
             )
+            // subtle top inner highlight
             drawRect(
                 color = Color(0x0AFFFFFF),
                 topLeft = Offset(0f, 0f),
                 size = Size(size.width, 1.dp.toPx()),
             )
-        }) {
+        }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             content()
         }
     }
@@ -54,6 +55,6 @@ fun KhataCardHeader(title: String, modifier: Modifier = Modifier, action: @Compo
 }
 
 @Composable
-fun KhataCardBody(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(modifier = modifier.padding(16.dp)) { content() }
+fun KhataCardBody(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
 }
