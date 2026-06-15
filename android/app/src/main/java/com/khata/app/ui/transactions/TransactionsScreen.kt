@@ -464,8 +464,7 @@ private fun TransactionCard(
                     DetailRow("Category", txn.category)
                     DetailRow("Date", formatDate(txn.valueDate))
                     DetailRow("Bank", txn.bank)
-                    if (!txn.bankRef.isNullOrBlank()) DetailRow("Reference", txn.bankRef)
-                    if (txn.balance != null) DetailRow("Balance", formatINR(txn.balance))
+
                     if (txn.isTransfer) DetailRow("Transfer", "Yes")
                     if (txn.notes.isNotBlank()) DetailRow("Notes", txn.notes)
                 }
