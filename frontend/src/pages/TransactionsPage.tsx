@@ -64,6 +64,7 @@ export function TransactionsPage() {
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [noteText, setNoteText]     = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const categoryFilter = searchParams.get('category') ?? ''
 
@@ -272,7 +273,7 @@ export function TransactionsPage() {
                 </thead>
                 <tbody>
                   {list.data.map(t => (
-                    <tr key={t.id} className="txn-row">
+                    <tr key={t.id} className="txn-row" onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}>
                       <td style={{ whiteSpace: 'nowrap', color: 'var(--text-2)', fontSize: 12 }}>
                         {formatDate(t.value_date)}
                       </td>
@@ -310,6 +311,21 @@ export function TransactionsPage() {
                         )}
                       </td>
                     </tr>
+                    {expandedId === t.id && (
+                      <tr className="txn-expanded">
+                        <td colSpan={5} style={{ padding: '10px 12px', background: 'var(--surface-2)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Amount: </span><span style={{ fontWeight: 600, color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)' }}>{formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Date: </span><span>{formatDate(t.value_date)}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
+                            {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
+                            {t.notes && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   ))}
                 </tbody>
               </table>
@@ -319,48 +335,59 @@ export function TransactionsPage() {
           {/* Mobile card list */}
           <div className="panel" style={{ padding: 0, overflow: 'hidden' }} id="txn-cards">
             {list.data.map(t => (
-              <div key={t.id} style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '12px 14px', borderBottom: '1px solid var(--hairline)',
-              }}>
-                <div
-                  className="txn-icon"
-                  style={{
-                    background: t.direction === 'debit' ? 'var(--expense-soft)' : 'var(--income-soft)',
-                    color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)',
-                    flexShrink: 0, marginTop: 1,
-                  }}
-                >
-                  {t.direction === 'debit' ? <ArrowDown size={15} /> : <ArrowUp size={15} />}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    color: 'var(--text)', fontSize: 13, fontWeight: 500,
-                    lineHeight: 1.35, marginBottom: 5,
-                    display: '-webkit-box', WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    wordBreak: 'break-word',
-                  }}>
-                    {t.description}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                      {formatDate(t.value_date)}
-                    </span>
-                    <CategoryEditor
-                      txnId={t.id} current={t.category} description={t.description}
-                      allCategories={categories} onUpdated={handleCategoryUpdate}
-                    />
-                    <span style={{
-                      marginLeft: 'auto', fontWeight: 700, fontSize: 13.5,
-                      whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+              <div key={t.id} onClick={() => setExpandedId(expandedId === t.id ? null : t.id)} style={{ cursor: 'pointer' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '12px 14px', borderBottom: expandedId !== t.id ? '1px solid var(--hairline)' : 'none',
+                }}>
+                  <div
+                    className="txn-icon"
+                    style={{
+                      background: t.direction === 'debit' ? 'var(--expense-soft)' : 'var(--income-soft)',
                       color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)',
+                      flexShrink: 0, marginTop: 1,
+                    }}
+                  >
+                    {t.direction === 'debit' ? <ArrowDown size={15} /> : <ArrowUp size={15} />}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      color: 'var(--text)', fontSize: 13, fontWeight: 500,
+                      lineHeight: 1.35, marginBottom: 5,
+                      display: '-webkit-box', WebkitLineClamp: expandedId === t.id ? 'unset' : 2,
+                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      wordBreak: 'break-word',
                     }}>
-                      {formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}
-                    </span>
+                      {t.description}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+                        {formatDate(t.value_date)}
+                      </span>
+                      <CategoryEditor
+                        txnId={t.id} current={t.category} description={t.description}
+                        allCategories={categories} onUpdated={handleCategoryUpdate}
+                      />
+                      <span style={{
+                        marginLeft: 'auto', fontWeight: 700, fontSize: 13.5,
+                        whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+                        color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)',
+                      }}>
+                        {formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                {expandedId === t.id && (
+                  <div style={{ padding: '8px 14px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12 }}>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
+                    {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
+                    {t.notes && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
+                  </div>
+                )}
               </div>
             ))}
           </div>
