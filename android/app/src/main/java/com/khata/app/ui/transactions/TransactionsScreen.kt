@@ -279,38 +279,11 @@ fun TransactionsScreen(
                         DropdownMenuItem(text = { Text("All categories") }, onClick = { onFilterChange(filter.copy(category = null)); showCatFilter = false; reload(categoryOverride = null) })
                         categories.forEach { cat ->
                             DropdownMenuItem(text = { Text(cat) }, onClick = { onFilterChange(filter.copy(category = cat)); showCatFilter = false; reload(categoryOverride = cat) })
-                }
-            }
-
-            // Expanded detail
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = KhataColors.hairline)
-                Spacer(Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                    DetailRow("Amount", formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true))
-                    DetailRow("Direction", txn.direction)
-                    DetailRow("Category", txn.category)
-                    DetailRow("Date", formatDate(txn.valueDate))
-                    DetailRow("Bank", txn.bank)
-                    if (!txn.bankRef.isNullOrBlank()) DetailRow("Reference", txn.bankRef)
-                    if (txn.balance != null) DetailRow("Balance", formatINR(txn.balance))
-                    if (txn.isTransfer) DetailRow("Transfer", "Yes")
-                    if (txn.notes.isNotBlank()) DetailRow("Notes", txn.notes)
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, fontSize = 11.sp, color = KhataColors.textMuted)
-        Text(value, fontSize = 11.sp, color = KhataColors.text, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
 
         Spacer(Modifier.height(8.dp))
 
@@ -478,6 +451,33 @@ private fun TransactionCard(
                     IconButton(onClick = { onUpdateNotes(txn.id, notesText); showNotes = false }) { Icon(Icons.Default.Check, contentDescription = "Save") }
                 }
             }
+
+            // Expanded detail
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = KhataColors.hairline)
+                Spacer(Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    DetailRow("Amount", formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true))
+                    DetailRow("Direction", txn.direction)
+                    DetailRow("Category", txn.category)
+                    DetailRow("Date", formatDate(txn.valueDate))
+                    DetailRow("Bank", txn.bank)
+                    if (!txn.bankRef.isNullOrBlank()) DetailRow("Reference", txn.bankRef)
+                    if (txn.balance != null) DetailRow("Balance", formatINR(txn.balance))
+                    if (txn.isTransfer) DetailRow("Transfer", "Yes")
+                    if (txn.notes.isNotBlank()) DetailRow("Notes", txn.notes)
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 11.sp, color = KhataColors.textMuted)
+        Text(value, fontSize = 11.sp, color = KhataColors.text, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
