@@ -13,10 +13,8 @@ api.interceptors.response.use(
   r => r,
   err => {
     if (err.response?.status === 401) {
-      if (useAuth.getState().token) {
-        useAuth.getState().logout()
-        window.location.href = '/login'
-      }
+      useAuth.getState().logout()
+      window.location.href = '/login'
     }
     return Promise.reject(err)
   }
