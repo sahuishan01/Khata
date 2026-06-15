@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
 import { api } from '../api/client'
@@ -272,8 +272,8 @@ export function TransactionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.data.map(t => (
-                    <tr key={t.id} className="txn-row" onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}>
+                  {list.data.map(t => (<Fragment key={t.id}>
+                    <tr className="txn-row" onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}>
                       <td style={{ whiteSpace: 'nowrap', color: 'var(--text-2)', fontSize: 12 }}>
                         {formatDate(t.value_date)}
                       </td>
@@ -326,7 +326,7 @@ export function TransactionsPage() {
                         </td>
                       </tr>
                     )}
-                  ))}
+                    </Fragment>))}
                 </tbody>
               </table>
             </div>
