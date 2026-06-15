@@ -10,8 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 
 @Composable
 fun LoginScreen(
@@ -21,6 +25,7 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showLoginPwd by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -67,10 +72,15 @@ fun LoginScreen(
             onValueChange = { password = it },
             label = { Text("Password") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (showLoginPwd) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            trailingIcon = {
+                IconButton(onClick = { showLoginPwd = !showLoginPwd }) {
+                    Icon(if (showLoginPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                }
+            }
         )
 
         if (error != null) {
@@ -109,6 +119,8 @@ fun SetupScreen(
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+    var showSetupPwd by remember { mutableStateOf(false) }
+    var showConfirmPwd by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -154,10 +166,15 @@ fun SetupScreen(
             onValueChange = { password = it },
             label = { Text("Password") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (showSetupPwd) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            trailingIcon = {
+                IconButton(onClick = { showSetupPwd = !showSetupPwd }) {
+                    Icon(if (showSetupPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                }
+            }
         )
         Spacer(Modifier.height(12.dp))
 
@@ -166,10 +183,15 @@ fun SetupScreen(
             onValueChange = { confirm = it },
             label = { Text("Confirm Password") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (showConfirmPwd) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            trailingIcon = {
+                IconButton(onClick = { showConfirmPwd = !showConfirmPwd }) {
+                    Icon(if (showConfirmPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                }
+            }
         )
 
         val displayError = localError ?: error

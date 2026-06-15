@@ -7,6 +7,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
   const login = useAuth(s => s.login)
   const mustResetPassword = useAuth(s => s.mustResetPassword)
   const navigate = useNavigate()
@@ -60,17 +61,21 @@ export function LoginPage() {
               autoComplete="email"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ position: 'relative' }}>
             <label className="form-label">Password</label>
             <input
-              type="password"
+              type={showPwd ? 'text' : 'password'}
               className="form-input"
               placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
               autoComplete="current-password"
+              style={{ paddingRight: 36 }}
             />
+            <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: 8, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
+              <span>{showPwd ? '🙈' : '👁'}</span>
+            </button>
           </div>
 
           {error && <p className="text-error mb-3">{error}</p>}

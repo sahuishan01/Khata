@@ -2,14 +2,20 @@ package com.khata.app.ui.admin
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.ui.components.shared.ButtonVariant
@@ -36,6 +42,7 @@ fun AdminUsersScreen(
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showPwd by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -57,10 +64,21 @@ fun AdminUsersScreen(
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    KhataField(
+                    OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        placeholder = "Password"
+                        placeholder = { Text("Password", fontSize = 11.sp) },
+                        singleLine = true,
+                        visualTransformation = if (showPwd) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(9.dp),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 11.sp),
+                        trailingIcon = {
+                            IconButton(onClick = { showPwd = !showPwd }) {
+                                Icon(if (showPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                            }
+                        }
                     )
 
                     if (error != null) {
