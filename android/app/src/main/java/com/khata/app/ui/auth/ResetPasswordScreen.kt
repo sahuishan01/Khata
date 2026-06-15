@@ -10,8 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 
 @Composable
 fun ResetPasswordScreen(
@@ -24,6 +28,9 @@ fun ResetPasswordScreen(
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+    var showCurrentPwd by remember { mutableStateOf(false) }
+    var showNewPwd by remember { mutableStateOf(false) }
+    var showConfirmPwd by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -39,9 +46,14 @@ fun ResetPasswordScreen(
             onValueChange = { currentPassword = it },
             label = { Text("Current Password") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (showCurrentPwd) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            trailingIcon = {
+                IconButton(onClick = { showCurrentPwd = !showCurrentPwd }) {
+                    Icon(if (showCurrentPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                }
+            }
         )
         Spacer(Modifier.height(12.dp))
 
@@ -50,10 +62,15 @@ fun ResetPasswordScreen(
             onValueChange = { newPassword = it },
             label = { Text("New Password") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (showNewPwd) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            trailingIcon = {
+                IconButton(onClick = { showNewPwd = !showNewPwd }) {
+                    Icon(if (showNewPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                }
+            }
         )
         Spacer(Modifier.height(12.dp))
 
@@ -62,9 +79,14 @@ fun ResetPasswordScreen(
             onValueChange = { confirmPassword = it },
             label = { Text("Confirm New Password") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (showConfirmPwd) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            trailingIcon = {
+                IconButton(onClick = { showConfirmPwd = !showConfirmPwd }) {
+                    Icon(if (showConfirmPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                }
+            }
         )
 
         val displayError = localError ?: error

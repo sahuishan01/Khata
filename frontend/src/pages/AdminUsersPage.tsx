@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { Screen, Card, CardBody, ListRow, ListRowText, Field, Button, Chip, EmptyState } from '../components/shared'
+import { Eye, EyeOff } from 'lucide-react'
 
 interface User {
   id: string
@@ -15,6 +16,7 @@ export function AdminUsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
   const loadUsers = async () => {
@@ -71,7 +73,12 @@ export function AdminUsersPage() {
           <CardBody>
             <form onSubmit={createUser} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Field type="email" placeholder="user@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
-              <Field type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+              <div style={{ position: 'relative' }}>
+                <input type={showPwd ? 'text' : 'password'} className="form-input" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} style={{ paddingRight: 36, width: '100%' }} />
+                <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               {error && <p style={{ fontSize: 13, color: 'var(--expense)' }}>{error}</p>}
               {success && <p style={{ fontSize: 13, color: 'var(--income)' }}>{success}</p>}
               <Button disabled={loading}>{loading ? 'Adding…' : 'Add User'}</Button>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
+import { Eye, EyeOff } from 'lucide-react'
 
 export function ResetPasswordPage() {
   const location = useLocation()
@@ -11,6 +12,9 @@ export function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const resetPassword = useAuth(s => s.resetPassword)
   const navigate = useNavigate()
 
@@ -57,22 +61,26 @@ export function ResetPasswordPage() {
         )}
 
         <form onSubmit={submit}>
-          <div className="form-group">
+          <div className="form-group" style={{ position: 'relative' }}>
             <label className="form-label">Current Password</label>
             <input
-              type="password"
+              type={showCurrentPwd ? 'text' : 'password'}
               className="form-input"
               placeholder="••••••••"
               value={currentPassword}
               onChange={e => setCurrentPassword(e.target.value)}
               required
               autoComplete="current-password"
+              style={{ paddingRight: 36 }}
             />
+            <button type="button" onClick={() => setShowCurrentPwd(!showCurrentPwd)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
+              {showCurrentPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ position: 'relative' }}>
             <label className="form-label">New Password</label>
             <input
-              type="password"
+              type={showNewPwd ? 'text' : 'password'}
               className="form-input"
               placeholder="Min. 12 characters"
               value={newPassword}
@@ -80,12 +88,16 @@ export function ResetPasswordPage() {
               required
               minLength={12}
               autoComplete="new-password"
+              style={{ paddingRight: 36 }}
             />
+            <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
+              {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ position: 'relative' }}>
             <label className="form-label">Confirm New Password</label>
             <input
-              type="password"
+              type={showConfirmPwd ? 'text' : 'password'}
               className="form-input"
               placeholder="Repeat new password"
               value={confirmPassword}
@@ -93,7 +105,11 @@ export function ResetPasswordPage() {
               required
               minLength={12}
               autoComplete="new-password"
+              style={{ paddingRight: 36 }}
             />
+            <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
+              {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
 
           {error && <p className="text-error mb-3">{error}</p>}
