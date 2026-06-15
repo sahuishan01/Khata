@@ -296,15 +296,15 @@ export function TransactionsPage() {
                       </td>
                       <td className="txn-actions">
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px' }} onClick={() => { setEditingNotes(editingNotes === t.id ? null : t.id); setNoteText(t.notes || '') }} title="Notes">
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px' }} onClick={e => { e.stopPropagation(); setEditingNotes(editingNotes === t.id ? null : t.id); setNoteText(t.notes || '') }} title="Notes">
                             <FileText size={12} />
                           </button>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_transfer ? 'var(--warn)' : 'var(--text-2)' }} onClick={() => toggleTransfer(t.id, !t.is_transfer)} title="Toggle transfer">
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 4px', color: t.is_transfer ? 'var(--warn)' : 'var(--text-2)' }} onClick={e => { e.stopPropagation(); toggleTransfer(t.id, !t.is_transfer) }} title="Toggle transfer">
                             <Repeat size={12} />
                           </button>
                         </div>
                         {editingNotes === t.id && (
-                          <div style={{ marginTop: 4 }}>
+                          <div style={{ marginTop: 4 }} onClick={e => e.stopPropagation()}>
                             <input className="form-input" style={{ fontSize: 11, padding: '3px 6px' }} value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add notes…" />
                             <button className="btn btn-primary btn-sm" style={{ fontSize: 10, marginTop: 2 }} onClick={() => saveNotes(t.id)}>Save</button>
                           </div>
@@ -424,6 +424,7 @@ export function TransactionsPage() {
         }
         .txn-actions { opacity: 0; transition: opacity 0.12s; width: 80px; }
         .txn-row:hover .txn-actions { opacity: 1; }
+        .txn-row, .txn-row td { cursor: pointer; }
         .txn-row:hover .txn-actions button { min-height: 28px; }
         @media (max-width: 640px) {
           #txn-table  { display: none; }
