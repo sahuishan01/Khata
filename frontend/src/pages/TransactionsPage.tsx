@@ -417,11 +417,7 @@ export function TransactionsPage() {
         #txn-table  { display: block; }
         #txn-cards  { display: none; }
         #mobile-sort{ display: none; }
-        .txn-desc {
-          max-width: 220px;
-          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-          overflow: hidden; word-break: break-word;
-        }
+        .txn-desc { word-break: break-word; }
         .txn-actions { opacity: 0; transition: opacity 0.12s; width: 80px; }
         .txn-row:hover .txn-actions { opacity: 1; }
         .txn-row, .txn-row td { cursor: pointer; }
