@@ -86,8 +86,14 @@ class MainViewModel @Inject constructor(
         _cachedTxns.value = t
     } catch (e: Exception) { _txnState.value = _txnState.value.copy(isLoading = false, error = e.message ?: "Failed") } }}
 
-    fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try { repository.toggleTransfer(id, v); loadTransactions() } catch (_: Exception) {} }}
-    fun updateNotes(id: String, notes: String) { viewModelScope.launch { try { repository.updateNotes(id, notes); loadTransactions() } catch (_: Exception) {} }}
+    fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try {
+        repository.toggleTransfer(id, v);
+        val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+    } catch (_: Exception) {} }}
+    fun updateNotes(id: String, notes: String) { viewModelScope.launch { try {
+        repository.updateNotes(id, notes);
+        val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+    } catch (_: Exception) {} }}
     fun updateCategory(id: String, category: String) { viewModelScope.launch { try {
         repository.updateCategory(id, category)
         val current = _txnState.value
@@ -98,7 +104,10 @@ class MainViewModel @Inject constructor(
     } catch (e: Exception) {
         _txnState.value = _txnState.value.copy(error = "Category update failed: ${e.message}")
     } }}
-    fun createTxn(req: CreateTxnReq) { viewModelScope.launch { try { repository.createTxn(req); loadTransactions() } catch (_: Exception) {} }}
+    fun createTxn(req: CreateTxnReq) { viewModelScope.launch { try {
+        repository.createTxn(req);
+        val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+    } catch (_: Exception) {} }}
 
     fun loadChatHistory() { viewModelScope.launch { try {
         _chatState.value = _chatState.value.copy(isLoading = true, error = null)
