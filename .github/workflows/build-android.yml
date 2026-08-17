@@ -59,12 +59,19 @@ jobs:
         shell: cmd
 
       - name: Build debug APK
-        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
+        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace > build-log.txt 2>&1
         working-directory: android
         shell: cmd
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: android/build-log.txt
 
       - name: Build release APK
         run: .\gradlew.bat assembleRelease --build-cache --parallel
