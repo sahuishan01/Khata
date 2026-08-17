@@ -17,20 +17,20 @@ jobs:
 
       - name: Restore release signing key from secrets
         if: ${{ env.UPLOAD_KEYSTORE_B64 != '' }}
-        shell: bash
+        shell: powershell
         working-directory: android
         env:
           UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "$UPLOAD_KEYSTORE_B64" | base64 -d > app/upload.keystore
-          cat > keystore.properties << EOF
+          [System.IO.File]::WriteAllBytes("app\upload.keystore", [System.Convert]::FromBase64String($env:UPLOAD_KEYSTORE_B64))
+          @"
           storeFile=upload.keystore
-          storePassword=$KEYSTORE_PASSWORD
+          storePassword=$env:KEYSTORE_PASSWORD
           keyAlias=khata-upload
-          keyPassword=$KEY_PASSWORD
-          EOF
+          keyPassword=$env:KEY_PASSWORD
+          "@ | Out-File -FilePath keystore.properties -Encoding utf8
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
