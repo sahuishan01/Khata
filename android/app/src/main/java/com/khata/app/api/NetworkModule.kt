@@ -32,21 +32,16 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(tokenInterceptor: Interceptor): OkHttpClient {
-        val builder = OkHttpClient.Builder()
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        return OkHttpClient.Builder()
             .addInterceptor(tokenInterceptor)
+            .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
-
-        if (BuildConfig.DEBUG) {
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-                redactHeader("Authorization")
-            }
-            builder.addInterceptor(logging)
-        }
-
-        return builder.build()
+            .build()
     }
 
     @Provides
