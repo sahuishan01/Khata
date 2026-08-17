@@ -84,9 +84,7 @@ pub async fn upload_handler(
         let sha = hex::encode(Sha256::digest(&bytes));
 
         let mut tx = state.db.begin().await?;
-        sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-            .execute(&mut *tx)
-            .await?;
+        crate::db::set_current_user(&mut *tx, user_id).await?;
 
         let kind = detect_file_kind(&filename);
 
@@ -241,9 +239,7 @@ pub async fn clear_all_data_handler(
     }
 
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let deleted = sqlx::query("DELETE FROM transactions WHERE user_id = $1")
         .bind(user_id)
@@ -258,6 +254,13 @@ pub async fn clear_all_data_handler(
         .map_err(|_| AppError::BadRequest("Failed to delete statements".into()))?;
 
     sqlx::query("DELETE FROM chat_messages WHERE user_id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+
+    // Invalidate all existing tokens for this user
+    sqlx::query("UPDATE users SET token_version = token_version + 1 WHERE id = $1")
         .bind(user_id)
         .execute(&mut *tx)
         .await

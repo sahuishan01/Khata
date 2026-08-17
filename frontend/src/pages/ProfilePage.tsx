@@ -13,6 +13,7 @@ export function ProfilePage() {
   const [clearConfirmText, setClearConfirmText] = useState('')
   const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [newEmail, setNewEmail] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
@@ -33,7 +34,7 @@ export function ProfilePage() {
   }
 
   const updateEmail = async () => {
-    try { await api.patch('/auth/email', { email: newEmail }); showMsg('Email updated!', 'success'); setShowEmailDialog(false) }
+    try { await api.post('/auth/email', { email: newEmail, current_password: emailPassword }); showMsg('Email updated!', 'success'); setShowEmailDialog(false); setEmailPassword('') }
     catch (err: unknown) { const e = err as { response?: { data?: { error?: string } } }; showMsg(e.response?.data?.error ?? 'Failed', 'error') }
   }
 
@@ -56,7 +57,7 @@ export function ProfilePage() {
             <CardBody>
               <ListRow
                 leading={<div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></div>}
-                trailing={<Button variant="secondary" size="sm" onClick={() => { setNewEmail(user?.email || ''); setShowEmailDialog(true) }}>Change</Button>}
+                trailing={<Button variant="secondary" size="sm" onClick={() => { setNewEmail(user?.email || ''); setEmailPassword(''); setShowEmailDialog(true) }}>Change</Button>}
               >
                 <ListRowText primary={user?.email || 'Unknown'} secondary={user?.role} />
               </ListRow>
@@ -123,6 +124,9 @@ export function ProfilePage() {
               <CardBody>
                 <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Change Email</h3>
                 <Field value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="New email address" />
+                <div style={{ marginTop: 8 }}>
+                  <Field value={emailPassword} onChange={e => setEmailPassword(e.target.value)} placeholder="Current password" type="password" />
+                </div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
                   <Button variant="secondary" onClick={() => setShowEmailDialog(false)}>Cancel</Button>
                   <Button variant="primary" onClick={updateEmail}><Check size={14} /> Save</Button>

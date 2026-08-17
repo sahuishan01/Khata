@@ -1,6 +1,10 @@
 .pgdata/
 .env
+.env.bak
 backend/target/
 frontend/node_modules/
 frontend/dist/
 pgdata/
+android/app/debug.keystore
+android/app/upload.keystore
+android/keystore.properties

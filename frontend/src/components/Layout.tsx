@@ -78,7 +78,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </header>
 
-        <div className="page-content">
+        <div className="page-content page-enter">
           {children}
         </div>
 

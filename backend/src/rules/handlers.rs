@@ -63,7 +63,7 @@ pub async fn delete_rule(
     CurrentUser(user_id): CurrentUser,
     Path(rule_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    auth::verify_ownership(&state.db, rule_id, user_id, "category_rules", "id").await?;
+    auth::verify_ownership(&state.db, rule_id, user_id, auth::OwnedTable::CategoryRules).await?;
 
     sqlx::query("DELETE FROM category_rules WHERE id = $1")
         .bind(rule_id)

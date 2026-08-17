@@ -255,7 +255,7 @@ pub struct SyncPullResponse {
     pub has_more: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SyncPushOp {
     pub client_id: Uuid,
     pub base_rev: i64,

@@ -8,7 +8,6 @@ interface UserInfo {
 }
 
 interface AuthState {
-  token: string | null
   user: UserInfo | null
   loading: boolean
   mustResetPassword: boolean
@@ -22,29 +21,25 @@ interface AuthState {
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
-  token: localStorage.getItem('token'),
   user: null,
   loading: true,
   mustResetPassword: false,
 
   login: async (email, password) => {
     const { data } = await api.post<{ token: string; must_reset_password: boolean }>('/auth/login', { email, password })
-    localStorage.setItem('token', data.token)
-    set({ token: data.token, mustResetPassword: data.must_reset_password })
+    set({ mustResetPassword: data.must_reset_password })
     if (!data.must_reset_password) {
       await get().fetchMe()
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token')
-    set({ token: null, user: null })
+  logout: async () => {
+    try { await api.post('/auth/logout') } catch { /* ignore */ }
+    set({ user: null, mustResetPassword: false })
   },
 
   setup: async (email, password) => {
-    const { data } = await api.post<{ token: string }>('/auth/setup', { email, password })
-    localStorage.setItem('token', data.token)
-    set({ token: data.token })
+    await api.post<{ token: string }>('/auth/setup', { email, password })
     await get().fetchMe()
   },
 
@@ -71,4 +66,5 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 }))
 
+// Bootstrap: try to load current user from session cookie
 useAuth.getState().fetchMe()

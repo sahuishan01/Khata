@@ -16,9 +16,7 @@ pub async fn store_transactions(
     let mut tx = pool.begin().await?;
 
     // Scope RLS policy to this user for the transaction
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let mut inserted = 0usize;
     let mut skipped = 0usize;
@@ -70,9 +68,7 @@ pub async fn insert_statement(
     row_count: i32,
 ) -> Result<Uuid> {
     let mut tx = pool.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let (stmt_id,): (Uuid,) = sqlx::query_as(
         "INSERT INTO statements (user_id, bank, file_name, file_sha256, row_count) VALUES ($1,$2,$3,$4,$5) RETURNING id",

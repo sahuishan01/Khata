@@ -37,6 +37,7 @@ pub struct AppState {
     pub db_ro: sqlx::PgPool,
     pub config: Arc<config::Config>,
     pub chat_ratelimit: Arc<Mutex<HashMap<Uuid, Instant>>>,
+    pub login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
 }
 
 async fn security_headers_mw(
@@ -88,6 +89,7 @@ async fn main() -> anyhow::Result<()> {
         db_ro,
         config: cfg.clone(),
         chat_ratelimit: Arc::new(Mutex::new(HashMap::new())),
+        login_attempts: Arc::new(Mutex::new(HashMap::new())),
     };
 
     let cors = {
@@ -97,7 +99,8 @@ async fn main() -> anyhow::Result<()> {
             .filter_map(|o| o.parse().ok())
             .collect();
         if origins.is_empty() {
-            CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any)
+            // Fail-closed: no cross-origin requests allowed
+            CorsLayer::new()
         } else {
             CorsLayer::new()
                 .allow_origin(origins)

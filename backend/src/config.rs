@@ -12,13 +12,22 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .context("JWT_SECRET not set")?;
+
+        if jwt_secret.len() < 32 {
+            anyhow::bail!("JWT_SECRET is too short ({} chars, minimum 32). Generate one with: openssl rand -hex 32", jwt_secret.len());
+        }
+        if jwt_secret.to_lowercase().contains("change-me") {
+            anyhow::bail!("JWT_SECRET is a placeholder value. Generate a real secret with: openssl rand -hex 32");
+        }
+
         Ok(Self {
             database_url: std::env::var("DATABASE_URL")
                 .context("DATABASE_URL not set")?,
             ro_database_url: std::env::var("RO_DATABASE_URL")
                 .context("RO_DATABASE_URL not set")?,
-            jwt_secret: std::env::var("JWT_SECRET")
-                .context("JWT_SECRET not set")?,
+            jwt_secret,
             claude_bin: std::env::var("CLAUDE_BIN")
                 .unwrap_or_else(|_| "claude".to_string()),
             bind_addr: std::env::var("BIND_ADDR")

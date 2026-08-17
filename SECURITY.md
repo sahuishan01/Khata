@@ -5,6 +5,21 @@
 
 Severities: **P0 = fix now / block release · P1 = fix this sprint · P2 = fix soon.**
 
+### Fixes applied (2026-08-16)
+- [x] **A2 (P0):** JWT secret rotated from placeholder; startup rejects placeholder/short secrets
+- [x] **A7 (P1):** Web frontend switched to cookie-only auth (no localStorage); server-side logout invalidates tokens via `token_version`; short-lived tokens now revocable
+- [x] **A7 (P1):** Android `EncryptedSharedPreferences` confirmed; `HttpLoggingInterceptor` now DEBUG-only with `Authorization` header redacted
+- [x] **A3 (P1):** Login rate-limiting added (5 failures → 15-min lockout per email); AdminUser middleware now queries all required columns
+- [x] **A4 (P1):** "Clear All Data" now invalidates all existing tokens server-side
+- [x] **A6 (P1):** Request body limit (12 MB) added to upload routes
+- [x] **LLM defense-in-depth:** `set_config`/`current_setting`/`pg_terminate`/`pg_cancel` added to SQL validator blocklist
+- [x] **Android signing:** `debug.keystore` removed from git; release builds now load signing key from `keystore.properties` (gitignored); CI workflow reads from GitHub secrets
+- [x] **CORS:** Empty origins now fail-closed (no `Any` fallback)
+- [x] **Single-admin race:** Partial unique index enforces at most one admin row
+- [x] **Email change:** Now requires current password (re-auth); frontend method fixed (PATCH → POST)
+- [x] **Verbose errors:** Client-facing error messages genericized; details logged server-side
+- [x] **CI:** `security-scan.yml` now blocks on high-severity findings (no more `|| true`)
+
 ---
 
 ## Part A — Current issues found (from the shipped UI) and how to fix them

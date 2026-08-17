@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingDown, TrendingUp, Wallet, Percent, Calendar, Hash,
-  ArrowUpRight, ArrowDownRight, AlertCircle, TrendingUp as InvestIcon,
+  ArrowUpRight, ArrowDownRight, TrendingUp as InvestIcon,
   Eye, EyeOff,
 } from 'lucide-react'
 import { api } from '../api/client'
@@ -12,6 +12,8 @@ import { CategoryChart } from '../components/charts/CategoryChart'
 import { usePrivacy } from '../store/privacy'
 import { maskDescription } from '../utils/pii'
 import { Screen, Card, CardHeader, CardBody, StatCard, Amount, ListRow, ListRowText, Button, EmptyState } from '../components/shared'
+import { StatCardSkeleton, TableSkeleton } from '../components/Skeleton'
+import { ErrorState } from '../components/States'
 import { formatDate } from '../utils/format'
 
 interface DashboardStats {
@@ -33,11 +35,23 @@ interface AnalysisStats {
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [analysis, setAnalysis] = useState<AnalysisStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const fetchAll = () => {
-    api.get<DashboardStats>('/txns/dashboard').then(r => setStats(r.data)).catch(() => {})
-    api.get<AnalysisStats>('/txns/analysis').then(r => setAnalysis(r.data)).catch(() => {})
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      api.get<DashboardStats>('/txns/dashboard'),
+      api.get<AnalysisStats>('/txns/analysis').catch(() => ({ data: null })),
+    ])
+      .then(([statsRes, analysisRes]) => {
+        setStats(statsRes.data)
+        setAnalysis(analysisRes.data)
+      })
+      .catch(() => setError('Failed to load dashboard data'))
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -51,6 +65,30 @@ export function DashboardPage() {
       <span style={{ fontSize: 11, marginLeft: 4 }}>{blurMode ? 'Blurred' : 'Visible'}</span>
     </Button>
   )
+
+  if (loading) {
+    return (
+      <Screen title="Dashboard" subtitle="Your financial overview" actions={blurToggle}>
+        <FileUpload onSuccess={fetchAll} />
+        <div className="grid grid-stats" style={{ marginTop: 20 }}>
+          {[1,2,3,4].map(i => <StatCardSkeleton key={i} />)}
+        </div>
+        <div className="grid grid-2" style={{ marginTop: 16 }}>
+          <Skeleton lines={5} height="card" />
+          <Skeleton lines={5} height="card" />
+        </div>
+      </Screen>
+    )
+  }
+
+  if (error) {
+    return (
+      <Screen title="Dashboard" subtitle="Your financial overview" actions={blurToggle}>
+        <FileUpload onSuccess={fetchAll} />
+        <ErrorState message={error} onRetry={fetchAll} />
+      </Screen>
+    )
+  }
 
   return (
     <Screen title="Dashboard" subtitle="Your financial overview" actions={blurToggle}>
@@ -175,7 +213,7 @@ export function DashboardPage() {
           </div>
 
           {analysis && (
-            <div className="grid grid-3">
+            <div className="grid grid-2">
               <StatCard
                 label="Avg Daily Spend"
                 value={<Amount paise={analysis.avg_daily_spend} size="lg" />}
@@ -187,12 +225,6 @@ export function DashboardPage() {
                 value={`${analysis.total_transactions}`}
                 icon={<Hash size={16} />}
                 color="brand"
-              />
-              <StatCard
-                label="Savings Rate"
-                value={`${analysis.savings_rate_pct.toFixed(1)}%`}
-                icon={<AlertCircle size={16} />}
-                color={analysis.savings_rate_pct >= 20 ? 'income' : 'amber'}
               />
             </div>
           )}

@@ -19,19 +19,17 @@ jobs:
 
       - name: Run npm audit (frontend)
         working-directory: frontend
-        run: npm audit --audit-level=high || true
-        continue-on-error: true
+        run: npm audit --audit-level=high
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.36.0
-        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
-          exit-code: '0'
+          exit-code: '1'
 
       - name: Upload Trivy results to GitHub Security
         if: always()
