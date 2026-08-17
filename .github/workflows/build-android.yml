@@ -59,9 +59,10 @@ jobs:
         shell: cmd
 
       - name: Build debug APK
-        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace > build-log.txt 2>&1
+        run: |
+          .\gradlew.bat assembleDebug --no-daemon --stacktrace *>&1 | Tee-Object -FilePath build-log.txt
         working-directory: android
-        shell: cmd
+        shell: powershell
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
