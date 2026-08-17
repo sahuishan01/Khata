@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: lenovo-self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
@@ -17,20 +17,20 @@ jobs:
 
       - name: Restore release signing key from secrets
         if: ${{ env.UPLOAD_KEYSTORE_B64 != '' }}
-        shell: powershell
+        shell: bash
         working-directory: android
         env:
           UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          [System.IO.File]::WriteAllBytes("app\upload.keystore", [System.Convert]::FromBase64String($env:UPLOAD_KEYSTORE_B64))
-          @"
+          echo "$UPLOAD_KEYSTORE_B64" | base64 -d > app/upload.keystore
+          cat > keystore.properties <<EOF
           storeFile=upload.keystore
-          storePassword=$env:KEYSTORE_PASSWORD
+          storePassword=$KEYSTORE_PASSWORD
           keyAlias=khata-upload
-          keyPassword=$env:KEY_PASSWORD
-          "@ | Out-File -FilePath keystore.properties -Encoding utf8
+          keyPassword=$KEY_PASSWORD
+          EOF
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -38,65 +38,33 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Create local.properties from ANDROID_HOME
-        run: |
-          $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { "$env:LOCALAPPDATA\Android\Sdk" }
-          $sdk = $sdk.Trim().Replace('\','/')
-          "sdk.dir=$sdk" | Out-File -FilePath android\local.properties -Encoding utf8
-          Write-Host "sdk.dir=$sdk"
-        shell: powershell
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
 
-      - name: Clean Gradle cache
-        run: |
-          if exist "%USERPROFILE%\.gradle\caches" rmdir /s /q "%USERPROFILE%\.gradle\caches"
-          if exist "app\build" rmdir /s /q "app\build"
-        working-directory: android
-        shell: cmd
-
       - name: Build debug APK
-        run: |
-          .\gradlew.bat assembleDebug --no-daemon --stacktrace *>&1 | Tee-Object -FilePath build-log.txt
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
         working-directory: android
-        shell: powershell
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: android/build-log.txt
-
       - name: Build release APK
-        run: .\gradlew.bat assembleRelease --build-cache --parallel
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
         working-directory: android
-        shell: cmd
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Get version from tag
         id: version
-        run: echo "version=$($env:GITHUB_REF_NAME -replace '^v','')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-        shell: powershell
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Rename APKs
         run: |
-          copy "app\build\outputs\apk\debug\app-debug.apk" "app\build\outputs\apk\debug\khata_$($env:VERSION)-debug.apk"
-          copy "app\build\outputs\apk\release\app-release.apk" "app\build\outputs\apk\release\khata_$($env:VERSION)-release.apk"
-          remove-item "app\build\outputs\apk\debug\app-debug.apk"
-          remove-item "app\build\outputs\apk\release\app-release.apk"
-        shell: powershell
-        working-directory: android
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+          mv android/app/build/outputs/apk/debug/app-debug.apk "android/app/build/outputs/apk/debug/khata_${{ steps.version.outputs.version }}-debug.apk"
+          mv android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/khata_${{ steps.version.outputs.version }}-release.apk"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
