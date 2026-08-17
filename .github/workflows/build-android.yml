@@ -51,8 +51,15 @@ jobs:
         with:
           cache-read-only: false
 
+      - name: Clean Gradle cache
+        run: |
+          if exist "%USERPROFILE%\.gradle\caches" rmdir /s /q "%USERPROFILE%\.gradle\caches"
+          if exist "app\build" rmdir /s /q "app\build"
+        working-directory: android
+        shell: cmd
+
       - name: Build debug APK
-        run: .\gradlew.bat assembleDebug --build-cache --parallel
+        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
         working-directory: android
         shell: cmd
         env:
