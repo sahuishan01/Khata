@@ -52,13 +52,9 @@ fun DashboardScreen(
         if (error != null) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(12.dp)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.onErrorContainer)
-                        TextButton(onClick = onRefresh) { Text("Retry") }
-                    }
+                    Text(error, modifier = Modifier.padding(12.dp), fontSize = 13.sp)
                 }
             }
         }
@@ -131,7 +127,7 @@ fun DashboardScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (analysis.monthComparison.changePct > 0)
                                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
