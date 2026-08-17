@@ -79,19 +79,13 @@ val KhataTypography = Typography(
     ),
 )
 
-// DESIGN.md §2.3 — radius scale
+// DESIGN.md §2.3 — radius scale (used directly in components)
 object KhataRadius {
     val sm = RoundedCornerShape(8.dp)
     val md = RoundedCornerShape(12.dp)
     val lg = RoundedCornerShape(16.dp)
     val pill = RoundedCornerShape(999.dp)
 }
-
-val KhataShapes = Shapes(
-    small = KhataRadius.sm,
-    medium = KhataRadius.md,
-    large = KhataRadius.lg,
-)
 
 private val DarkColors = darkColorScheme(
     primary = KhataColors.brand,
@@ -123,7 +117,6 @@ fun KhataTheme(
     MaterialTheme(
         colorScheme = DarkColors,
         typography = KhataTypography,
-        shapes = KhataShapes,
         content = content
     )
 }

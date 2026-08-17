@@ -2,7 +2,6 @@ package com.khata.app.ui.dashboard
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -67,11 +66,17 @@ fun DashboardScreen(
         }
 
         if (stats == null && isLoading) {
-            items(4) { ShimmerStatCard() }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ShimmerCard(modifier = Modifier.weight(1f), lines = 5)
-                    ShimmerCard(modifier = Modifier.weight(1f), lines = 5)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ShimmerStatCard(modifier = Modifier.weight(1f))
+                        ShimmerStatCard(modifier = Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ShimmerStatCard(modifier = Modifier.weight(1f))
+                        ShimmerStatCard(modifier = Modifier.weight(1f))
+                    }
+                    ShimmerCard(lines = 5)
                 }
             }
         }
