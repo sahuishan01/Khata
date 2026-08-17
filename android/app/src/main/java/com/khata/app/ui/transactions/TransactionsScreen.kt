@@ -1,5 +1,9 @@
 package com.khata.app.ui.transactions
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -364,11 +368,11 @@ private fun TransactionCard(
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp).animateContentSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -438,8 +442,11 @@ private fun TransactionCard(
             }
 
             // Notes expand
-            if (showNotes) {
-                Spacer(Modifier.height(6.dp))
+            AnimatedVisibility(
+                visible = showNotes,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedTextField(
                         value = notesText, onValueChange = { notesText = it },
@@ -453,20 +460,26 @@ private fun TransactionCard(
             }
 
             // Expanded detail
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = KhataColors.hairline)
-                Spacer(Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                    DetailRow("Amount", formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true))
-                    DetailRow("Direction", txn.direction)
-                    DetailRow("Category", txn.category)
-                    DetailRow("Date", formatDate(txn.valueDate))
-                    DetailRow("Bank", txn.bank)
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = KhataColors.hairline)
+                    Spacer(Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        DetailRow("Amount", formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true))
+                        DetailRow("Direction", txn.direction)
+                        DetailRow("Category", txn.category)
+                        DetailRow("Date", formatDate(txn.valueDate))
+                        DetailRow("Bank", txn.bank)
 
-                    if (txn.isTransfer) DetailRow("Transfer", "Yes")
-                    if (txn.notes.isNotBlank()) DetailRow("Notes", txn.notes)
+                        if (txn.isTransfer) DetailRow("Transfer", "Yes")
+                        if (txn.notes.isNotBlank()) DetailRow("Notes", txn.notes)
+                    }
                 }
             }
         }
