@@ -18,8 +18,6 @@ import com.khata.app.api.DashboardStats
 import com.khata.app.ui.charts.CategoryPieChart
 import com.khata.app.ui.charts.MonthlyBarChart
 import com.khata.app.ui.components.StatCard
-import com.khata.app.ui.components.ShimmerStatCard
-import com.khata.app.ui.components.ShimmerCard
 import com.khata.app.ui.components.shared.KhataAmount
 import com.khata.app.ui.components.shared.KhataCard
 import com.khata.app.ui.components.shared.KhataCardBody
@@ -67,16 +65,8 @@ fun DashboardScreen(
 
         if (stats == null && isLoading) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ShimmerStatCard(modifier = Modifier.weight(1f))
-                        ShimmerStatCard(modifier = Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ShimmerStatCard(modifier = Modifier.weight(1f))
-                        ShimmerStatCard(modifier = Modifier.weight(1f))
-                    }
-                    ShimmerCard(lines = 5)
+                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
             }
         }
