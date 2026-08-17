@@ -7,7 +7,7 @@
 
     <application
         android:name=".KhataApp"
-        android:allowBackup="false"
+        android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Khata"
         android:supportsRtl="true"

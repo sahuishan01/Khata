@@ -2,13 +2,9 @@ package com.khata.app.ui.components.shared
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.ui.theme.KhataColors
@@ -20,7 +16,6 @@ fun KhataField(
     placeholder: String = "",
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
-    isPassword: Boolean = false,
 ) {
     OutlinedTextField(
         value = value, onValueChange = onValueChange,
@@ -28,8 +23,6 @@ fun KhataField(
         singleLine = singleLine, modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(9.dp),
         textStyle = LocalTextStyle.current.copy(fontSize = 11.sp),
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = KhataColors.brand,
             unfocusedBorderColor = KhataColors.hairline,

@@ -29,14 +29,13 @@ fun ProfileScreen(
     onToggleBlur: () -> Unit,
     onResetPassword: () -> Unit,
     onClearAllData: () -> Unit,
-    onUpdateEmail: (String, String) -> Unit,
+    onUpdateEmail: (String) -> Unit,
     onLogout: () -> Unit
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
     var clearConfirmText by remember { mutableStateOf("") }
     var showEmailDialog by remember { mutableStateOf(false) }
     var newEmail by remember { mutableStateOf(user?.email ?: "") }
-    var emailPassword by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf("") }
 
     if (showClearDialog) {
@@ -59,12 +58,8 @@ fun ProfileScreen(
 
     if (showEmailDialog) {
         AlertDialog(onDismissRequest = { showEmailDialog = false }, title = { Text("Change Email") }, text = {
-            Column {
-                KhataField(value = newEmail, onValueChange = { newEmail = it })
-                Spacer(Modifier.height(8.dp))
-                KhataField(value = emailPassword, onValueChange = { emailPassword = it }, placeholder = "Current password", isPassword = true)
-            }
-        }, confirmButton = { KhataButton(onClick = { onUpdateEmail(newEmail, emailPassword); showEmailDialog = false }, variant = ButtonVariant.Ghost) { Text("Save") } },
+            KhataField(value = newEmail, onValueChange = { newEmail = it })
+        }, confirmButton = { KhataButton(onClick = { onUpdateEmail(newEmail); showEmailDialog = false }, variant = ButtonVariant.Ghost) { Text("Save") } },
             dismissButton = { KhataButton(onClick = { showEmailDialog = false }, variant = ButtonVariant.Ghost) { Text("Cancel") } })
     }
 
