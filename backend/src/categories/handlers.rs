@@ -62,7 +62,7 @@ pub async fn delete_category(
     CurrentUser(user_id): CurrentUser,
     Path(cat_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    auth::verify_ownership(&state.db, cat_id, user_id, "categories", "id").await?;
+    auth::verify_ownership(&state.db, cat_id, user_id, auth::OwnedTable::Categories).await?;
 
     sqlx::query("DELETE FROM categories WHERE id = $1")
         .bind(cat_id)

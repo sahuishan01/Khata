@@ -54,7 +54,7 @@ pub async fn delete_asset(
     CurrentUser(user_id): CurrentUser,
     Path(asset_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    auth::verify_ownership(&state.db, asset_id, user_id, "portfolio_assets", "id").await?;
+    auth::verify_ownership(&state.db, asset_id, user_id, auth::OwnedTable::PortfolioAssets).await?;
 
     sqlx::query("DELETE FROM portfolio_assets WHERE id = $1")
         .bind(asset_id)
@@ -109,7 +109,7 @@ pub async fn delete_liability(
     CurrentUser(user_id): CurrentUser,
     Path(liability_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    auth::verify_ownership(&state.db, liability_id, user_id, "portfolio_liabilities", "id").await?;
+    auth::verify_ownership(&state.db, liability_id, user_id, auth::OwnedTable::PortfolioLiabilities).await?;
 
     sqlx::query("DELETE FROM portfolio_liabilities WHERE id = $1")
         .bind(liability_id)

@@ -57,7 +57,7 @@ pub async fn delete_account(
     CurrentUser(user_id): CurrentUser,
     Path(account_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    auth::verify_ownership(&state.db, account_id, user_id, "user_accounts", "id").await?;
+    auth::verify_ownership(&state.db, account_id, user_id, auth::OwnedTable::UserAccounts).await?;
 
     sqlx::query("DELETE FROM user_accounts WHERE id = $1")
         .bind(account_id)

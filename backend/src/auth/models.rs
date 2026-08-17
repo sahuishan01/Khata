@@ -34,6 +34,7 @@ pub struct User {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub must_reset_password: bool,
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub token_version: i32,
 }
 
 impl User {
@@ -101,4 +102,12 @@ pub struct ResetPasswordReq {
 pub struct Claims {
     pub sub: String,
     pub exp: usize,
+    pub ver: i32,
+    #[serde(default = "default_iss")]
+    pub iss: String,
+    #[serde(default = "default_aud")]
+    pub aud: String,
 }
+
+fn default_iss() -> String { "khata".into() }
+fn default_aud() -> String { "khata-api".into() }

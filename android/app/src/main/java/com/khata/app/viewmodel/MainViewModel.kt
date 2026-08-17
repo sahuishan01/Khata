@@ -6,7 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.khata.app.api.*
 import com.khata.app.data.KhataRepository
+import com.khata.app.util.CrashLogWriter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -28,7 +30,8 @@ data class CategoriesUiState(val list: List<Category> = emptyList(), val isLoadi
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val repository: KhataRepository
+    private val repository: KhataRepository,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
     private val _authState = MutableStateFlow(AuthUiState()); val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
     private val _dashboardState = MutableStateFlow(DashboardUiState()); val dashboardState: StateFlow<DashboardUiState> = _dashboardState.asStateFlow()
@@ -48,9 +51,24 @@ class MainViewModel @Inject constructor(
     fun checkAuth() { viewModelScope.launch {
         try {
             val sr = repository.checkSetupStatus()
-            if (!sr) { try { val u = repository.getMe(); _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = u) } catch (_: Exception) { _authState.value = AuthUiState(isChecking = false) } }
-            else { _authState.value = AuthUiState(isChecking = false, setupRequired = true) }
-        } catch (_: Exception) { _authState.value = AuthUiState(isChecking = false, setupRequired = true) }
+            if (!sr) {
+                // Admin exists — try fetching current user
+                try {
+                    val u = repository.getMe()
+                    _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = u)
+                } catch (e: Exception) {
+                    CrashLogWriter.writeInfo(appContext, "checkAuth.getMe", "Failed: ${e.javaClass.simpleName}: ${e.message}")
+                    // Token missing/expired → show login
+                    _authState.value = AuthUiState(isChecking = false, error = null)
+                }
+            } else {
+                _authState.value = AuthUiState(isChecking = false, setupRequired = true)
+            }
+        } catch (e: Exception) {
+            CrashLogWriter.writeInfo(appContext, "checkAuth", "Failed: ${e.javaClass.simpleName}: ${e.message}\n${e.stackTraceToString()}")
+            // Network error — don't assume setup required; show login with error
+            _authState.value = AuthUiState(isChecking = false, error = "Cannot reach server: ${e.message}")
+        }
     }}
 
     fun login(email: String, password: String) { viewModelScope.launch { try {
@@ -136,7 +154,7 @@ class MainViewModel @Inject constructor(
         _authState.value = _authState.value.copy(mustResetPassword = false, isLoading = false)
         onSuccess()
     } catch (e: Exception) { _authState.value = _authState.value.copy(error = e.message) } }}
-    fun updateEmail(email: String) { viewModelScope.launch { try { repository.updateEmail(email); val u = repository.getMe(); _authState.value = _authState.value.copy(user = u) } catch (_: Exception) {} }}
+    fun updateEmail(email: String, currentPassword: String) { viewModelScope.launch { try { repository.updateEmail(email, currentPassword); val u = repository.getMe(); _authState.value = _authState.value.copy(user = u) } catch (_: Exception) {} } }
 
     fun loadAccounts() { viewModelScope.launch { try { _accountsState.value = AccountsUiState(accounts = repository.listAccounts()) } catch (e: Exception) { _accountsState.value = _accountsState.value.copy(error = e.message) } }}
     fun createAccount(l: String, i: String) { viewModelScope.launch { try { repository.createAccount(l, i); loadAccounts() } catch (e: Exception) { _accountsState.value = _accountsState.value.copy(error = e.message) } }}

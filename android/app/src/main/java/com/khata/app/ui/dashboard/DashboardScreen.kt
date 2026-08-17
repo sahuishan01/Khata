@@ -18,6 +18,8 @@ import com.khata.app.api.DashboardStats
 import com.khata.app.ui.charts.CategoryPieChart
 import com.khata.app.ui.charts.MonthlyBarChart
 import com.khata.app.ui.components.StatCard
+import com.khata.app.ui.components.ShimmerStatCard
+import com.khata.app.ui.components.ShimmerCard
 import com.khata.app.ui.components.shared.KhataAmount
 import com.khata.app.ui.components.shared.KhataCard
 import com.khata.app.ui.components.shared.KhataCardBody
@@ -52,17 +54,23 @@ fun DashboardScreen(
         if (error != null) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(error, modifier = Modifier.padding(12.dp), fontSize = 13.sp)
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                        TextButton(onClick = onRefresh) { Text("Retry") }
+                    }
                 }
             }
         }
 
         if (stats == null && isLoading) {
+            items(4) { ShimmerStatCard() }
             item {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ShimmerCard(modifier = Modifier.weight(1f), lines = 5)
+                    ShimmerCard(modifier = Modifier.weight(1f), lines = 5)
                 }
             }
         }
@@ -127,7 +135,7 @@ fun DashboardScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (analysis.monthComparison.changePct > 0)
                                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)

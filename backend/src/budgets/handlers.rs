@@ -56,7 +56,7 @@ pub async fn delete_budget(
     CurrentUser(user_id): CurrentUser,
     Path(budget_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    auth::verify_ownership(&state.db, budget_id, user_id, "budgets", "id").await?;
+    auth::verify_ownership(&state.db, budget_id, user_id, auth::OwnedTable::Budgets).await?;
 
     sqlx::query("DELETE FROM budgets WHERE id = $1")
         .bind(budget_id)

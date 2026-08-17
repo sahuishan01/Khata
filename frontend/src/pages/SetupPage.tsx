@@ -85,11 +85,11 @@ export function SetupPage() {
             <input
               type={showPwd ? 'text' : 'password'}
               className="form-input"
-              placeholder="Min. 8 characters"
+              placeholder="Min. 12 characters"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              minLength={8}
+              minLength={12}
               autoComplete="new-password"
               style={{ paddingRight: 36 }}
             />
@@ -106,7 +106,7 @@ export function SetupPage() {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               required
-              minLength={8}
+              minLength={12}
               autoComplete="new-password"
               style={{ paddingRight: 36 }}
             />

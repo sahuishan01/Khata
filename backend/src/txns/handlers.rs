@@ -25,9 +25,7 @@ pub async fn list_txns(
     let bank_filter = params.bank.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
 
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let (total,): (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM transactions
@@ -84,9 +82,7 @@ pub async fn get_dashboard(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<DashboardStats>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let (total_spent, total_earned, total_invested): (f64, f64, f64) = sqlx::query_as(
         r#"SELECT
@@ -138,9 +134,7 @@ pub async fn get_analysis(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<AnalysisStats>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     // Total spent/earned/invested for savings rate
     let (total_spent, total_earned, total_invested, total_txns): (f64, f64, f64, i64) = sqlx::query_as(
@@ -255,9 +249,7 @@ pub async fn get_analytics_explore(
     Query(params): Query<AnalyticsQuery>,
 ) -> Result<Json<AnalyticsResponse>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let group_col = match params.group_by.as_deref() {
         Some("payee") => "description",
@@ -327,7 +319,7 @@ pub async fn get_analytics_explore(
     let rows: Vec<(String, f64)> = q
         .fetch_all(&mut *tx)
         .await
-        .map_err(|e| AppError::BadRequest(format!("Query error: {e}")))?;
+        .map_err(|e| { tracing::error!("Analytics query error: {e}"); AppError::BadRequest("Query failed".into()) })?;
 
     let total: f64 = rows.iter().map(|(_, v)| v).sum();
     let labels: Vec<String> = rows.iter().map(|(l, _)| l.clone()).collect();
@@ -340,7 +332,7 @@ pub async fn get_analytics_explore(
         if total > 0.0 {
             let pct = top_val / total * 100.0;
             insights.push(format!(
-                "{} ({:.0}%) of spending goes to {}",
+                "{}% of spending goes to {}",
                 pct.round(),
                 top_label
             ));
@@ -368,8 +360,7 @@ pub async fn get_analytics_detail(
     Query(params): Query<DetailQuery>,
 ) -> Result<Json<DetailResponse>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let mut wheres = vec!["user_id = $1".to_string()];
     let mut bind_idx = 2;
@@ -384,29 +375,33 @@ pub async fn get_analytics_detail(
     }
     let w = wheres.join(" AND ");
 
-    let (total_spent, total_earned, txn_count): (f64, f64, i64) = sqlx::query_as(
-        &format!("SELECT COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8, COUNT(*)::bigint FROM transactions WHERE {}", w)
-    ).bind(user_id)
-    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
-    .fetch_one(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let sql = format!("SELECT COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8, COUNT(*)::bigint FROM transactions WHERE {}", w);
+    let mut q = sqlx::query_as::<_, (f64, f64, i64)>(&sql).bind(user_id);
+    if let Some(ref v) = params.category { q = q.bind(v); }
+    if let Some(ref v) = params.month { q = q.bind(v); }
+    if let Some(ref v) = params.payee { q = q.bind(v); }
+    let (total_spent, total_earned, txn_count): (f64, f64, i64) = q.fetch_one(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
-    let trend: Vec<MonthBucket> = sqlx::query_as(
-        &format!("SELECT to_char(value_date, 'YYYY-MM') AS month, COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8 AS spent, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8 AS earned FROM transactions WHERE {} GROUP BY month ORDER BY month DESC LIMIT 12", w)
-    ).bind(user_id)
-    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
-    .fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let sql = format!("SELECT to_char(value_date, 'YYYY-MM') AS month, COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8 AS spent, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8 AS earned FROM transactions WHERE {} GROUP BY month ORDER BY month DESC LIMIT 12", w);
+    let mut q = sqlx::query_as::<_, MonthBucket>(&sql).bind(user_id);
+    if let Some(ref v) = params.category { q = q.bind(v); }
+    if let Some(ref v) = params.month { q = q.bind(v); }
+    if let Some(ref v) = params.payee { q = q.bind(v); }
+    let trend: Vec<MonthBucket> = q.fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
-    let top_payees: Vec<TopMerchant> = sqlx::query_as(
-        &format!("SELECT description, SUM(amount)::float8 AS total FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY total DESC LIMIT 10", w)
-    ).bind(user_id)
-    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
-    .fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let sql = format!("SELECT description, SUM(amount)::float8 AS total FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY total DESC LIMIT 10", w);
+    let mut q = sqlx::query_as::<_, TopMerchant>(&sql).bind(user_id);
+    if let Some(ref v) = params.category { q = q.bind(v); }
+    if let Some(ref v) = params.month { q = q.bind(v); }
+    if let Some(ref v) = params.payee { q = q.bind(v); }
+    let top_payees: Vec<TopMerchant> = q.fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
-    let top_categories: Vec<CategoryBucket> = sqlx::query_as(
-        &format!("SELECT category, SUM(amount)::float8 AS amount, COUNT(*)::bigint AS txn_count, 0.0 AS pct FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY amount DESC LIMIT 10", w)
-    ).bind(user_id)
-    .apply(|q| { let mut q = q; if let Some(ref v) = params.category { q = q.bind(v); } if let Some(ref v) = params.month { q = q.bind(v); } if let Some(ref v) = params.payee { q = q.bind(v); } q })
-    .fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let sql = format!("SELECT category, SUM(amount)::float8 AS amount, COUNT(*)::bigint AS txn_count, 0.0 AS pct FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY amount DESC LIMIT 10", w);
+    let mut q = sqlx::query_as::<_, CategoryBucket>(&sql).bind(user_id);
+    if let Some(ref v) = params.category { q = q.bind(v); }
+    if let Some(ref v) = params.month { q = q.bind(v); }
+    if let Some(ref v) = params.payee { q = q.bind(v); }
+    let top_categories: Vec<CategoryBucket> = q.fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     tx.commit().await?;
     Ok(Json(DetailResponse { total_spent, total_earned, txn_count, trend, top_payees, top_categories }))
@@ -417,36 +412,35 @@ pub async fn get_analytics_highlights(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<HighlightsResponse>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let highest_earning_month: Option<(String, f64)> = sqlx::query_as(
         "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let highest_spending_month: Option<(String, f64)> = sqlx::query_as(
         "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type='investment') GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let biggest_expense: Option<TxnRow> = sqlx::query_as(
         "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let biggest_income: Option<TxnRow> = sqlx::query_as(
         "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let top_payee: Option<(String, f64)> = sqlx::query_as(
         "SELECT description, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY SUM(amount) DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let most_frequent_payee: Option<(String, i64)> = sqlx::query_as(
         "SELECT description, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' GROUP BY description ORDER BY COUNT(*) DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let top_category: Option<(String, f64, i64)> = sqlx::query_as(
         "SELECT category, SUM(amount)::float8, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let best_savings_month: Option<(String, f64)> = sqlx::query_as(
         "SELECT to_char(value_date, 'YYYY-MM') AS month, \
@@ -454,7 +448,7 @@ pub async fn get_analytics_highlights(
           COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0))::float8 / \
          NULLIF(SUM(amount) FILTER (WHERE direction='credit'),0) * 100.0 AS savings_rate \
          FROM transactions WHERE user_id = $1 GROUP BY month ORDER BY savings_rate DESC LIMIT 1"
-    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     tx.commit().await?;
     Ok(Json(HighlightsResponse {
@@ -477,8 +471,7 @@ pub async fn list_categories(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<Vec<String>>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let rows: Vec<(String,)> = sqlx::query_as(
         "SELECT DISTINCT category FROM transactions WHERE user_id = $1 ORDER BY category"
@@ -504,8 +497,7 @@ pub async fn update_category(
     }
 
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let updated = match req.scope {
         UpdateScope::Single => {
@@ -599,8 +591,7 @@ pub async fn toggle_transfer(
     Json(req): Json<ToggleTransferReq>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let result = sqlx::query(
         "UPDATE transactions SET is_transfer = $1 WHERE id = $2 AND user_id = $3"
@@ -627,8 +618,7 @@ pub async fn get_txn(
     Path(txn_id): Path<Uuid>,
 ) -> Result<Json<TxnRow>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let row = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
@@ -657,8 +647,7 @@ pub async fn update_notes(
     Json(req): Json<UpdateNotesReq>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let result = sqlx::query(
         "UPDATE transactions SET notes = $1, version = version + 1 WHERE id = $2 AND user_id = $3"
@@ -699,8 +688,7 @@ pub async fn create_txn(
         .map_err(|_| AppError::BadRequest("Invalid value_date format (use YYYY-MM-DD)".into()))?;
 
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let row = sqlx::query_as::<_, TxnRow>(
         r#"INSERT INTO transactions
@@ -735,8 +723,7 @@ pub async fn get_account_balances(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<Vec<AccountBalance>>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let rows = sqlx::query_as::<_, AccountBalance>(
         r#"SELECT bank, account_label,
@@ -762,8 +749,7 @@ pub async fn get_recurring(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<Vec<RecurringTxn>>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let rows = sqlx::query_as::<_, (String, f64, i64, String)>(
         r#"SELECT description,
@@ -804,8 +790,7 @@ pub async fn sync_txns(
     Json(batch): Json<Vec<SyncTxn>>,
 ) -> Result<Json<SyncResult>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let mut success: Vec<String> = Vec::new();
     let mut conflicts: Vec<SyncConflict> = Vec::new();
@@ -882,8 +867,7 @@ pub async fn sync_pull(
     Query(params): Query<SyncPullQuery>,
 ) -> Result<Json<SyncPullResponse>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let since = params.since_rev.unwrap_or(0);
     let limit = params.limit.unwrap_or(200).min(1000);
@@ -911,8 +895,7 @@ pub async fn sync_push(
     Json(ops): Json<Vec<SyncPushOp>>,
 ) -> Result<Json<SyncPushResult>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let mut accepted = vec![];
     let mut conflicts = vec![];
@@ -994,8 +977,7 @@ pub async fn sync_resolve(
     Json(resolutions): Json<Vec<SyncPushOp>>,
 ) -> Result<Json<Vec<SyncAccepted>>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx).await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let mut accepted = vec![];
     for op in resolutions {

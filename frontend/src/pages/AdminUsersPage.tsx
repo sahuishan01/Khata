@@ -74,7 +74,7 @@ export function AdminUsersPage() {
             <form onSubmit={createUser} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Field type="email" placeholder="user@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
               <div style={{ position: 'relative' }}>
-                <input type={showPwd ? 'text' : 'password'} className="form-input" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} style={{ paddingRight: 36, width: '100%' }} />
+                <input type={showPwd ? 'text' : 'password'} className="form-input" placeholder="Min. 12 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={12} style={{ paddingRight: 36, width: '100%' }} />
                 <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>

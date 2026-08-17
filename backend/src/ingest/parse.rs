@@ -40,7 +40,7 @@ pub fn has_formula_injection(row: &mut [String]) -> bool {
 /// Check total uncompressed size of the zip entries to guard against zip bombs.
 fn check_excel_bomb(bytes: &[u8]) -> Result<(), anyhow::Error> {
     let cursor = Cursor::new(bytes);
-    let archive = zip::ZipArchive::new(cursor).context("invalid zip archive")?;
+    let mut archive = zip::ZipArchive::new(cursor).context("invalid zip archive")?;
 
     let mut total: u64 = 0;
     for i in 0..archive.len() {

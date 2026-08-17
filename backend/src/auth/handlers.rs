@@ -44,12 +44,12 @@ pub async fn do_register(
         anyhow::anyhow!("Registration failed — please try again")
     })?;
 
-    issue_token(user.0, cfg)
+    issue_token(user.0, cfg, 0)
 }
 
 pub async fn do_login(pool: &PgPool, email: &str, password: &str, cfg: &Config) -> anyhow::Result<(String, bool)> {
     let row = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users WHERE email = $1",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at, token_version FROM users WHERE email = $1",
     )
     .bind(email)
     .fetch_optional(pool)
@@ -62,18 +62,21 @@ pub async fn do_login(pool: &PgPool, email: &str, password: &str, cfg: &Config) 
         .verify_password(password.as_bytes(), &parsed)
         .map_err(|_| anyhow::anyhow!("invalid credentials"))?;
 
-    let token = issue_token(row.id, cfg)?;
+    let token = issue_token(row.id, cfg, row.token_version)?;
     Ok((token, row.must_reset_password))
 }
 
-fn issue_token(user_id: uuid::Uuid, cfg: &Config) -> anyhow::Result<String> {
+fn issue_token(user_id: uuid::Uuid, cfg: &Config, token_version: i32) -> anyhow::Result<String> {
     let exp = (chrono::Utc::now() + chrono::Duration::days(30)).timestamp() as usize;
     let claims = Claims {
         sub: user_id.to_string(),
         exp,
+        ver: token_version,
+        iss: "khata".into(),
+        aud: "khata-api".into(),
     };
     encode(
-        &Header::default(),
+        &Header::new(jsonwebtoken::Algorithm::HS256),
         &claims,
         &EncodingKey::from_secret(cfg.jwt_secret.as_bytes()),
     )
@@ -149,9 +152,38 @@ pub async fn login_handler(
     State(state): State<AppState>,
     Json(req): Json<LoginReq>,
 ) -> Result<impl IntoResponse, AppError> {
+    let email_key = req.email.to_lowercase();
+
+    // Rate limiting: 5 failures per email → 15-minute lockout
+    {
+        let mut attempts = state.login_attempts.lock().unwrap();
+        let now = std::time::Instant::now();
+        // Clean up stale entries older than 15 minutes
+        attempts.retain(|_, (_, last)| now.duration_since(*last).as_secs() < 900);
+
+        if let Some((failures, last)) = attempts.get(&email_key) {
+            if *failures >= 5 && now.duration_since(*last).as_secs() < 900 {
+                return Err(AppError::TooManyRequests);
+            }
+        }
+    }
+
     let (token, must_reset_password) = do_login(&state.db, &req.email, &req.password, &state.config)
         .await
-        .map_err(|_| AppError::Unauthorized)?;
+        .map_err(|e| {
+            // Record failure
+            let mut attempts = state.login_attempts.lock().unwrap();
+            let entry = attempts.entry(email_key.clone()).or_insert((0, std::time::Instant::now()));
+            entry.0 += 1;
+            entry.1 = std::time::Instant::now();
+            AppError::Unauthorized
+        })?;
+
+    // Clear failures on successful login
+    {
+        let mut attempts = state.login_attempts.lock().unwrap();
+        attempts.remove(&email_key);
+    }
 
     // We need the user id to audit login; decode from token
     if let Ok(claims) = jsonwebtoken::decode::<serde_json::Value>(
@@ -182,7 +214,7 @@ pub async fn me_handler(
     current_user: CurrentUser,
 ) -> Result<Json<MeResponse>, AppError> {
     let row = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users WHERE id = $1",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at, token_version FROM users WHERE id = $1",
     )
     .bind(current_user.0)
     .fetch_optional(&state.db)
@@ -250,7 +282,7 @@ pub async fn list_users_handler(
     _admin: AdminUser,
 ) -> Result<Json<Vec<UserResponse>>, AppError> {
     let rows = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users ORDER BY created_at ASC",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at, token_version FROM users ORDER BY created_at ASC",
     )
     .fetch_all(&state.db)
     .await
@@ -278,7 +310,7 @@ pub async fn reset_password_handler(
     }
 
     let row = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at FROM users WHERE id = $1",
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at, token_version FROM users WHERE id = $1",
     )
     .bind(current_user.0)
     .fetch_optional(&state.db)
@@ -298,7 +330,7 @@ pub async fn reset_password_handler(
         .map_err(|e| AppError::BadRequest(format!("Hash error: {e}")))?
         .to_string();
 
-    sqlx::query("UPDATE users SET password_hash = $1, must_reset_password = false, password_changed_at = NOW() WHERE id = $2")
+    sqlx::query("UPDATE users SET password_hash = $1, must_reset_password = false, password_changed_at = NOW(), token_version = token_version + 1 WHERE id = $2")
         .bind(&new_hash)
         .bind(current_user.0)
         .execute(&state.db)
@@ -344,9 +376,26 @@ pub async fn register_handler(
     Err(AppError::NotFound)
 }
 
+pub async fn logout_handler(
+    State(state): State<AppState>,
+    current_user: CurrentUser,
+) -> Result<impl IntoResponse, AppError> {
+    // Invalidate all tokens for this user
+    sqlx::query("UPDATE users SET token_version = token_version + 1 WHERE id = $1")
+        .bind(current_user.0)
+        .execute(&state.db)
+        .await
+        .map_err(|_| AppError::BadRequest("Logout failed".into()))?;
+
+    // Clear the cookie
+    let cookie = "khata_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0";
+    Ok(([(header::SET_COOKIE, cookie)], Json(serde_json::json!({ "message": "Logged out" }))))
+}
+
 #[derive(Deserialize)]
 pub struct UpdateEmailReq {
     pub email: String,
+    pub current_password: String,
 }
 
 pub async fn update_email_handler(
@@ -358,6 +407,22 @@ pub async fn update_email_handler(
     if email.is_empty() {
         return Err(AppError::BadRequest("Email is required".into()));
     }
+
+    // Re-authenticate: verify current password before allowing email change
+    let row = sqlx::query_as::<_, User>(
+        "SELECT id, email, password_hash, role, created_at, must_reset_password, password_changed_at, token_version FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| AppError::NotFound)?
+    .ok_or(AppError::NotFound)?;
+
+    let parsed = PasswordHash::new(&row.password_hash)
+        .map_err(|_| AppError::BadRequest("Error processing password".into()))?;
+    Argon2::default()
+        .verify_password(req.current_password.as_bytes(), &parsed)
+        .map_err(|_| AppError::Unauthorized)?;
 
     sqlx::query("UPDATE users SET email = $1 WHERE id = $2")
         .bind(&email)
@@ -443,11 +508,7 @@ mod tests {
             .unwrap();
 
         let mut tx = pool.begin().await.unwrap();
-        sqlx::query("SET LOCAL app.current_user_id = $1")
-            .bind(uid_a)
-            .execute(&mut *tx)
-            .await
-            .unwrap();
+        crate::db::set_current_user(&mut *tx, uid_a).await.unwrap();
         sqlx::query(
             "INSERT INTO transactions (user_id,statement_id,bank,account_label,txn_date,value_date,description,raw_description,amount,direction,fingerprint) \
              VALUES ($1,$2,'HDFC','',NOW(),NOW(),'secret-data','secret-data',100,'debit','fp_idor_test')",
@@ -460,11 +521,7 @@ mod tests {
         tx.commit().await.unwrap();
 
         let mut tx_b = pool.begin().await.unwrap();
-        sqlx::query("SET LOCAL app.current_user_id = $1")
-            .bind(uid_b)
-            .execute(&mut *tx_b)
-            .await
-        .unwrap();
+        crate::db::set_current_user(&mut *tx_b, uid_b).await.unwrap();
 
         let rows: Vec<(i64,)> = sqlx::query_as("SELECT COUNT(*)::bigint FROM transactions")
             .fetch_all(&mut *tx_b)
@@ -501,7 +558,7 @@ mod tests {
         .await
         .unwrap();
 
-        let result = crate::auth::verify_ownership(&pool, acct_id, uid_b, "user_accounts", "id").await;
+        let result = crate::auth::verify_ownership(&pool, acct_id, uid_b, crate::auth::OwnedTable::UserAccounts).await;
         assert!(matches!(result, Err(AppError::Forbidden)));
 
         let (count,): (i64,) = sqlx::query_as(
@@ -540,7 +597,7 @@ mod tests {
         .await
         .unwrap();
 
-        let result = crate::auth::verify_ownership(&pool, budget_id, uid_b, "budgets", "id").await;
+        let result = crate::auth::verify_ownership(&pool, budget_id, uid_b, crate::auth::OwnedTable::Budgets).await;
         assert!(matches!(result, Err(AppError::Forbidden)));
 
         let (count,): (i64,) = sqlx::query_as(
@@ -579,7 +636,7 @@ mod tests {
         .await
         .unwrap();
 
-        let result = crate::auth::verify_ownership(&pool, rule_id, uid_b, "category_rules", "id").await;
+        let result = crate::auth::verify_ownership(&pool, rule_id, uid_b, crate::auth::OwnedTable::CategoryRules).await;
         assert!(matches!(result, Err(AppError::Forbidden)));
 
         let (count,): (i64,) = sqlx::query_as(

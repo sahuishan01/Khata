@@ -65,7 +65,7 @@ export function RegisterPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              minLength={8}
+              minLength={12}
               autoComplete="new-password"
               style={{ paddingRight: 36 }}
             />

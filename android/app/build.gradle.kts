@@ -24,21 +24,30 @@ android {
     }
 
     signingConfigs {
-        create("khata") {
-            storeFile = file("debug.keystore")
-            storePassword = "khata2024"
-            keyAlias = "khata"
-            keyPassword = "khata2024"
+        // Release signing key loaded from keystore.properties (not committed to git)
+        val keystorePropertiesFile = rootProject.file("keystore.properties")
+        if (keystorePropertiesFile.exists()) {
+            val keystoreProperties = Properties()
+            keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("khata")
+            // Uses Android's default debug signing config
         }
         release {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("khata")
+            val releaseConfig = signingConfigs.findByName("release")
+            if (releaseConfig != null) {
+                signingConfig = releaseConfig
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

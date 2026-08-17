@@ -35,9 +35,7 @@ pub async fn ask_handler(
     // and as context when we do fall back to Claude.
     let categories: Vec<String> = {
         let mut tx = state.db.begin().await?;
-        sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-            .execute(&mut *tx)
-            .await?;
+        crate::db::set_current_user(&mut *tx, user_id).await?;
         let rows: Vec<(String,)> = sqlx::query_as(
             "SELECT DISTINCT category FROM transactions WHERE user_id = $1 ORDER BY category",
         )
@@ -61,14 +59,15 @@ pub async fn ask_handler(
             let sql_raw =
                 claude_cli::generate_sql(&state.config.claude_bin, &req.question, &categories)
                     .await
-                    .map_err(|e| AppError::BadRequest(format!("SQL generation failed: {e}")))?;
+                    .map_err(|e| { tracing::error!("SQL generation failed: {e}"); AppError::BadRequest("SQL generation failed".into()) })?;
 
             let sql_gen: SqlGenOutput = serde_json::from_str(&sql_raw).map_err(|_| {
-                AppError::BadRequest(format!("Unexpected SQL gen response: {sql_raw}"))
+                tracing::error!("Unexpected SQL gen response: {sql_raw}");
+                AppError::BadRequest("Unexpected response from SQL generator".into())
             })?;
 
             validate_select_sql(&sql_gen.sql)
-                .map_err(|e| AppError::BadRequest(format!("Unsafe SQL rejected: {e}")))?;
+                .map_err(|e| { tracing::error!("Unsafe SQL rejected: {e}"); AppError::BadRequest("Generated query rejected".into()) })?;
 
             let rows_json = execute_safe(&state.db_ro, user_id, &sql_gen.sql).await?;
             let rows: Vec<serde_json::Value> =
@@ -79,9 +78,7 @@ pub async fn ask_handler(
 
     // Persist Q + A
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
     sqlx::query("INSERT INTO chat_messages (user_id, role, content) VALUES ($1, 'user', $2)")
         .bind(user_id)
         .bind(&req.question)
@@ -117,9 +114,7 @@ pub async fn history_handler(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<Vec<ChatMessage>>, AppError> {
     let mut tx = state.db.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
     let msgs = sqlx::query_as::<_, ChatMessage>(
         "SELECT id, role, content, sql_used, created_at \
          FROM chat_messages WHERE user_id = $1 ORDER BY created_at ASC LIMIT 100",
@@ -137,9 +132,7 @@ async fn execute_safe(
     sql: &str,
 ) -> Result<String, AppError> {
     let mut tx = db_ro.begin().await?;
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
-        .execute(&mut *tx)
-        .await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
     sqlx::query("SET LOCAL statement_timeout = '5000'")
         .execute(&mut *tx)
         .await?;
@@ -150,7 +143,7 @@ async fn execute_safe(
     let rows: Vec<(serde_json::Value,)> = sqlx::query_as(&capped)
         .fetch_all(&mut *tx)
         .await
-        .map_err(|e| AppError::BadRequest(format!("Query execution error: {e}")))?;
+        .map_err(|e| { tracing::error!("Query execution error: {e}"); AppError::BadRequest("Query execution failed".into()) })?;
 
     tx.rollback().await?;
 
@@ -186,10 +179,7 @@ mod tests {
             .unwrap();
 
         let mut tx = pool.begin().await.unwrap();
-        sqlx::query(&format!("SET LOCAL app.current_user_id = '{uid_a}'"))
-            .execute(&mut *tx)
-            .await
-            .unwrap();
+        crate::db::set_current_user(&mut *tx, uid_a).await.unwrap();
         sqlx::query(
             "INSERT INTO transactions \
              (user_id,statement_id,bank,account_label,txn_date,value_date,description,raw_description,amount,direction,fingerprint) \
@@ -203,10 +193,7 @@ mod tests {
         tx.commit().await.unwrap();
 
         let mut tx_b = pool.begin().await.unwrap();
-        sqlx::query(&format!("SET LOCAL app.current_user_id = '{uid_b}'"))
-            .execute(&mut *tx_b)
-            .await
-            .unwrap();
+        crate::db::set_current_user(&mut *tx_b, uid_b).await.unwrap();
         let rows: Vec<(i64,)> = sqlx::query_as("SELECT COUNT(*)::bigint FROM transactions")
             .fetch_all(&mut *tx_b)
             .await
