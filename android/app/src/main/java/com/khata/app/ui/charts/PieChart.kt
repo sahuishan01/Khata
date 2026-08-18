@@ -27,8 +27,8 @@ import com.khata.app.util.formatINR
 private val PieColors = listOf(
     Color(0xFF8479F2), Color(0xFF2EC27E), Color(0xFFEE6B4D),
     Color(0xFFE0A33A), Color(0xFF74B9FF), Color(0xFFA29BFE),
-    Color(0xFF55EFC4), Color(0xFFFF7675), Color(0xFFFD79A8),
-    Color(0xFF81ECEC), Color(0xFFFAB1A0), Color(0xFF636E72),
+    Color(0xFF00F0FF), Color(0xFF05FFB0), Color(0xFFFF2A6D),
+    Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF3B82F6),
 )
 
 @Composable
@@ -49,7 +49,7 @@ fun CategoryPieChart(
         Canvas(
             modifier = Modifier.size(150.dp)
         ) {
-            val strokeWidth = 34f
+            val strokeWidth = 32f
             var startAngle = -90f
             data.forEachIndexed { index, bucket ->
                 val sweepAngle = (bucket.amount / total * 360).toFloat()
@@ -67,10 +67,10 @@ fun CategoryPieChart(
             drawContext.canvas.nativeCanvas.drawText(
                 formatINR(total),
                 size.width / 2,
-                size.height / 2 + 6,
+                size.height / 2 + 10,
                 android.graphics.Paint().apply {
-                    color = android.graphics.Color.GRAY
-                    textSize = 28f
+                    color = android.graphics.Color.WHITE
+                    textSize = 34f
                     textAlign = android.graphics.Paint.Align.CENTER
                     isFakeBoldText = true
                 }

@@ -44,8 +44,19 @@ fun MonthlyBarChart(
                 val earnedH = (month.earned / maxVal * size.height * 0.85f).toFloat()
                 val x = i * stepX
 
-                drawRect(SpendColor, Offset(x + spacing, size.height - spentH), Size(barWidth, spentH))
-                drawRect(EarnColor, Offset(x + spacing * 2 + barWidth, size.height - earnedH), Size(barWidth, earnedH))
+                val cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx())
+                drawRoundRect(
+                    color = SpendColor,
+                    topLeft = Offset(x + spacing, size.height - spentH),
+                    size = Size(barWidth, spentH),
+                    cornerRadius = cornerRadius
+                )
+                drawRoundRect(
+                    color = EarnColor,
+                    topLeft = Offset(x + spacing * 2 + barWidth, size.height - earnedH),
+                    size = Size(barWidth, earnedH),
+                    cornerRadius = cornerRadius
+                )
             }
         }
 
