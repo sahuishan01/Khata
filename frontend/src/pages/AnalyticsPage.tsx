@@ -31,7 +31,7 @@ export function AnalyticsPage() {
   const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGETS)
   const [editMode, setEditMode] = useState(false)
   const [series, setSeries] = useState<{ labels: string[]; values: number[]; total: number } | null>(null)
-  const [stats, setStats] = useState<any>(null)
+  const [stats] = useState<any>(null)
   const [analysis, setAnalysis] = useState<any>(null)
   const [highlights, setHighlights] = useState<any>(null)
 

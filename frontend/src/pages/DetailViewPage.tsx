@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import { Screen, Card, CardHeader, CardBody, Amount, Chip, EmptyState, Button } from '../components/shared'
+import { Screen, Card, CardHeader, CardBody, Amount, EmptyState, Button } from '../components/shared'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { SpendEarnChart } from '../components/charts/SpendEarnChart'
 

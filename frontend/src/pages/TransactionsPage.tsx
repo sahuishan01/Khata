@@ -8,7 +8,7 @@ import { formatINR, formatDate } from '../utils/format'
 interface TxnRow {
   id: string; value_date: string; description: string
   amount: number; direction: string; bank: string; category: string
-  is_transfer: boolean; notes: string
+  is_transfer: boolean; notes: string; bank_ref?: string
 }
 interface TxnList { data: TxnRow[]; total: number; page: number; per_page: number }
 

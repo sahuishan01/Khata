@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface StatCardProps {
   icon: ReactNode
@@ -18,7 +18,10 @@ export function StatCard({ icon, label, value, color = 'brand' }: StatCardProps)
   const c = colors[color]
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 12, padding: 11, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-      <div style={{ fontSize: 9.5, color: 'var(--text-2)' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 9.5, color: 'var(--text-2)' }}>{label}</div>
+        {icon && <div style={{ background: c.bg, color: c.color, borderRadius: 6, padding: 3, display: 'flex' }}>{icon}</div>}
+      </div>
       <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: c.color, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum" 1' }}>
         {value}
       </div>
