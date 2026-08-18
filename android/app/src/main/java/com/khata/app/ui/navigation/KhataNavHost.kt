@@ -138,8 +138,14 @@ fun KhataNavHost(themeManager: ThemeManager) {
             exitTransition = { fadeOut(animationSpec = tween(150)) },
             popEnterTransition = { fadeIn(animationSpec = tween(150)) },
             popExitTransition = { fadeOut(animationSpec = tween(150)) }) {
-            composable(Screen.Setup.route) { SetupScreen(isLoading = authState.isLoading, error = authState.error, onSetup = { e, p -> viewModel.setup(e, p) }) }
-            composable(Screen.Login.route) { LoginScreen(isLoading = authState.isLoading, error = authState.error, onLogin = { e, p -> viewModel.login(e, p) }) }
+            composable(Screen.Setup.route) {
+                val serverUrl by viewModel.serverUrl.collectAsState()
+                SetupScreen(isLoading = authState.isLoading, error = authState.error, serverUrl = serverUrl, onServerUrlChange = { viewModel.updateServerUrl(it) }, onSetup = { e, p -> viewModel.setup(e, p) })
+            }
+            composable(Screen.Login.route) {
+                val serverUrl by viewModel.serverUrl.collectAsState()
+                LoginScreen(isLoading = authState.isLoading, error = authState.error, serverUrl = serverUrl, onServerUrlChange = { viewModel.updateServerUrl(it) }, onLogin = { e, p -> viewModel.login(e, p) })
+            }
 
             composable(Screen.Dashboard.route) { DashboardScreen(stats = dashboardState.stats, analysis = dashboardState.analysis, isLoading = dashboardState.isLoading, error = dashboardState.error, blurMode = blurMode, onRefresh = { viewModel.refreshDashboard() }, onNavigateToTransactions = { cat ->
                 viewModel.updateTxnFilter(TxnFilter(category = cat))
@@ -195,7 +201,10 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Categories.route) { CategoriesScreen(categories = categoriesState.list, isLoading = categoriesState.isLoading, error = categoriesState.error, onLoad = { viewModel.loadCategories() }, onCreate = { n, t, c, d -> viewModel.createCategory(n, t, c, d) }, onDelete = { id -> viewModel.deleteCategory(id) }) }
 
-            composable(Screen.Profile.route) { ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, blurMode = blurMode, onToggleBlur = { blurMode = !blurMode }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }, onUpdateEmail = { email -> viewModel.updateEmail(email) }, onLogout = { viewModel.logout() }) }
+            composable(Screen.Profile.route) {
+                val serverUrl by viewModel.serverUrl.collectAsState()
+                ProfileScreen(user = authState.user, isDark = isDark, onToggleDark = { scope.launch { themeManager.setDark(!isDark) } }, blurMode = blurMode, onToggleBlur = { blurMode = !blurMode }, serverUrl = serverUrl, onServerUrlChange = { viewModel.updateServerUrl(it) }, onResetPassword = { navController.navigate(Screen.ResetPassword.route) }, onClearAllData = { viewModel.clearAllData { msg -> } }, onUpdateEmail = { email -> viewModel.updateEmail(email) }, onLogout = { viewModel.logout() })
+            }
 
             composable(Screen.More.route) { MoreScreen(items = listOf(
                 MoreItem("Analytics", Screen.Analytics.route) { Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
