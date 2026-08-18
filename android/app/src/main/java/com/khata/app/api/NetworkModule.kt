@@ -5,12 +5,12 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -33,21 +33,21 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideServerUrlInterceptor(tokenManager: TokenManager): Interceptor {
-        val defaultBase = BuildConfig.API_BASE_URL.toHttpUrl()
+        val defaultHost = URI(BuildConfig.API_BASE_URL).host
         return Interceptor { chain ->
             val serverUrl = tokenManager.getServerUrlSync()
             val original = chain.request()
-            val newUrl = if (serverUrl != BuildConfig.API_BASE_URL) {
-                val customBase = serverUrl.toHttpUrl()
-                original.url.newBuilder()
-                    .scheme(customBase.scheme)
-                    .host(customBase.host)
-                    .port(customBase.port)
+            if (serverUrl != BuildConfig.API_BASE_URL) {
+                val custom = URI(serverUrl)
+                val newUrl = original.url.newBuilder()
+                    .scheme(custom.scheme)
+                    .host(custom.host)
+                    .port(if (custom.port == -1) { if (custom.scheme == "https") 443 else 80 } else custom.port)
                     .build()
+                chain.proceed(original.newBuilder().url(newUrl).build())
             } else {
-                original.url
+                chain.proceed(original)
             }
-            chain.proceed(original.newBuilder().url(newUrl).build())
         }
     }
 
