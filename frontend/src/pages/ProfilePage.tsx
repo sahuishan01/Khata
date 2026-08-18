@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../api/client'
+import { api, getServerUrl, setServerUrl, refreshApiBaseUrl } from '../api/client'
 import { useAuth } from '../store/auth'
-import { Sun, Moon, Trash2, KeyRound, User, LogOut, Check, AlertTriangle } from 'lucide-react'
+import { Sun, Moon, Trash2, KeyRound, User, LogOut, Check, AlertTriangle, Server } from 'lucide-react'
 import { Screen, Card, CardBody, ListRow, ListRowText, Button, Field } from '../components/shared'
 
 export function ProfilePage() {
@@ -16,6 +16,7 @@ export function ProfilePage() {
   const [emailPassword, setEmailPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
+  const [serverUrlValue, setServerUrlValue] = useState(getServerUrl())
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))
@@ -39,6 +40,12 @@ export function ProfilePage() {
   }
 
   const showMsg = (text: string, type: 'success' | 'error') => { setMsg(text); setMsgType(type); setTimeout(() => setMsg(''), 3000) }
+
+  const saveServerUrl = () => {
+    setServerUrl(serverUrlValue)
+    refreshApiBaseUrl()
+    showMsg('Server URL saved! Reload the page to apply.', 'success')
+  }
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto' }}>
@@ -74,6 +81,26 @@ export function ProfilePage() {
               >
                 <ListRowText primary="Dark Mode" />
               </ListRow>
+            </CardBody>
+          </Card>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <Card>
+            <CardBody>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Server size={16} style={{ color: 'var(--brand)' }} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>Server</span>
+              </div>
+              <Field
+                value={serverUrlValue}
+                onChange={e => setServerUrlValue(e.target.value)}
+                placeholder="https://khata.algosculptor.com"
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Leave empty for default</span>
+                <Button variant="secondary" size="sm" onClick={saveServerUrl}>Save</Button>
+              </div>
             </CardBody>
           </Card>
         </div>
