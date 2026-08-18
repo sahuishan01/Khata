@@ -28,8 +28,7 @@ data class CategoriesUiState(val list: List<Category> = emptyList(), val isLoadi
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val repository: KhataRepository,
-    private val tokenManager: TokenManager
+    private val repository: KhataRepository
 ) : ViewModel() {
     private val _authState = MutableStateFlow(AuthUiState()); val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
     private val _dashboardState = MutableStateFlow(DashboardUiState()); val dashboardState: StateFlow<DashboardUiState> = _dashboardState.asStateFlow()
@@ -43,12 +42,6 @@ class MainViewModel @Inject constructor(
     private val _categoriesState = MutableStateFlow(CategoriesUiState()); val categoriesState: StateFlow<CategoriesUiState> = _categoriesState.asStateFlow()
     private val _txnFilterState = MutableStateFlow(TxnFilter()); val txnFilterState: StateFlow<TxnFilter> = _txnFilterState.asStateFlow()
     private val _cachedTxns = MutableStateFlow<TxnListResponse?>(null); val cachedTxns: StateFlow<TxnListResponse?> = _cachedTxns.asStateFlow()
-    private val _serverUrl = MutableStateFlow(tokenManager.getServerUrl()); val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
-
-    fun updateServerUrl(url: String) {
-        tokenManager.setServerUrl(url)
-        _serverUrl.value = url
-    }
 
     fun updateTxnFilter(filter: TxnFilter) { _txnFilterState.value = filter }
 
