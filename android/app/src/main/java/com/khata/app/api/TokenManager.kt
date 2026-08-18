@@ -15,18 +15,7 @@ import javax.inject.Singleton
 class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val prefs: SharedPreferences by lazy {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            "khata_secure_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
+    private val prefs: SharedPreferences by lazy { createPrefs() }
 
     private val _tokenFlow = MutableStateFlow(getTokenSync())
 
@@ -34,16 +23,52 @@ class TokenManager @Inject constructor(
 
     suspend fun getToken(): String? = getTokenSync()
 
-    fun getTokenSync(): String? = prefs.getString(TOKEN_KEY, null)
+    fun getTokenSync(): String? = try {
+        prefs.getString(TOKEN_KEY, null)
+    } catch (_: Exception) {
+        null
+    }
 
     suspend fun saveToken(token: String) {
-        prefs.edit().putString(TOKEN_KEY, token).apply()
+        try {
+            prefs.edit().putString(TOKEN_KEY, token).apply()
+        } catch (_: Exception) {}
         _tokenFlow.value = token
     }
 
     suspend fun clearToken() {
-        prefs.edit().remove(TOKEN_KEY).apply()
+        try {
+            prefs.edit().remove(TOKEN_KEY).apply()
+        } catch (_: Exception) {}
         _tokenFlow.value = null
+    }
+
+    private fun createPrefs(): SharedPreferences {
+        return try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                "khata_secure_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (_: Exception) {
+            // Keystore key corrupted (reinstall, OS update, etc.) — delete and retry
+            context.deleteSharedPreferences("khata_secure_prefs")
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                "khata_secure_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }
     }
 
     companion object {
