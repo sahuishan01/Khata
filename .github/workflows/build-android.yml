@@ -62,9 +62,16 @@ jobs:
       - name: Show debug build errors
         if: failure()
         run: |
-          echo "::group::Debug build error output (last 80 lines)"
-          tail -80 /tmp/build-debug.log 2>/dev/null || echo "No log"
-          echo "::endgroup::"
+          if [ -f /tmp/build-debug.log ]; then
+            # Extract the actual error from Gradle output
+            echo "::group::Full build log tail"
+            tail -100 /tmp/build-debug.log
+            echo "::endgroup::"
+            # Find specific error lines
+            grep -iE "^e:|error:|FAILED|> |exception|could not" /tmp/build-debug.log | tail -30 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          fi
         shell: bash
 
       - name: Build release APK
