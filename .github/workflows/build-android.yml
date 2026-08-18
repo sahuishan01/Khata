@@ -49,18 +49,59 @@ jobs:
           EOF
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        id: build-debug
+        continue-on-error: true
+        run: |
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/build-debug.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
         working-directory: android
+        shell: bash
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
 
+      - name: Show debug build errors
+        if: always() && steps.build-debug.outputs.exit_code != '0'
+        run: |
+          echo "::group::Debug build error output"
+          tail -80 /tmp/build-debug.log
+          echo "::endgroup::"
+          # Extract Kotlin/Java compile errors
+          grep -E "e:|error:|FAILED|Exception" /tmp/build-debug.log | tail -20 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
+        shell: bash
+
       - name: Build release APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        id: build-release
+        continue-on-error: true
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/build-release.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
         working-directory: android
+        shell: bash
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Show release build errors
+        if: always() && steps.build-release.outputs.exit_code != '0'
+        run: |
+          echo "::group::Release build error output"
+          tail -80 /tmp/build-release.log
+          echo "::endgroup::"
+          grep -E "e:|error:|FAILED|Exception" /tmp/build-release.log | tail -20 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
+        shell: bash
+
+      - name: Fail if any build failed
+        if: steps.build-debug.outputs.exit_code != '0' || steps.build-release.outputs.exit_code != '0'
+        run: |
+          echo "Debug exit: ${{ steps.build-debug.outputs.exit_code }}"
+          echo "Release exit: ${{ steps.build-release.outputs.exit_code }}"
+          exit 1
+        shell: bash
 
       - name: Get version from tag
         id: version
