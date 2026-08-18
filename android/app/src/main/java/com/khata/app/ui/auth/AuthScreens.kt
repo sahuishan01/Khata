@@ -1,11 +1,8 @@
 package com.khata.app.ui.auth
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,19 +13,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 
 @Composable
 fun LoginScreen(
     isLoading: Boolean,
     error: String?,
-    serverUrl: String,
-    onServerUrlChange: (String) -> Unit,
     onLogin: (String, String) -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showLoginPwd by remember { mutableStateOf(false) }
-    var showServer by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -109,42 +106,6 @@ fun LoginScreen(
                 Text("Sign in", fontSize = 15.sp)
             }
         }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Server settings (collapsible)
-        TextButton(onClick = { showServer = !showServer }) {
-            Icon(
-                if (showServer) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text("Server Settings", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        AnimatedVisibility(visible = showServer) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = onServerUrlChange,
-                    label = { Text("Server URL") },
-                    placeholder = { Text("https://khata.algosculptor.com") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Default: https://khata.algosculptor.com",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
     }
 }
 
@@ -152,8 +113,6 @@ fun LoginScreen(
 fun SetupScreen(
     isLoading: Boolean,
     error: String?,
-    serverUrl: String,
-    onServerUrlChange: (String) -> Unit,
     onSetup: (String, String) -> Unit
 ) {
     var email by remember { mutableStateOf("") }
@@ -162,7 +121,6 @@ fun SetupScreen(
     var localError by remember { mutableStateOf<String?>(null) }
     var showSetupPwd by remember { mutableStateOf(false) }
     var showConfirmPwd by remember { mutableStateOf(false) }
-    var showServer by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -265,41 +223,6 @@ fun SetupScreen(
                 )
             } else {
                 Text("Create Admin Account", fontSize = 15.sp)
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        TextButton(onClick = { showServer = !showServer }) {
-            Icon(
-                if (showServer) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text("Server Settings", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        AnimatedVisibility(visible = showServer) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = onServerUrlChange,
-                    label = { Text("Server URL") },
-                    placeholder = { Text("https://khata.algosculptor.com") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Default: https://khata.algosculptor.com",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }

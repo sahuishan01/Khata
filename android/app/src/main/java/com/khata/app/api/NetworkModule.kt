@@ -10,7 +10,6 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -32,47 +31,17 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideServerUrlInterceptor(tokenManager: TokenManager): Interceptor {
-        val defaultHost = URI(BuildConfig.API_BASE_URL).host
-        return Interceptor { chain ->
-            val serverUrl = tokenManager.getServerUrlSync()
-            val original = chain.request()
-            if (serverUrl != BuildConfig.API_BASE_URL) {
-                val custom = URI(serverUrl)
-                val newUrl = original.url.newBuilder()
-                    .scheme(custom.scheme)
-                    .host(custom.host)
-                    .port(if (custom.port == -1) { if (custom.scheme == "https") 443 else 80 } else custom.port)
-                    .build()
-                chain.proceed(original.newBuilder().url(newUrl).build())
-            } else {
-                chain.proceed(original)
-            }
+    fun provideOkHttpClient(tokenInterceptor: Interceptor): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
         }
-    }
-
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(
-        tokenInterceptor: Interceptor,
-        serverUrlInterceptor: Interceptor
-    ): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .addInterceptor(serverUrlInterceptor)
+        return OkHttpClient.Builder()
             .addInterceptor(tokenInterceptor)
+            .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
-
-        if (BuildConfig.DEBUG) {
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-                redactHeader("Authorization")
-            }
-            builder.addInterceptor(logging)
-        }
-
-        return builder.build()
+            .build()
     }
 
     @Provides

@@ -50,19 +50,6 @@ class TokenManager @Inject constructor(
         _tokenFlow.value = null
     }
 
-    fun getServerUrl(): String {
-        return serverPrefs.getString(SERVER_URL_KEY, null)?.takeIf { it.isNotBlank() }
-            ?: BuildConfig.API_BASE_URL
-    }
-
-    fun setServerUrl(url: String) {
-        val normalized = url.trimEnd('/')
-        serverPrefs.edit().putString(SERVER_URL_KEY, normalized).apply()
-        _serverUrlFlow.value = normalized
-    }
-
-    fun getServerUrlSync(): String = getServerUrl()
-
     private fun createPrefs(): SharedPreferences {
         return try {
             val masterKey = MasterKey.Builder(context)
@@ -76,6 +63,7 @@ class TokenManager @Inject constructor(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (_: Exception) {
+            // Keystore key corrupted (reinstall, OS update, etc.) — delete and retry
             context.deleteSharedPreferences("khata_secure_prefs")
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -89,6 +77,19 @@ class TokenManager @Inject constructor(
             )
         }
     }
+
+    fun getServerUrl(): String {
+        return serverPrefs.getString(SERVER_URL_KEY, null)?.takeIf { it.isNotBlank() }
+            ?: BuildConfig.API_BASE_URL
+    }
+
+    fun setServerUrl(url: String) {
+        val normalized = url.trimEnd('/')
+        serverPrefs.edit().putString(SERVER_URL_KEY, normalized).apply()
+        _serverUrlFlow.value = normalized
+    }
+
+    fun getServerUrlSync(): String = getServerUrl()
 
     companion object {
         private const val TOKEN_KEY = "auth_token"
