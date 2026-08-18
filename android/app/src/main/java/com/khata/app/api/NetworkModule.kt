@@ -11,6 +11,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -19,6 +20,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @Named("token")
     fun provideTokenInterceptor(tokenManager: TokenManager): Interceptor {
         return Interceptor { chain ->
             val request = chain.request().newBuilder()
@@ -31,6 +33,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @Named("server")
     fun provideServerUrlInterceptor(tokenManager: TokenManager): Interceptor {
         return Interceptor { chain ->
             val serverUrl = tokenManager.getServerUrlSync()
@@ -60,7 +63,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(tokenInterceptor: Interceptor, serverUrlInterceptor: Interceptor): OkHttpClient {
+    fun provideOkHttpClient(
+        @Named("token") tokenInterceptor: Interceptor,
+        @Named("server") serverUrlInterceptor: Interceptor
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
