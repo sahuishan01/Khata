@@ -10,7 +10,6 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -37,13 +36,22 @@ object NetworkModule {
             val serverUrl = tokenManager.getServerUrlSync()
             val original = chain.request()
             if (serverUrl != BuildConfig.API_BASE_URL) {
-                val custom = URI(serverUrl)
-                val newUrl = original.url.newBuilder()
-                    .scheme(custom.scheme)
-                    .host(custom.host)
-                    .port(if (custom.port == -1) { if (custom.scheme == "https") 443 else 80 } else custom.port)
-                    .build()
-                chain.proceed(original.newBuilder().url(newUrl).build())
+                try {
+                    val custom = java.net.URL(serverUrl)
+                    val port = if (custom.port == -1) {
+                        if (custom.protocol == "https") 443 else 80
+                    } else {
+                        custom.port
+                    }
+                    val newUrl = original.url.newBuilder()
+                        .scheme(custom.protocol)
+                        .host(custom.host)
+                        .port(port)
+                        .build()
+                    chain.proceed(original.newBuilder().url(newUrl).build())
+                } catch (_: Exception) {
+                    chain.proceed(original)
+                }
             } else {
                 chain.proceed(original)
             }
