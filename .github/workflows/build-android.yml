@@ -105,19 +105,24 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version resolved to: $VERSION (from GITHUB_REF_NAME=$GITHUB_REF_NAME)"
 
       - name: List APK outputs
         if: always()
         shell: bash
         working-directory: android
         run: |
+          echo "=== Working dir ==="
+          pwd
           echo "=== Debug APKs ==="
-          find app/build/outputs/apk/debug -name "*.apk" -ls 2>/dev/null || echo "No debug APKs found"
+          find app/build/outputs/apk/debug -name "*.apk" 2>/dev/null || echo "No debug APKs"
           echo "=== Release APKs ==="
-          find app/build/outputs/apk/release -name "*.apk" -ls 2>/dev/null || echo "No release APKs found"
-          echo "=== All build outputs ==="
-          find app/build/outputs -name "*.apk" -ls 2>/dev/null || echo "No APKs anywhere"
+          find app/build/outputs/apk/release -name "*.apk" 2>/dev/null || echo "No release APKs"
+          echo "=== Workspace root APKs ==="
+          find /home/runner/work/Khata/Khata -name "*.apk" 2>/dev/null || echo "No APKs in workspace"
 
       - name: Rename APKs
         working-directory: android
