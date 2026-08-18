@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -31,17 +32,47 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(tokenInterceptor: Interceptor): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+    fun provideServerUrlInterceptor(tokenManager: TokenManager): Interceptor {
+        val defaultBase = BuildConfig.API_BASE_URL.toHttpUrl()
+        return Interceptor { chain ->
+            val serverUrl = tokenManager.getServerUrlSync()
+            val original = chain.request()
+            val newUrl = if (serverUrl != BuildConfig.API_BASE_URL) {
+                val customBase = serverUrl.toHttpUrl()
+                original.url.newBuilder()
+                    .scheme(customBase.scheme)
+                    .host(customBase.host)
+                    .port(customBase.port)
+                    .build()
+            } else {
+                original.url
+            }
+            chain.proceed(original.newBuilder().url(newUrl).build())
         }
-        return OkHttpClient.Builder()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        tokenInterceptor: Interceptor,
+        serverUrlInterceptor: Interceptor
+    ): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .addInterceptor(serverUrlInterceptor)
             .addInterceptor(tokenInterceptor)
-            .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
-            .build()
+
+        if (BuildConfig.DEBUG) {
+            val logging = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+                redactHeader("Authorization")
+            }
+            builder.addInterceptor(logging)
+        }
+
+        return builder.build()
     }
 
     @Provides

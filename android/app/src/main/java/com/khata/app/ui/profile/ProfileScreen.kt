@@ -27,6 +27,8 @@ fun ProfileScreen(
     onToggleDark: () -> Unit,
     blurMode: Boolean,
     onToggleBlur: () -> Unit,
+    serverUrl: String,
+    onServerUrlChange: (String) -> Unit,
     onResetPassword: () -> Unit,
     onClearAllData: () -> Unit,
     onUpdateEmail: (String) -> Unit,
@@ -97,6 +99,11 @@ fun ProfileScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)); Text("Privacy Mode", fontSize = 14.sp) }
                     Switch(checked = blurMode, onCheckedChange = { onToggleBlur() })
                 }
+                Spacer(Modifier.height(12.dp))
+                Text("Server URL", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                KhataField(value = serverUrl, onValueChange = onServerUrlChange, placeholder = "https://khata.algosculptor.com")
+                Text("Restart app to apply changes", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(12.dp))

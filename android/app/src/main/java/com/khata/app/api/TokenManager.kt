@@ -4,9 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.khata.app.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,10 +18,15 @@ class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val prefs: SharedPreferences by lazy { createPrefs() }
+    private val serverPrefs: SharedPreferences by lazy {
+        context.getSharedPreferences("khata_server", Context.MODE_PRIVATE)
+    }
 
     private val _tokenFlow = MutableStateFlow(getTokenSync())
+    private val _serverUrlFlow = MutableStateFlow(getServerUrl())
 
     val tokenFlow: Flow<String?> = _tokenFlow.asStateFlow()
+    val serverUrlFlow: StateFlow<String> = _serverUrlFlow.asStateFlow()
 
     suspend fun getToken(): String? = getTokenSync()
 
@@ -43,6 +50,19 @@ class TokenManager @Inject constructor(
         _tokenFlow.value = null
     }
 
+    fun getServerUrl(): String {
+        return serverPrefs.getString(SERVER_URL_KEY, null)?.takeIf { it.isNotBlank() }
+            ?: BuildConfig.API_BASE_URL
+    }
+
+    fun setServerUrl(url: String) {
+        val normalized = url.trimEnd('/')
+        serverPrefs.edit().putString(SERVER_URL_KEY, normalized).apply()
+        _serverUrlFlow.value = normalized
+    }
+
+    fun getServerUrlSync(): String = getServerUrl()
+
     private fun createPrefs(): SharedPreferences {
         return try {
             val masterKey = MasterKey.Builder(context)
@@ -56,7 +76,6 @@ class TokenManager @Inject constructor(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (_: Exception) {
-            // Keystore key corrupted (reinstall, OS update, etc.) — delete and retry
             context.deleteSharedPreferences("khata_secure_prefs")
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -73,5 +92,6 @@ class TokenManager @Inject constructor(
 
     companion object {
         private const val TOKEN_KEY = "auth_token"
+        private const val SERVER_URL_KEY = "server_url"
     }
 }

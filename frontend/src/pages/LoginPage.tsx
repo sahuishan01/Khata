@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
+import { getServerUrl, setServerUrl, refreshApiBaseUrl } from '../api/client'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -8,12 +10,19 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
+  const [showServer, setShowServer] = useState(false)
+  const [serverUrlValue, setServerUrlValue] = useState(getServerUrl())
   const login = useAuth(s => s.login)
   const mustResetPassword = useAuth(s => s.mustResetPassword)
   const navigate = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Save server URL if changed
+    if (serverUrlValue !== getServerUrl()) {
+      setServerUrl(serverUrlValue)
+      refreshApiBaseUrl()
+    }
     setLoading(true)
     setError('')
     try {
@@ -28,7 +37,7 @@ export function LoginPage() {
       if (e.response?.status === 401) {
         setError('Invalid email or password')
       } else if (e.message === 'Network Error') {
-        setError('Cannot reach server — make sure the backend is running')
+        setError('Cannot reach server — check the server URL below')
       } else {
         setError('Login failed — please try again')
       }
@@ -88,6 +97,34 @@ export function LoginPage() {
         <p className="text-muted" style={{ textAlign: 'center', marginTop: 20, fontSize: 13 }}>
           <Link to="/reset-password" style={{ fontWeight: 500 }}>Forgot password?</Link>
         </p>
+
+        {/* Server settings */}
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowServer(!showServer)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            {showServer ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            Server Settings
+          </button>
+          {showServer && (
+            <div style={{ marginTop: 8, textAlign: 'left' }}>
+              <label className="form-label">Server URL</label>
+              <input
+                type="url"
+                className="form-input"
+                placeholder="https://khata.algosculptor.com"
+                value={serverUrlValue}
+                onChange={e => setServerUrlValue(e.target.value)}
+                style={{ fontSize: 13 }}
+              />
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                Leave empty for default (current host). For self-hosted, enter your server URL.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
-import { Eye, EyeOff } from 'lucide-react'
+import { getServerUrl, setServerUrl, refreshApiBaseUrl } from '../api/client'
+import { Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react'
 
 export function SetupPage() {
   const [email, setEmail] = useState('')
@@ -12,18 +13,30 @@ export function SetupPage() {
   const [showPwd, setShowPwd] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [showServer, setShowServer] = useState(false)
+  const [serverUrlValue, setServerUrlValue] = useState(getServerUrl())
   const setup = useAuth(s => s.setup)
   const checkSetupStatus = useAuth(s => s.checkSetupStatus)
   const navigate = useNavigate()
 
-  useEffect(() => {
+  const runCheck = () => {
+    setChecking(true)
+    setError('')
     checkSetupStatus()
       .then(required => {
         if (!required) navigate('/login', { replace: true })
       })
       .catch(() => setError('Cannot reach server'))
       .finally(() => setChecking(false))
-  }, [checkSetupStatus, navigate])
+  }
+
+  useEffect(() => { runCheck() }, [])
+
+  const saveServerAndRetry = () => {
+    setServerUrl(serverUrlValue)
+    refreshApiBaseUrl()
+    runCheck()
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,6 +134,39 @@ export function SetupPage() {
             {loading ? 'Setting up…' : 'Create Admin Account'}
           </button>
         </form>
+
+        {/* Server settings */}
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowServer(!showServer)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            {showServer ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            Server Settings
+          </button>
+          {showServer && (
+            <div style={{ marginTop: 8, textAlign: 'left' }}>
+              <label className="form-label">Server URL</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://khata.algosculptor.com"
+                  value={serverUrlValue}
+                  onChange={e => setServerUrlValue(e.target.value)}
+                  style={{ fontSize: 13, flex: 1 }}
+                />
+                <button type="button" className="btn btn-secondary btn-sm" onClick={saveServerAndRetry}>
+                  Apply & Retry
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                Leave empty for default (current host). For self-hosted, enter your server URL.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

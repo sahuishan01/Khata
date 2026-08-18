@@ -1,7 +1,41 @@
 import axios from 'axios'
 import { useAuth } from '../store/auth'
 
-export const api = axios.create({ baseURL: '/api', withCredentials: true })
+const SERVER_KEY = 'khata_server_url'
+
+function getBaseUrl(): string {
+  try {
+    const saved = localStorage.getItem(SERVER_KEY)
+    if (saved && saved.trim()) {
+      return saved.trim().replace(/\/+$/, '') + '/api'
+    }
+  } catch { /* */ }
+  return '/api'
+}
+
+export function getServerUrl(): string {
+  try {
+    return localStorage.getItem(SERVER_KEY) || ''
+  } catch { return '' }
+}
+
+export function setServerUrl(url: string) {
+  try {
+    const normalized = url.trim().replace(/\/+$/, '')
+    if (normalized) {
+      localStorage.setItem(SERVER_KEY, normalized)
+    } else {
+      localStorage.removeItem(SERVER_KEY)
+    }
+  } catch { /* */ }
+}
+
+export const api = axios.create({ baseURL: getBaseUrl(), withCredentials: true })
+
+// Update base URL when server changes
+export function refreshApiBaseUrl() {
+  api.defaults.baseURL = getBaseUrl()
+}
 
 // Handle 401 without full page reload
 let hasLoggedOut = false
