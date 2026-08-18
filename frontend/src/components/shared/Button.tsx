@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
@@ -24,7 +24,7 @@ export function Button({ variant = 'primary', size = 'md', children, style, ...p
       {...props}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        borderRadius: 999, fontWeight: 600, cursor: 'pointer', fontSize: 11.5,
+        borderRadius: 999, fontWeight: 600, cursor: 'pointer',
         lineHeight: 1, whiteSpace: 'nowrap', textDecoration: 'none',
         transition: 'all 0.15s',
         ...variants[variant], ...sizes[size],

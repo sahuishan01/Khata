@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Receipt, PlusCircle, Grid3X3, Settings, LogOut, Shield, KeyRound } from 'lucide-react'
+import { LayoutDashboard, Receipt, PlusCircle, Grid3X3, Settings, LogOut, KeyRound } from 'lucide-react'
 import { useAuth } from '../store/auth'
 
 const PRIMARY_NAV = [
@@ -12,7 +12,6 @@ const PRIMARY_NAV = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const logout = useAuth(s => s.logout)
-  const user = useAuth(s => s.user)
   const navigate = useNavigate()
   const location = useLocation()
 

@@ -12,7 +12,7 @@ import { CategoryChart } from '../components/charts/CategoryChart'
 import { usePrivacy } from '../store/privacy'
 import { maskDescription } from '../utils/pii'
 import { Screen, Card, CardHeader, CardBody, StatCard, Amount, ListRow, ListRowText, Button, EmptyState } from '../components/shared'
-import { StatCardSkeleton, TableSkeleton } from '../components/Skeleton'
+import { StatCardSkeleton, Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/States'
 import { formatDate } from '../utils/format'
 
