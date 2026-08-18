@@ -36,6 +36,7 @@ import com.khata.app.ui.budgets.BudgetsScreen
 import com.khata.app.ui.categories.CategoriesScreen
 import com.khata.app.ui.chat.ChatScreen
 import com.khata.app.ui.dashboard.DashboardScreen
+import com.khata.app.ui.debug.DebugScreen
 import com.khata.app.ui.more.MoreItem
 import com.khata.app.ui.more.MoreScreen
 import com.khata.app.ui.portfolio.PortfolioScreen
@@ -66,6 +67,7 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Categories : Screen("categories", "Categories", { Icon(Icons.Default.Label, contentDescription = null) })
     data object Profile : Screen("profile", "Settings", { Icon(Icons.Default.Settings, contentDescription = null) })
     data object More : Screen("more", "More", { Icon(Icons.Default.MoreVert, contentDescription = null) })
+    data object Debug : Screen("debug")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -204,11 +206,13 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 MoreItem("Portfolio", Screen.Portfolio.route) { Icon(Icons.Default.MonetizationOn, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
                 MoreItem("Categories", Screen.Categories.route) { Icon(Icons.Default.Label, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
                 MoreItem("Users", Screen.AdminUsers.route) { Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
+                MoreItem("Debug & Logs", Screen.Debug.route) { Icon(Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
             ), onNavigate = { route -> navController.navigate(route) }) }
 
             composable(Screen.AdminUsers.route) { AdminUsersScreen(users = usersState.users, isLoading = usersState.isLoading, error = usersState.error, success = usersState.success, onLoad = { viewModel.loadUsers() }, onCreateUser = { e, p -> viewModel.createUser(e, p) }, onDeleteUser = { id -> viewModel.deleteUser(id) }) }
 
             composable(Screen.ResetPassword.route) { ResetPasswordScreen(isLoading = authState.isLoading, error = authState.error, onReset = { c, n -> viewModel.resetPassword(c, n) { navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } } } }, onBack = { navController.popBackStack() }) }
+            composable(Screen.Debug.route) { DebugScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }
