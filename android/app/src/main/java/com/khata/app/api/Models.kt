@@ -145,3 +145,27 @@ fun TxnRow.toLocal() = com.khata.app.data.LocalTransaction(
     baseRev = this.baseRev,
     deleted = this.deleted,
 )
+
+data class AaSettingsResponse(
+    @SerializedName("auto_fetch_enabled") val autoFetchEnabled: Boolean,
+    @SerializedName("fetch_interval_days") val fetchIntervalDays: Int,
+    @SerializedName("last_fetched_at") val lastFetchedAt: String? = null,
+    @SerializedName("next_fetch_due_at") val nextFetchDueAt: String? = null
+)
+
+data class UpdateAaSettingsReq(
+    @SerializedName("auto_fetch_enabled") val autoFetchEnabled: Boolean,
+    @SerializedName("fetch_interval_days") val fetchIntervalDays: Int? = 7
+)
+
+data class InitConsentResponse(
+    @SerializedName("consent_id") val consentId: String,
+    @SerializedName("consent_url") val consentUrl: String
+)
+
+data class FetchResponse(
+    val message: String,
+    @SerializedName("transactions_added") val transactionsAdded: Int,
+    @SerializedName("portfolio_assets_updated") val portfolioAssetsUpdated: Int,
+    @SerializedName("fetched_at") val fetchedAt: String
+)
