@@ -8,10 +8,6 @@ pub struct Config {
     pub claude_bin: String,
     pub bind_addr: String,
     pub cors_origins: Vec<String>,
-    pub setu_client_id: Option<String>,
-    pub setu_client_secret: Option<String>,
-    pub setu_product_instance_id: Option<String>,
-    pub setu_base_url: String,
 }
 
 impl Config {
@@ -41,11 +37,6 @@ impl Config {
                 .split(',')
                 .map(|s| s.trim().to_string())
                 .collect(),
-            setu_client_id: std::env::var("SETU_CLIENT_ID").ok(),
-            setu_client_secret: std::env::var("SETU_CLIENT_SECRET").ok(),
-            setu_product_instance_id: std::env::var("SETU_PRODUCT_INSTANCE_ID").ok(),
-            setu_base_url: std::env::var("SETU_BASE_URL")
-                .unwrap_or_else(|_| "https://qa.setu.co/api/v2".to_string()),
         })
     }
 }
