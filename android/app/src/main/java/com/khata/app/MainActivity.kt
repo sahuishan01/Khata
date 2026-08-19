@@ -42,6 +42,16 @@ class MainActivity : ComponentActivity() {
                     var crashReport by remember { mutableStateOf("") }
 
                     LaunchedEffect(Unit) {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                            if (checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                requestPermissions(
+                                    arrayOf(
+                                        android.Manifest.permission.RECEIVE_SMS,
+                                        android.Manifest.permission.READ_SMS
+                                    ), 101
+                                )
+                            }
+                        }
                         CrashLogWriter.getLastCrash(this@MainActivity)?.let { report ->
                             crashReport = report
                             showCrashDialog = true
