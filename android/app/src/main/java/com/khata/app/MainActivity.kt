@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,9 +32,21 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var themeManager: ThemeManager
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val receiveGranted = permissions[android.Manifest.permission.RECEIVE_SMS] ?: false
+        val readGranted = permissions[android.Manifest.permission.READ_SMS] ?: false
+        if (receiveGranted || readGranted) {
+            // Permission granted, real-time SMS listening is active
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        requestSmsPermissions()
+
         setContent {
             val isDark by themeManager.isDarkFlow.collectAsState(initial = false)
             KhataTheme(darkTheme = isDark) {
@@ -42,16 +55,6 @@ class MainActivity : ComponentActivity() {
                     var crashReport by remember { mutableStateOf("") }
 
                     LaunchedEffect(Unit) {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                            if (checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                requestPermissions(
-                                    arrayOf(
-                                        android.Manifest.permission.RECEIVE_SMS,
-                                        android.Manifest.permission.READ_SMS
-                                    ), 101
-                                )
-                            }
-                        }
                         CrashLogWriter.getLastCrash(this@MainActivity)?.let { report ->
                             crashReport = report
                             showCrashDialog = true
@@ -90,6 +93,22 @@ class MainActivity : ComponentActivity() {
 
                     KhataNavHost(themeManager = themeManager)
                 }
+            }
+        }
+    }
+
+    private fun requestSmsPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            val receiveGranted = checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val readGranted = checkSelfPermission(android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+            if (!receiveGranted || !readGranted) {
+                requestPermissionLauncher.launch(
+                    arrayOf(
+                        android.Manifest.permission.RECEIVE_SMS,
+                        android.Manifest.permission.READ_SMS
+                    )
+                )
             }
         }
     }
