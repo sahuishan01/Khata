@@ -108,29 +108,6 @@ fun ProfileScreen(
         }
         Spacer(Modifier.height(12.dp))
 
-        // Account Aggregator (Setu)
-        KhataCard(Modifier.fillMaxWidth()) {
-            KhataCardBody {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Account Aggregator (Setu)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    KhataButton(onClick = { /* Connect AA Chrome Custom Tab flow */ }, variant = ButtonVariant.Primary) {
-                        Text("Connect AA", fontSize = 12.sp)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Manual Sync", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        Text("Fetch live bank txns & investments on demand", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    KhataButton(onClick = { /* Trigger manual fetch */ }, variant = ButtonVariant.Secondary) {
-                        Text("Fetch Now", fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-
         // Actions
         KhataCard(Modifier.fillMaxWidth()) {
             KhataCardBody {

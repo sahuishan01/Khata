@@ -455,10 +455,6 @@ mod tests {
             claude_bin: "claude".into(),
             bind_addr: "127.0.0.1:0".into(),
             cors_origins: vec![],
-            setu_client_id: None,
-            setu_client_secret: None,
-            setu_product_instance_id: None,
-            setu_base_url: "https://qa.setu.co/api/v2".into(),
         }
     }
 

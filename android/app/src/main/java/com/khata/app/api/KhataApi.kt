@@ -75,10 +75,4 @@ interface KhataApi {
 
     @POST("api/txns/sync/resolve")
     suspend fun syncResolve(@Body resolutions: List<SyncPushOp>): List<SyncAccepted>
-
-    // Account Aggregator (Setu)
-    @GET("api/aa/settings") suspend fun getAaSettings(): AaSettingsResponse
-    @PUT("api/aa/settings") suspend fun updateAaSettings(@Body body: UpdateAaSettingsReq): AaSettingsResponse
-    @POST("api/aa/consent/init") suspend fun initAaConsent(): InitConsentResponse
-    @POST("api/aa/fetch") suspend fun manualAaFetch(): FetchResponse
 }

@@ -1,4 +1,3 @@
-mod aa;
 mod accounts;
 mod audit;
 mod auth;
@@ -113,7 +112,6 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(|| async { "ok" }))
         .nest("/api/auth", auth::router())
-        .nest("/api/aa", aa::router())
         .nest("/api/accounts", accounts::router())
         .nest("/api/ingest", ingest::router())
         .nest("/api/rules", rules::router())

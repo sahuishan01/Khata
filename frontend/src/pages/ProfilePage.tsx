@@ -88,68 +88,6 @@ export function ProfilePage() {
         <div style={{ marginBottom: 16 }}>
           <Card>
             <CardBody>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Server size={16} style={{ color: 'var(--brand)' }} />
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>Account Aggregator (Setu)</span>
-                </div>
-                <Button variant="primary" size="sm" onClick={async () => {
-                  try {
-                    const res = await api.post<{ consent_url: string }>('/aa/consent/init')
-                    if (res.data.consent_url) window.location.href = res.data.consent_url
-                  } catch { showMsg('Failed to initialize consent', 'error') }
-                }}>Connect AA</Button>
-              </div>
-
-              <ListRow
-                leading={<Check size={16} style={{ color: 'var(--income)' }} />}
-                trailing={
-                  <Button variant="secondary" size="sm" onClick={async () => {
-                    try {
-                      await api.post('/aa/fetch')
-                      showMsg('Account transactions & investments updated!', 'success')
-                    } catch { showMsg('Failed to fetch data', 'error') }
-                  }}>Fetch Now</Button>
-                }
-              >
-                <ListRowText primary="Manual Sync" secondary="Fetch live bank txns & investments on demand" />
-              </ListRow>
-
-              <div style={{ borderTop: '1px solid var(--hairline)', paddingTop: 12, marginTop: 12 }}>
-                <ListRow
-                  leading={<Server size={16} style={{ color: 'var(--brand)' }} />}
-                  trailing={
-                    <select
-                      style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--hairline)', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
-                      defaultValue="7"
-                      onChange={async (e) => {
-                        const val = parseInt(e.target.value)
-                        const enabled = val > 0
-                        try {
-                          await api.put('/aa/settings', { auto_fetch_enabled: enabled, fetch_interval_days: enabled ? val : 7 })
-                          showMsg('Auto-fetch schedule updated!', 'success')
-                        } catch { showMsg('Failed to update settings', 'error') }
-                      }}
-                    >
-                      <option value="0">Manual Only (None)</option>
-                      <option value="1">Every 1 day</option>
-                      <option value="3">Every 3 days</option>
-                      <option value="7">Every 7 days</option>
-                      <option value="14">Every 14 days</option>
-                      <option value="30">Every 30 days</option>
-                    </select>
-                  }
-                >
-                  <ListRowText primary="Auto-Fetch Schedule" secondary="Automatic sync interval" />
-                </ListRow>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <Card>
-            <CardBody>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <Server size={16} style={{ color: 'var(--brand)' }} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>Server</span>
