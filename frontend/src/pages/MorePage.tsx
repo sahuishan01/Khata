@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, Landmark, Tags, PiggyBank, Wallet, Shield, Tag, BarChart3 } from 'lucide-react'
+import { MessageSquare, Landmark, Tags, PiggyBank, Wallet, Shield, Tag, BarChart3, Calendar, Target, FileText } from 'lucide-react'
 import { useAuth } from '../store/auth'
 
 interface MoreItem {
@@ -15,6 +15,9 @@ export function MorePage() {
   const items: MoreItem[] = [
     { label: 'Analytics', route: '/analytics', icon: <BarChart3 size={22} /> },
     { label: 'Ask Claude', route: '/chat', icon: <MessageSquare size={22} /> },
+    { label: 'Subscriptions', route: '/subscriptions', icon: <Calendar size={22} /> },
+    { label: 'Savings Goals', route: '/goals', icon: <Target size={22} /> },
+    { label: 'Reports & Export', route: '/reports', icon: <FileText size={22} /> },
     { label: 'Accounts', route: '/accounts', icon: <Landmark size={22} /> },
     { label: 'Rules', route: '/rules', icon: <Tags size={22} /> },
     { label: 'Budgets', route: '/budgets', icon: <PiggyBank size={22} /> },

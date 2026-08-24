@@ -7,9 +7,12 @@ mod chat;
 mod config;
 mod db;
 mod error;
+mod goals;
 mod ingest;
 mod portfolio;
+mod reports;
 mod rules;
+mod subscriptions;
 mod txns;
 
 use std::collections::HashMap;
@@ -118,6 +121,9 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/budgets", budgets::router())
         .nest("/api/categories", categories::router())
         .nest("/api/portfolio", portfolio::router())
+        .nest("/api/subscriptions", subscriptions::router())
+        .nest("/api/goals", goals::router())
+        .nest("/api/reports", reports::router())
         .nest("/api/txns", txns::router())
         .nest("/api/chat", chat::router())
         .layer(middleware::from_fn(security_headers_mw))
