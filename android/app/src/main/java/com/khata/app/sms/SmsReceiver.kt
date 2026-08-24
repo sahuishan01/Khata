@@ -48,6 +48,7 @@ class SmsReceiver : BroadcastReceiver() {
                 amount = parsed.amount,
                 direction = parsed.direction,
                 category = "Uncategorized",
+                bank = parsed.bank,
                 valueDate = today,
                 notes = "Auto-captured via SMS (${parsed.bank})",
                 dirty = true,
