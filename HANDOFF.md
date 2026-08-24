@@ -1,7 +1,7 @@
 # HANDOFF.md — Khata Project Handoff
 
-**Current Version:** v0.38.0  
-**Last Updated:** 2026-08-19  
+**Current Version:** v0.39.0  
+**Last Updated:** 2026-08-24  
 **Status:** Pre-release (0.x.y)
 
 ---

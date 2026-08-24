@@ -19,6 +19,10 @@ import { CategoriesPage } from './pages/CategoriesPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { DetailViewPage } from './pages/DetailViewPage'
 
+import { SubscriptionsPage } from './pages/SubscriptionsPage'
+import { GoalsPage } from './pages/GoalsPage'
+import { ReportsPage } from './pages/ReportsPage'
+
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute>
@@ -42,6 +46,9 @@ export function App() {
         <Route path="/accounts"     element={<AppLayout><AccountsPage /></AppLayout>} />
         <Route path="/rules"        element={<AppLayout><RulesPage /></AppLayout>} />
         <Route path="/budgets"      element={<AppLayout><BudgetsPage /></AppLayout>} />
+        <Route path="/subscriptions" element={<AppLayout><SubscriptionsPage /></AppLayout>} />
+        <Route path="/goals"        element={<AppLayout><GoalsPage /></AppLayout>} />
+        <Route path="/reports"      element={<AppLayout><ReportsPage /></AppLayout>} />
         <Route path="/portfolio"    element={<AppLayout><PortfolioPage /></AppLayout>} />
         <Route path="/categories"   element={<AppLayout><CategoriesPage /></AppLayout>} />
         <Route path="/analytics"    element={<AppLayout><AnalyticsPage /></AppLayout>} />
