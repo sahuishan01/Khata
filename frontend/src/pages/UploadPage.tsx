@@ -115,11 +115,11 @@ export function UploadPage() {
       <div style={{ flex: 1 }}>
         {tab === 'upload' ? (
           <div className="card">
-            <input ref={ref} type="file" accept=".csv,.xls,.xlsx" className="sr-only" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
+            <input ref={ref} type="file" accept=".csv,.xls,.xlsx,.pdf" className="sr-only" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
             <div className={`upload-zone${dragOver ? ' drag-over' : ''}`} onClick={() => !loading && ref.current?.click()} onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) upload(f) }}>
               <Upload size={20} style={{ color: 'var(--brand)', margin: '0 auto 8px', display: 'block' }} />
               <p style={{ color: 'var(--text)', fontWeight: 500, fontSize: 14, marginBottom: 2 }}>{loading ? 'Uploading…' : 'Upload bank statement'}</p>
-              <p className="text-muted" style={{ fontSize: 12 }}>{loading ? 'Please wait…' : 'CSV or Excel · drag & drop or click'}</p>
+              <p className="text-muted" style={{ fontSize: 12 }}>{loading ? 'Please wait…' : 'PDF, CSV or Excel · drag & drop or click'}</p>
             </div>
             {result && !parseFailed && !result.type && (
               <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--income)', fontSize: 13 }}><CheckCircle size={15} /><span><strong>{result.bank_detected}</strong> — {result.rows_parsed} rows, <strong>{result.inserted} new</strong>, {result.skipped_duplicates} duplicates</span></div>

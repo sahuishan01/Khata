@@ -19,7 +19,7 @@ use super::{
 // ── Upload validation ──────────────────────────────────────────────────────────
 
 const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
-const ALLOWED_EXTENSIONS: [&str; 3] = ["csv", "xls", "xlsx"];
+const ALLOWED_EXTENSIONS: [&str; 4] = ["csv", "xls", "xlsx", "pdf"];
 
 fn validate_upload(filename: &str, bytes: &[u8]) -> Result<(), AppError> {
     if bytes.len() > MAX_UPLOAD_SIZE {
@@ -37,12 +37,19 @@ fn validate_upload(filename: &str, bytes: &[u8]) -> Result<(), AppError> {
         .to_lowercase();
     if !ALLOWED_EXTENSIONS.contains(&ext.as_str()) {
         return Err(AppError::BadRequest(format!(
-            "Unsupported file extension: .{} (allowed: .csv, .xls, .xlsx)",
+            "Unsupported file extension: .{} (allowed: .csv, .xls, .xlsx, .pdf)",
             ext
         )));
     }
 
     match ext.as_str() {
+        "pdf" => {
+            if bytes.len() < 4 || &bytes[..4] != b"%PDF" {
+                return Err(AppError::BadRequest(
+                    "Invalid PDF file: missing %PDF header".into(),
+                ));
+            }
+        }
         "xlsx" => {
             if bytes.len() < 4 || bytes[..4] != [0x50, 0x4B, 0x03, 0x04] {
                 return Err(AppError::BadRequest(

@@ -4,12 +4,15 @@ use super::profiles::{registry, BankProfile};
 pub enum FileKind {
     Csv,
     Excel,
+    Pdf,
 }
 
 pub fn detect_file_kind(filename: &str) -> FileKind {
     let f = filename.to_lowercase();
     if f.ends_with(".xlsx") || f.ends_with(".xls") {
         FileKind::Excel
+    } else if f.ends_with(".pdf") {
+        FileKind::Pdf
     } else {
         FileKind::Csv
     }
