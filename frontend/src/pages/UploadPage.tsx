@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { Upload, CheckCircle, AlertTriangle, Plus } from 'lucide-react'
 
 export function UploadPage() {
-  const [tab, setTab] = useState<'manual' | 'upload'>('manual')
+  const [tab, setTab] = useState<'manual' | 'upload' | 'email'>('upload')
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -45,12 +45,65 @@ export function UploadPage() {
     } finally { setLoading(false) }
   }
 
+  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; sync_enabled: boolean; last_synced_at?: string; last_error?: string } | null>(null)
+  const [emailInput, setEmailInput] = useState('')
+  const [appPasswordInput, setAppPasswordInput] = useState('')
+  const [pdfPasswordInput, setPdfPasswordInput] = useState('')
+  const [emailMsg, setEmailMsg] = useState('')
+
+  const fetchEmailConfig = async () => {
+    try {
+      const { data } = await api.get('/ingest/email/config')
+      setEmailConfig(data)
+      if (data?.email_address) setEmailInput(data.email_address)
+    } catch { /* ignored */ }
+  }
+
+  const saveEmailConfig = async () => {
+    if (!emailInput || !appPasswordInput) return
+    setLoading(true); setError('')
+    try {
+      await api.put('/ingest/email/config', {
+        email_address: emailInput,
+        app_password: appPasswordInput,
+        pdf_password: pdfPasswordInput || undefined,
+      })
+      setEmailMsg('Gmail configuration saved securely with AES-256-GCM encryption!')
+      setAppPasswordInput('')
+      setPdfPasswordInput('')
+      fetchEmailConfig()
+      setTimeout(() => setEmailMsg(''), 4000)
+    } catch (e: any) {
+      setError(e.response?.data?.error ?? 'Failed to save email config')
+    } finally { setLoading(false) }
+  }
+
+  const syncEmailNow = async () => {
+    setLoading(true); setError(''); setResult(null)
+    try {
+      const { data } = await api.post('/ingest/email/sync')
+      setResult({ type: 'email', message: data.message })
+    } catch (e: any) {
+      setError(e.response?.data?.error ?? 'Sync failed')
+    } finally { setLoading(false) }
+  }
+
+  const deleteEmailConfig = async () => {
+    try {
+      await api.delete('/ingest/email/config')
+      setEmailConfig(null)
+      setEmailInput('')
+      setEmailMsg('Gmail configuration disconnected.')
+      setTimeout(() => setEmailMsg(''), 3000)
+    } catch { setError('Failed to disconnect') }
+  }
+
   const parseFailed = result && result.normalized === 0 && result.rows_parsed > 0
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100svh - 200px)' }}>
       <h1 className="page-title" style={{ marginBottom: 4 }}>Add Data</h1>
-      <p className="text-muted" style={{ marginBottom: 20 }}>Upload a statement or add a transaction manually</p>
+      <p className="text-muted" style={{ marginBottom: 20 }}>Upload a statement, connect Gmail, or add a transaction manually</p>
 
       <div style={{ flex: 1 }}>
         {tab === 'upload' ? (
@@ -70,6 +123,47 @@ export function UploadPage() {
               </div>
             )}
             {error && <div className="flex items-center gap-2 mt-3 text-error"><AlertTriangle size={14} />{error}</div>}
+          </div>
+        ) : tab === 'email' ? (
+          <div className="card">
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Automated Gmail Statement Sync</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>
+              Connect your Gmail using a Google App Password. Passwords are <strong>encrypted at rest (AES-256-GCM)</strong> and isolated per user via Row-Level Security.
+            </p>
+
+            {emailMsg && <p className="text-success mb-3" style={{ fontSize: 13 }}>{emailMsg}</p>}
+            {error && <p className="text-error mb-3" style={{ fontSize: 13 }}>{error}</p>}
+            {result?.type === 'email' && <p className="text-success mb-3" style={{ fontSize: 13 }}>{result.message}</p>}
+
+            {emailConfig ? (
+              <div style={{ background: 'var(--surface-2)', padding: 14, borderRadius: 8, marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>Connected Email: {emailConfig.email_address}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Server: {emailConfig.imap_server} • AES-256-GCM Encrypted</div>
+                {emailConfig.last_synced_at && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Last Synced: {emailConfig.last_synced_at}</div>}
+                
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button className="btn btn-primary" onClick={syncEmailNow} disabled={loading}>Sync Email Now</button>
+                  <button className="btn btn-danger" onClick={deleteEmailConfig}>Disconnect</button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={e => { e.preventDefault(); saveEmailConfig() }}>
+                <div className="form-group">
+                  <label className="form-label">Gmail Address</label>
+                  <input className="form-input" value={emailInput} onChange={e => setEmailInput(e.target.value)} required placeholder="yourname@gmail.com" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Google App Password (16-chars)</label>
+                  <input className="form-input" type="password" value={appPasswordInput} onChange={e => setAppPasswordInput(e.target.value)} required placeholder="abcd efgh ijkl mnop" />
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Generate at myaccount.google.com/apppasswords</div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Statement Password (Optional)</label>
+                  <input className="form-input" type="password" value={pdfPasswordInput} onChange={e => setPdfPasswordInput(e.target.value)} placeholder="Password for encrypted PDF e-statements" />
+                </div>
+                <button className="btn btn-primary btn-full btn-lg" disabled={loading}>{loading ? 'Encrypting & Saving…' : 'Save Encrypted Config'}</button>
+              </form>
+            )}
           </div>
         ) : (
           <div className="card">
@@ -99,8 +193,9 @@ export function UploadPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 0, marginTop: 20, background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--hairline)', overflow: 'hidden', width: 'fit-content', marginRight: 'auto', marginLeft: 'auto' }}>
-        <button onClick={() => setTab('upload')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--brand)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
-        <button onClick={() => setTab('manual')} style={{ padding: '10px 24px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--brand)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
+        <button onClick={() => setTab('upload')} style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--brand)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
+        <button onClick={() => { setTab('email'); fetchEmailConfig() }} style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: tab === 'email' ? 600 : 400, background: tab === 'email' ? 'var(--brand)' : 'transparent', color: tab === 'email' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Gmail Sync</button>
+        <button onClick={() => setTab('manual')} style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--brand)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
       </div>
     </div>
   )

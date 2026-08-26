@@ -28,6 +28,9 @@ anyhow = "1"
 thiserror = "1"
 zip = "2"
 dotenvy = "0.15"
+aes-gcm = "0.10"
+base64 = "0.22"
+rand = "0.8"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
