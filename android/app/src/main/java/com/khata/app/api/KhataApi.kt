@@ -59,6 +59,11 @@ interface KhataApi {
     @Multipart @POST("api/ingest/upload") suspend fun uploadStatement(@Part file: MultipartBody.Part): Map<String, Any>
     @HTTP(method = "DELETE", path = "api/ingest/clear", hasBody = true) suspend fun clearAllData(@Body body: Map<String, Boolean> = mapOf("confirm" to true)): MessageResponse
 
+    @GET("api/ingest/email/config") suspend fun getEmailConfig(): UserEmailConfigResponse?
+    @PUT("api/ingest/email/config") suspend fun saveEmailConfig(@Body body: SaveEmailConfigReq): UserEmailConfigResponse
+    @DELETE("api/ingest/email/config") suspend fun deleteEmailConfig(): MessageResponse
+    @POST("api/ingest/email/sync") suspend fun syncEmailNow(): MessageResponse
+
     @GET("api/chat/history") suspend fun chatHistory(): List<ChatHistoryResponse>
     @POST("api/chat/ask") suspend fun chatAsk(@Body body: ChatAskRequest): ChatAskResponse
 
