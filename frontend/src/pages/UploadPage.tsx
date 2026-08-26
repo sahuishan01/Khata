@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { Upload, CheckCircle, AlertTriangle, Plus } from 'lucide-react'
 
 export function UploadPage() {
-  const [tab, setTab] = useState<'manual' | 'upload' | 'email'>('upload')
+  const [tab, setTab] = useState<'upload' | 'email' | 'manual'>('email')
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -103,7 +103,14 @@ export function UploadPage() {
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100svh - 200px)' }}>
       <h1 className="page-title" style={{ marginBottom: 4 }}>Add Data</h1>
-      <p className="text-muted" style={{ marginBottom: 20 }}>Upload a statement, connect Gmail, or add a transaction manually</p>
+      <p className="text-muted" style={{ marginBottom: 16 }}>Connect Gmail, upload a statement file, or enter transactions manually</p>
+
+      {/* Top Segmented Tab Switcher */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--r-lg)', border: '1px solid var(--hairline)' }}>
+        <button onClick={() => { setTab('email'); fetchEmailConfig() }} style={{ flex: 1, padding: '9px 12px', border: 'none', borderRadius: 'var(--r-md)', cursor: 'pointer', fontWeight: tab === 'email' ? 600 : 400, background: tab === 'email' ? 'var(--brand)' : 'transparent', color: tab === 'email' ? 'white' : 'var(--text-2)', transition: 'all 0.15s' }}>Gmail Sync</button>
+        <button onClick={() => setTab('upload')} style={{ flex: 1, padding: '9px 12px', border: 'none', borderRadius: 'var(--r-md)', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--brand)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text-2)', transition: 'all 0.15s' }}>Upload Statement</button>
+        <button onClick={() => setTab('manual')} style={{ flex: 1, padding: '9px 12px', border: 'none', borderRadius: 'var(--r-md)', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--brand)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text-2)', transition: 'all 0.15s' }}>Manual Entry</button>
+      </div>
 
       <div style={{ flex: 1 }}>
         {tab === 'upload' ? (
@@ -190,12 +197,6 @@ export function UploadPage() {
             </form>
           </div>
         )}
-      </div>
-
-      <div style={{ display: 'flex', gap: 0, marginTop: 20, background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--hairline)', overflow: 'hidden', width: 'fit-content', marginRight: 'auto', marginLeft: 'auto' }}>
-        <button onClick={() => setTab('upload')} style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: tab === 'upload' ? 600 : 400, background: tab === 'upload' ? 'var(--brand)' : 'transparent', color: tab === 'upload' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Upload Statement</button>
-        <button onClick={() => { setTab('email'); fetchEmailConfig() }} style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: tab === 'email' ? 600 : 400, background: tab === 'email' ? 'var(--brand)' : 'transparent', color: tab === 'email' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Gmail Sync</button>
-        <button onClick={() => setTab('manual')} style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: tab === 'manual' ? 600 : 400, background: tab === 'manual' ? 'var(--brand)' : 'transparent', color: tab === 'manual' ? 'white' : 'var(--text)', transition: 'all 0.15s' }}>Manual Entry</button>
       </div>
     </div>
   )
