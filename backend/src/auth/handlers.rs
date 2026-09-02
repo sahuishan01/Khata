@@ -66,6 +66,22 @@ pub async fn do_login(pool: &PgPool, email: &str, password: &str, cfg: &Config) 
     Ok((token, row.must_reset_password))
 }
 
+/// Build the `Set-Cookie` value for the `khata_token` session cookie.
+///
+/// `secure` controls the `Secure` attribute and is supplied from
+/// `Config::cookie_secure` (default `true`). It is deliberately NOT derived from
+/// the bind address: the documented production topology binds the backend to
+/// loopback behind a TLS-terminating reverse proxy, so a loopback bind does not
+/// mean the client connection is cleartext.
+fn build_session_cookie(token: &str, secure: bool) -> String {
+    format!(
+        "khata_token={}; HttpOnly; {}SameSite=Strict; Path=/; Max-Age={}",
+        token,
+        if secure { "Secure; " } else { "" },
+        30 * 24 * 3600
+    )
+}
+
 fn issue_token(user_id: uuid::Uuid, cfg: &Config, token_version: i32) -> anyhow::Result<String> {
     let exp = (chrono::Utc::now() + chrono::Duration::days(30)).timestamp() as usize;
     let claims = Claims {
@@ -102,6 +118,17 @@ pub async fn setup_handler(
     State(state): State<AppState>,
     Json(req): Json<SetupReq>,
 ) -> Result<impl IntoResponse, AppError> {
+    // First-run setup creates the sole `admin` account with no authentication,
+    // so it is only permitted when the backend is bound to loopback. An operator
+    // who deliberately exposes the backend on a public interface (e.g.
+    // BIND_ADDR=0.0.0.0:8080 for a tunnel) must opt in with
+    // KHATA_ALLOW_REMOTE_SETUP=1 and complete setup immediately. The normal
+    // localhost first-run flow — and the frontend SetupPage — is unaffected
+    // because the default bind address is loopback.
+    if !state.config.bind_is_loopback() && !state.config.allow_remote_setup {
+        return Err(AppError::Forbidden);
+    }
+
     let admin_exists: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin')",
     )
@@ -138,13 +165,7 @@ pub async fn setup_handler(
         }
     }
 
-    let is_local = state.config.bind_addr.starts_with("127.0.0.1") || state.config.bind_addr.contains("localhost");
-    let cookie = format!(
-        "khata_token={}; HttpOnly; {}SameSite=Strict; Path=/; Max-Age={}",
-        token,
-        if is_local { "" } else { "Secure; " },
-        30 * 24 * 3600
-    );
+    let cookie = build_session_cookie(&token, state.config.cookie_secure);
     Ok(([(header::SET_COOKIE, cookie)], Json(AuthResponse { token, must_reset_password: false })))
 }
 
@@ -199,13 +220,7 @@ pub async fn login_handler(
         }
     }
 
-    let is_local = state.config.bind_addr.starts_with("127.0.0.1") || state.config.bind_addr.contains("localhost");
-    let cookie = format!(
-        "khata_token={}; HttpOnly; {}SameSite=Strict; Path=/; Max-Age={}",
-        token,
-        if is_local { "" } else { "Secure; " },
-        30 * 24 * 3600
-    );
+    let cookie = build_session_cookie(&token, state.config.cookie_secure);
     Ok(([(header::SET_COOKIE, cookie)], Json(AuthResponse { token, must_reset_password })))
 }
 
@@ -226,6 +241,7 @@ pub async fn me_handler(
         id: row.id,
         email: row.email,
         role: Role::from_str(&row.role),
+        must_reset_password: row.must_reset_password,
     }))
 }
 
@@ -455,7 +471,26 @@ mod tests {
             claude_bin: "claude".into(),
             bind_addr: "127.0.0.1:0".into(),
             cors_origins: vec![],
+            cookie_secure: true,
+            allow_remote_setup: false,
         }
+    }
+
+    #[test]
+    fn session_cookie_carries_secure_when_configured() {
+        let secure = build_session_cookie("tok123", true);
+        assert!(secure.starts_with("khata_token=tok123;"));
+        assert!(secure.contains("; Secure; "), "expected Secure attr: {secure}");
+        assert!(secure.contains("HttpOnly"));
+        assert!(secure.contains("SameSite=Strict"));
+    }
+
+    #[test]
+    fn session_cookie_omits_secure_only_on_explicit_opt_out() {
+        let insecure = build_session_cookie("tok123", false);
+        assert!(!insecure.contains("Secure"), "expected no Secure attr: {insecure}");
+        assert!(insecure.contains("HttpOnly"));
+        assert!(insecure.contains("SameSite=Strict"));
     }
 
     #[sqlx::test(migrations = "./migrations")]

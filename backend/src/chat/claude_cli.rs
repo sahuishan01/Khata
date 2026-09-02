@@ -66,26 +66,61 @@ async fn run_claude(bin: &str, prompt: &str) -> Result<String> {
 }
 
 /// Strip obvious SQL fragments from user question to reduce injection risk.
+///
+/// Runs in a single linear pass over `q`. All fragments are pure ASCII, so
+/// matching is done case-insensitively on the raw bytes without ever building
+/// a lowercased copy — this avoids mixing byte offsets between a `to_lowercase()`
+/// copy and the original string (which is not length-preserving and could land
+/// mid-character, causing a panic) and keeps the cost O(n) instead of O(n^2).
 fn sanitize_question(q: &str) -> String {
-    let sql_fragments = [
+    const SQL_FRAGMENTS: [&str; 23] = [
         "select ", "insert ", "update ", "delete ", "drop ", "truncate ",
         "alter ", "create ", "grant ", "revoke ", "exec ", "execute ",
         "union ", "into ", "values ",
         "information_schema", "pg_sleep", "pg_read_file", "pg_catalog",
         "copy ", "--", "/*", "*/",
     ];
-    let mut result = q.to_string();
-    for kw in &sql_fragments {
-        loop {
-            let lowered = result.to_lowercase();
-            match lowered.find(kw) {
-                Some(pos) => {
-                    let end = pos + kw.len().max(3);
-                    let end = end.min(result.len());
-                    result.replace_range(pos..end, " ");
+
+    let bytes = q.as_bytes();
+    let mut result = String::with_capacity(q.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        // Longest fragment that matches at position `i` (ASCII, case-insensitive).
+        let matched = SQL_FRAGMENTS
+            .iter()
+            .filter(|frag| {
+                let fb = frag.as_bytes();
+                i + fb.len() <= bytes.len()
+                    && bytes[i..i + fb.len()]
+                        .iter()
+                        .zip(fb)
+                        .all(|(a, b)| a.eq_ignore_ascii_case(b))
+            })
+            .map(|frag| frag.len())
+            .max();
+
+        if let Some(frag_len) = matched {
+            // Matched bytes are all ASCII, so `i + frag_len` is a char boundary.
+            // Preserve the previous behaviour of consuming at least 3 units after
+            // a match, but never split a multi-byte character.
+            let min_end = i + frag_len.max(3);
+            let mut end = i + frag_len;
+            while end < bytes.len() && end < min_end {
+                end += 1;
+                while end < bytes.len() && !q.is_char_boundary(end) {
+                    end += 1;
                 }
-                None => break,
             }
+            result.push(' ');
+            i = end;
+        } else {
+            // Copy exactly one whole character.
+            let mut end = i + 1;
+            while end < bytes.len() && !q.is_char_boundary(end) {
+                end += 1;
+            }
+            result.push_str(&q[i..end]);
+            i = end;
         }
     }
     // Collapse multiple spaces
@@ -181,5 +216,49 @@ mod tests {
     #[test]
     fn returns_none_for_plain_text() {
         assert!(extract_json_object("No JSON here at all.").is_none());
+    }
+
+    #[test]
+    fn sanitize_neutralizes_sql_fragments() {
+        let out = sanitize_question("please SELECT everything and DROP table now");
+        assert!(!out.to_lowercase().contains("select "));
+        assert!(!out.to_lowercase().contains("drop "));
+    }
+
+    #[test]
+    fn sanitize_handles_multibyte_before_keyword() {
+        // Previously panicked: `to_lowercase()` shrinks "ẞ" -> "ß", so the byte
+        // offset of "select " found in the lowercased copy landed inside "€"
+        // when applied to the original string.
+        let out = sanitize_question("ẞ€select ");
+        assert!(!out.to_lowercase().contains("select "));
+    }
+
+    #[test]
+    fn sanitize_handles_multibyte_straddling_boundary() {
+        // Previously panicked: matched "--" then sliced 3 bytes in, splitting
+        // the 4-byte emoji. Must not panic and must drop the "--" fragment.
+        let out = sanitize_question("--\u{1F600} show my spending");
+        assert!(!out.contains("--"));
+        // The bare panic input from the finding must also just return cleanly.
+        let _ = sanitize_question("--\u{1F600}");
+    }
+
+    #[test]
+    fn sanitize_handles_large_input_quickly() {
+        // ~2 MB of '-' used to keep a core pinned for ~a minute (O(n^2)).
+        let big = "-".repeat(2 * 1024 * 1024);
+        let start = std::time::Instant::now();
+        let _ = sanitize_question(&big);
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(5),
+            "sanitize_question must be linear-time"
+        );
+    }
+
+    #[test]
+    fn sanitize_preserves_normal_question() {
+        let out = sanitize_question("How much did I spend on groceries last month?");
+        assert_eq!(out, "How much did I spend on groceries last month?");
     }
 }

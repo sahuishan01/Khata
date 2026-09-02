@@ -307,7 +307,15 @@ pub fn format_predefined(kind: QueryKind, rows: &[Value], label: &str) -> String
                 let desc  = row["description"].as_str().unwrap_or("Unknown");
                 let total = row["total"].as_f64().unwrap_or(0.0);
                 let count = row["txn_count"].as_i64().unwrap_or(0);
-                let desc  = if desc.len() > 55 { &desc[..55] } else { desc };
+                let desc  = if desc.len() > 55 {
+                    // Back off to a UTF-8 char boundary so a multi-byte
+                    // character straddling byte 55 doesn't panic the slice.
+                    let mut end = 55;
+                    while !desc.is_char_boundary(end) { end -= 1; }
+                    &desc[..end]
+                } else {
+                    desc
+                };
                 lines.push(format!("{}. {} — {} ({} txn{})", i + 1, desc, inr(total), count, s(count)));
             }
             lines.join("\n")
@@ -529,5 +537,25 @@ mod tests {
     fn no_match_returns_none() {
         let m = match_question("What is 2 + 2?", &[]);
         assert!(m.is_none());
+    }
+
+    #[test]
+    fn top_expenses_truncates_at_char_boundary_without_panic() {
+        // 54 ASCII bytes followed by a 2-byte 'é' puts byte index 55 inside the
+        // 'é'. Slicing with a fixed &desc[..55] used to panic ("not a char
+        // boundary"); the description comes straight from transactions.description.
+        let desc = format!("{}é{}", "a".repeat(54), "b".repeat(20));
+        let rows = vec![serde_json::json!({
+            "description": desc,
+            "total": 500.0,
+            "txn_count": 2,
+        })];
+
+        let out = format_predefined(QueryKind::TopExpenses, &rows, "");
+
+        // No panic; truncation backs off to the boundary before the 'é'.
+        assert!(out.contains(&format!("1. {} \u{2014}", "a".repeat(54))), "got: {out}");
+        assert!(!out.contains('b'), "description should be truncated: {out}");
+        assert!(!out.contains('é'), "partial multi-byte char should be dropped: {out}");
     }
 }

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data extraction rules for Android 12 (API 31) and higher.
+  Referenced from AndroidManifest.xml via android:dataExtractionRules.
+
+  <cloud-backup>    covers Google Drive Auto Backup.
+  <device-transfer> covers device-to-device (D2D) migration / transfer.
+
+  Both scopes exclude the financial database and the app's preference files
+  so their cleartext contents are never copied off the device.
+
+  Defense in depth: android:allowBackup is set to "false", which already
+  disables cloud backup. These exclusions keep the sensitive data out of
+  both transports even if allowBackup is ever flipped back to "true".
+
+  With no <include> element, everything else is still eligible by default.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Room database: full financial / transaction history. -->
+        <exclude domain="database" path="khata.db" />
+        <exclude domain="database" path="khata.db-shm" />
+        <exclude domain="database" path="khata.db-wal" />
+        <exclude domain="database" path="khata.db-journal" />
+
+        <!-- EncryptedSharedPreferences holding the auth token (Keystore key
+             is not backed up; excluded as defense in depth). -->
+        <exclude domain="sharedpref" path="khata_secure_prefs.xml" />
+
+        <!-- Plaintext prefs: user-configured server URL. -->
+        <exclude domain="sharedpref" path="khata_server.xml" />
+
+        <!-- Crash reports may embed sensitive data. -->
+        <exclude domain="sharedpref" path="khata_crash_log.xml" />
+        <!-- Crash / info logs written to getExternalFilesDir(null)/crash_logs/. -->
+        <exclude domain="external" path="crash_logs/" />
+    </cloud-backup>
+
+    <device-transfer>
+        <exclude domain="database" path="khata.db" />
+        <exclude domain="database" path="khata.db-shm" />
+        <exclude domain="database" path="khata.db-wal" />
+        <exclude domain="database" path="khata.db-journal" />
+        <exclude domain="sharedpref" path="khata_secure_prefs.xml" />
+        <exclude domain="sharedpref" path="khata_server.xml" />
+        <exclude domain="sharedpref" path="khata_crash_log.xml" />
+        <exclude domain="external" path="crash_logs/" />
+    </device-transfer>
+</data-extraction-rules>
