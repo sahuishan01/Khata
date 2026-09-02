@@ -73,6 +73,7 @@ pub struct MeResponse {
     pub id: Uuid,
     pub email: String,
     pub role: Role,
+    pub must_reset_password: bool,
 }
 
 #[derive(Serialize)]

@@ -19,7 +19,7 @@ jsonwebtoken = "9"
 argon2 = "0.5"
 calamine = "0.26"
 csv = "1"
-sqlparser = "0.55"
+sqlparser = { version = "0.55", features = ["visitor"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 hex = "0.4"
