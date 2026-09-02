@@ -9,6 +9,19 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Release signing is loaded from android/keystore.properties (written by CI from
+// repo secrets) or the equivalent environment variables. The keystore is never
+// committed. Debug builds use the SDK's auto-generated debug key.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) {
+        FileInputStream(keystorePropsFile).use { load(it) }
+    }
+}
+fun signingProp(key: String, env: String): String? =
+    keystoreProps.getProperty(key) ?: System.getenv(env)
+val releaseStoreFile: String? = signingProp("storeFile", "KEYSTORE_FILE")
+
 android {
     namespace = "com.khata.app"
     compileSdk = 35
@@ -24,21 +37,23 @@ android {
     }
 
     signingConfigs {
-        create("khata") {
-            storeFile = file("debug.keystore")
-            storePassword = "khata2024"
-            keyAlias = "khata"
-            keyPassword = "khata2024"
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = signingProp("storePassword", "KEYSTORE_PASSWORD")
+                keyAlias = signingProp("keyAlias", "KEY_ALIAS")
+                keyPassword = signingProp("keyPassword", "KEY_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("khata")
+            // uses the SDK default debug keystore
         }
         release {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("khata")
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -55,6 +70,21 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+// Fail a release build closed when no real signing config was provided, rather
+// than silently producing an unsigned or debug-signed release APK.
+gradle.taskGraph.whenReady {
+    val needsRelease = allTasks.any {
+        it.name in setOf("assembleRelease", "bundleRelease", "packageRelease")
+    }
+    if (needsRelease && android.signingConfigs.findByName("release") == null) {
+        throw GradleException(
+            "Release build requires a signing config. Provide android/keystore.properties " +
+            "(storeFile/storePassword/keyAlias/keyPassword) or the KEYSTORE_FILE/KEYSTORE_PASSWORD/" +
+            "KEY_ALIAS/KEY_PASSWORD environment variables."
+        )
     }
 }
 
