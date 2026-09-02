@@ -59,16 +59,40 @@ fi
 # ── 4. Postgres init (first run only) ────────────────────────────────────────────
 if [ ! -d "$PGDATA" ]; then
     info "Initialising Postgres cluster at .pgdata..."
-    initdb -D "$PGDATA" --no-locale --encoding=UTF8 -A trust
+    # Never 'trust': local (Unix-socket) connections are authenticated by the
+    # kernel-verified OS identity (peer); loopback TCP requires a SCRAM-SHA-256
+    # password. The pg_hba.conf initdb writes is fully replaced below.
+    initdb -D "$PGDATA" --no-locale --encoding=UTF8 \
+        --auth-local=peer --auth-host=scram-sha-256
 
     # Set port and listen address
     echo "port = $PGPORT"              >> "$PGDATA/postgresql.conf"
     echo "listen_addresses = '127.0.0.1'" >> "$PGDATA/postgresql.conf"
+    # Store role passwords as SCRAM-SHA-256 verifiers so the host rules below
+    # authenticate regardless of the server's default password_encryption.
+    echo "password_encryption = 'scram-sha-256'" >> "$PGDATA/postgresql.conf"
 
-    # Add password-auth entries for app roles (TCP connections from backend)
-    cat >> "$PGDATA/pg_hba.conf" <<'EOF'
-host    khata    khata      127.0.0.1/32    scram-sha-256
-host    khata    khata_ro   127.0.0.1/32    scram-sha-256
+    # Regenerate pg_hba.conf as an explicit least-privilege ruleset. hba records
+    # are first-match, so this REPLACES initdb's defaults rather than appending
+    # after a permissive rule.
+    cat > "$PGDATA/pg_hba.conf" <<'EOF'
+# Managed by setup.sh — explicit least-privilege client authentication.
+# TYPE  DATABASE  USER      ADDRESS         METHOD
+
+# Local Unix-socket: used by this script to administer the cluster as the OS
+# user that owns the data dir. Identity is verified by the kernel; no password.
+local   all       all                       peer
+
+# Loopback TCP: only the application roles, password-authenticated (SCRAM).
+# The superuser role has no password and cannot be reached over TCP.
+host    all       khata     127.0.0.1/32    scram-sha-256
+host    all       khata_ro  127.0.0.1/32    scram-sha-256
+host    all       khata     ::1/128         scram-sha-256
+host    all       khata_ro  ::1/128         scram-sha-256
+
+# Everything else is refused outright.
+host    all       all       0.0.0.0/0       reject
+host    all       all       ::0/0           reject
 EOF
 
     pg_ctl -D "$PGDATA" -l "$PGLOG" start
