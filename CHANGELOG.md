@@ -5,6 +5,22 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-06] — Gmail: show stored key + full rescan on key rotation (v0.43.0)
+
+### Added
+- `GET /ingest/email/config` returns `has_app_password` / `has_pdf_password` so the UI can show a key is already stored (masked) instead of an empty form.
+- "Update Key" flow on the Add Data → Gmail Sync tab; App Password field is optional when a key exists (blank = keep current).
+
+### Changed
+- `PUT /ingest/email/config`: `app_password` is now optional — stored credentials are preserved via `COALESCE` when omitted. Saving a new/rotated key clears `last_synced_at` and returns `full_rescan_queued: true`.
+- Saving a new key in the UI auto-triggers a sync; `POST /ingest/email/sync` reports `full_scan: true` when there is no prior sync watermark.
+
+### Note
+- Android Gmail Sync screen is unchanged — still shows the old form.
+- IMAP fetch/import worker is still a stub; sync records intent only.
+
+---
+
 ## [2026-06-01] — Add setup.sh / setup.bat (one-shot setup + start)
 
 ### Added
