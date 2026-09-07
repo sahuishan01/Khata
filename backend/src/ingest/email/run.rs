@@ -276,7 +276,9 @@ async fn process_attachment(
     let profile = detect_bank(profiles, &hint);
     let (raw_rows, _, _) = safe_parse(&bytes, kind, profile)?;
 
-    if raw_rows.is_empty() || profile.name == "GENERIC" {
+    // Guard against false positives: a real statement has several rows, and a
+    // GENERIC match means the bank fingerprint never hit.
+    if raw_rows.len() < 2 || profile.name == "GENERIC" {
         counters.push_error("parse", filename, "not recognised as a supported bank statement");
         return Ok(());
     }
