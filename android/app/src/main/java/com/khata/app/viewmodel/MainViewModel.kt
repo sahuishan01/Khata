@@ -201,4 +201,15 @@ class MainViewModel @Inject constructor(
         val synced = try { repository.syncEmailNow(); " Sync started." } catch (_: Exception) { "" }
         r("Gmail connected — credentials encrypted on the server.$synced")
     } catch (e: Exception) { r("Error: ${e.message ?: "could not save Gmail config"}") } } }
+
+    /** Most recent sync run, for the progress panel. */
+    fun latestEmailRun(r: (EmailSyncRun?) -> Unit) { viewModelScope.launch {
+        try { r(repository.latestEmailRun()) } catch (_: Exception) { r(null) }
+    } }
+
+    /** Trigger a run now; [r] gets a status line. */
+    fun startEmailSync(r: (String) -> Unit) { viewModelScope.launch {
+        try { repository.syncEmailNow(); r("Sync started") }
+        catch (e: Exception) { r("Error: ${e.message ?: "could not start sync"}") }
+    } }
 }
