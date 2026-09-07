@@ -23,6 +23,9 @@ Format: `## [date] — Summary` → bullet list of changes.
   shared by the email worker and the manual upload handler — encrypted uploads
   no longer fail when a statement password is stored.
 - `EMAIL_SYNC_POLL_SECS`, `EMAIL_SYNC_MAX_MESSAGES`, `EMAIL_SYNC_MAX_ATTACH_BYTES`.
+- Android Gmail Sync tab now shows sync progress: a "Sync now" button, a live
+  status panel (messages / statements / imported / skipped, polled every 3s
+  while running) and an expandable per-item error list.
 
 ### Ops
 - Requires `qpdf` on the backend host for encrypted PDFs.
