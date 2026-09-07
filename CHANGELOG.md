@@ -5,6 +5,30 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-08] — Email statement ingestion worker (v0.44.0)
+
+### Added
+- Background IMAP worker (`src/ingest/email/`): every `EMAIL_SYNC_POLL_SECS`
+  (default 900; `0` disables), for each sync-enabled user it connects to Gmail
+  over IMAPS with the stored app password, finds messages with statement
+  attachments since a UID watermark, and runs each attachment through the
+  existing parse → normalize → store pipeline. `POST /api/ingest/email/sync`
+  triggers an immediate run.
+- Per-run history in `email_sync_runs` (migration `0028`): status, trigger,
+  counts (messages / attachments / imported / skipped), and a per-item error
+  list. `GET /api/ingest/email/runs` and `/runs/latest` expose it.
+- `PUT /api/ingest/email/config` gains optional `sender_allowlist` /
+  `subject_patterns` IMAP filters.
+- Password-protected statement PDFs are decrypted with `qpdf` (RC4 + AES),
+  shared by the email worker and the manual upload handler — encrypted uploads
+  no longer fail when a statement password is stored.
+- `EMAIL_SYNC_POLL_SECS`, `EMAIL_SYNC_MAX_MESSAGES`, `EMAIL_SYNC_MAX_ATTACH_BYTES`.
+
+### Ops
+- Requires `qpdf` on the backend host for encrypted PDFs.
+
+---
+
 ## [2026-09-07] — Android Gmail Sync actually talks to the backend (v0.43.2)
 
 ### Fixed

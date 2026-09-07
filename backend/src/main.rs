@@ -95,6 +95,9 @@ async fn main() -> anyhow::Result<()> {
         login_attempts: Arc::new(Mutex::new(HashMap::new())),
     };
 
+    // Background Gmail statement ingestion poll loop.
+    ingest::email::spawn_worker(state.clone());
+
     let cors = {
         let origins: Vec<axum::http::HeaderValue> = cfg
             .cors_origins
