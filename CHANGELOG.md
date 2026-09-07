@@ -5,6 +5,13 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-07] — Fix Android release signing in CI (v0.43.1)
+
+### Fixed
+- `KEY_PASSWORD` for the `khata-upload` PKCS12 keystore must equal the store password; CI now signs release APKs successfully. v0.43.0's `packageRelease` failed with "Get Key failed: Given final block not properly padded".
+
+---
+
 ## [2026-09-06] — Gmail: show stored key + full rescan on key rotation (v0.43.0)
 
 ### Added
