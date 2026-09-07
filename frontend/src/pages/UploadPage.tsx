@@ -45,11 +45,12 @@ export function UploadPage() {
     } finally { setLoading(false) }
   }
 
-  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; sync_enabled: boolean; last_synced_at?: string; last_error?: string } | null>(null)
+  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; sync_enabled: boolean; last_synced_at?: string; last_error?: string; has_app_password?: boolean; has_pdf_password?: boolean } | null>(null)
   const [emailInput, setEmailInput] = useState('')
   const [appPasswordInput, setAppPasswordInput] = useState('')
   const [pdfPasswordInput, setPdfPasswordInput] = useState('')
   const [emailMsg, setEmailMsg] = useState('')
+  const [editingCreds, setEditingCreds] = useState(false)
 
   const fetchEmailConfig = async () => {
     try {
@@ -59,20 +60,29 @@ export function UploadPage() {
     } catch { /* ignored */ }
   }
 
+  const hasExistingKey = !!emailConfig?.has_app_password
+
   const saveEmailConfig = async () => {
-    if (!emailInput || !appPasswordInput) return
-    setLoading(true); setError('')
+    if (!emailInput) return
+    if (!appPasswordInput && !hasExistingKey) return
+    setLoading(true); setError(''); setResult(null)
     try {
-      await api.put('/ingest/email/config', {
+      const { data } = await api.put('/ingest/email/config', {
         email_address: emailInput,
-        app_password: appPasswordInput,
+        app_password: appPasswordInput || undefined,
         pdf_password: pdfPasswordInput || undefined,
       })
-      setEmailMsg('Gmail configuration saved securely with AES-256-GCM encryption!')
       setAppPasswordInput('')
       setPdfPasswordInput('')
+      setEditingCreds(false)
+      if (data?.full_rescan_queued) {
+        setEmailMsg('New key saved (AES-256-GCM). Scanning your full mailbox history for transactions…')
+        await syncEmailNow()
+      } else {
+        setEmailMsg('Gmail configuration updated securely with AES-256-GCM encryption!')
+        setTimeout(() => setEmailMsg(''), 4000)
+      }
       fetchEmailConfig()
-      setTimeout(() => setEmailMsg(''), 4000)
     } catch (e: any) {
       setError(e.response?.data?.error ?? 'Failed to save email config')
     } finally { setLoading(false) }
@@ -142,33 +152,51 @@ export function UploadPage() {
             {error && <p className="text-error mb-3" style={{ fontSize: 13 }}>{error}</p>}
             {result?.type === 'email' && <p className="text-success mb-3" style={{ fontSize: 13 }}>{result.message}</p>}
 
-            {emailConfig ? (
+            {emailConfig && !editingCreds ? (
               <div style={{ background: 'var(--surface-2)', padding: 14, borderRadius: 8, marginBottom: 16 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Connected Email: {emailConfig.email_address}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Server: {emailConfig.imap_server} • AES-256-GCM Encrypted</div>
-                {emailConfig.last_synced_at && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Last Synced: {emailConfig.last_synced_at}</div>}
-                
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <div className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--income)', marginTop: 6 }}>
+                  <CheckCircle size={14} />
+                  <span>App Password on file: <strong>•••• •••• •••• ••••</strong></span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>
+                  Statement password: {emailConfig.has_pdf_password ? 'set' : 'not set'}
+                </div>
+                {emailConfig.last_synced_at
+                  ? <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Last Synced: {emailConfig.last_synced_at}</div>
+                  : <div style={{ fontSize: 11, color: 'var(--warn)', marginTop: 4 }}>Not yet synced — a full mailbox scan will run on next sync</div>}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                   <button className="btn btn-primary" onClick={syncEmailNow} disabled={loading}>Sync Email Now</button>
+                  <button className="btn btn-secondary" onClick={() => { setEditingCreds(true); setEmailInput(emailConfig.email_address); setAppPasswordInput(''); setPdfPasswordInput(''); setError(''); setEmailMsg('') }}>Update Key</button>
                   <button className="btn btn-danger" onClick={deleteEmailConfig}>Disconnect</button>
                 </div>
               </div>
             ) : (
               <form onSubmit={e => { e.preventDefault(); saveEmailConfig() }}>
+                {hasExistingKey && (
+                  <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12 }}>
+                    A key is already stored. Enter a new App Password to rotate it — saving a new key triggers a full rescan of all your transactions. Leave it blank to keep the current key.
+                  </p>
+                )}
                 <div className="form-group">
                   <label className="form-label">Gmail Address</label>
                   <input className="form-input" value={emailInput} onChange={e => setEmailInput(e.target.value)} required placeholder="yourname@gmail.com" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Google App Password (16-chars)</label>
-                  <input className="form-input" type="password" value={appPasswordInput} onChange={e => setAppPasswordInput(e.target.value)} required placeholder="abcd efgh ijkl mnop" />
+                  <input className="form-input" type="password" value={appPasswordInput} onChange={e => setAppPasswordInput(e.target.value)} required={!hasExistingKey} placeholder={hasExistingKey ? 'Leave blank to keep current key' : 'abcd efgh ijkl mnop'} />
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Generate at myaccount.google.com/apppasswords</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Statement Password (Optional)</label>
-                  <input className="form-input" type="password" value={pdfPasswordInput} onChange={e => setPdfPasswordInput(e.target.value)} placeholder="Password for encrypted PDF e-statements" />
+                  <input className="form-input" type="password" value={pdfPasswordInput} onChange={e => setPdfPasswordInput(e.target.value)} placeholder={emailConfig?.has_pdf_password ? 'Leave blank to keep current' : 'Password for encrypted PDF e-statements'} />
                 </div>
-                <button className="btn btn-primary btn-full btn-lg" disabled={loading}>{loading ? 'Encrypting & Saving…' : 'Save Encrypted Config'}</button>
+                <button className="btn btn-primary btn-full btn-lg" disabled={loading}>{loading ? 'Encrypting & Saving…' : hasExistingKey ? 'Save New Key & Rescan' : 'Save Encrypted Config'}</button>
+                {editingCreds && (
+                  <button type="button" className="btn btn-secondary btn-full" style={{ marginTop: 8 }} onClick={() => { setEditingCreds(false); setAppPasswordInput(''); setPdfPasswordInput(''); setError('') }}>Cancel</button>
+                )}
               </form>
             )}
           </div>

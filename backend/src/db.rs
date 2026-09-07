@@ -14,8 +14,12 @@ pub async fn set_current_user<'c, E>(executor: E, user_id: Uuid) -> Result<(), s
 where
     E: Executor<'c, Database = sqlx::Postgres>,
 {
-    // Uuid::Display only produces hex + hyphens, so this is injection-safe.
-    sqlx::query(&format!("SET LOCAL app.current_user_id = '{user_id}'"))
+    // set_config(..., is_local = true) is the transaction-scoped equivalent of
+    // `SET LOCAL`, but unlike `SET LOCAL` it accepts a bind parameter — so the
+    // user id never touches the SQL string. RLS reads it back via
+    // current_setting('app.current_user_id', true)::uuid.
+    sqlx::query("SELECT set_config('app.current_user_id', $1, true)")
+        .bind(user_id.to_string())
         .execute(executor)
         .await?;
     Ok(())
