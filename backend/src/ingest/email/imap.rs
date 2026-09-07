@@ -94,9 +94,15 @@ impl RustlsImap {
 
         let mut roots = RootCertStore::empty();
         roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let config = ClientConfig::builder()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+        // Pin the crypto provider explicitly: with both `ring` and (transitively)
+        // other providers in the tree, rustls refuses to guess.
+        let config = ClientConfig::builder_with_provider(std::sync::Arc::new(
+            tokio_rustls::rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .context("rustls protocol versions")?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
         let connector = TlsConnector::from(Arc::new(config));
 
         let tcp = TcpStream::connect((host.as_str(), port))
