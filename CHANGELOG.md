@@ -5,6 +5,24 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-07] — Android Gmail Sync actually talks to the backend (v0.43.2)
+
+### Fixed
+- The Android "Save Encrypted Config" button was a stub — it only set a status
+  string and never called the API, so Gmail credentials entered on the phone
+  were silently discarded. It now `PUT`s to `/api/ingest/email/config` over
+  HTTPS (server encrypts the app password at rest with AES-256-GCM), reports the
+  real success/error, clears the password field on success, and kicks off an
+  initial sync.
+- On opening the Gmail tab the app loads the existing config and shows whether a
+  key is already stored (mirrors the web "key on file" behaviour).
+
+### Changed
+- `KhataRepository` / `MainViewModel` gain `getEmailConfig` / `saveEmailConfig` /
+  `syncEmailNow`; `CombinedUploadScreen` takes `onSaveGmail` / `onLoadGmailConfig`.
+
+---
+
 ## [2026-09-07] — Fix Android release signing in CI (v0.43.1)
 
 ### Fixed
