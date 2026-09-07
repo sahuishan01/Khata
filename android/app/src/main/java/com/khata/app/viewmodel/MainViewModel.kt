@@ -185,4 +185,20 @@ class MainViewModel @Inject constructor(
     }
 
     fun clearAllData(r: (String) -> Unit) { viewModelScope.launch { try { repository.clearAllData(); r("Cleared!") } catch (e: Exception) { r("Error: ${e.message}") } } }
+
+    /** Load the current Gmail config so the UI can show whether a key is already stored. */
+    fun loadEmailConfig(r: (UserEmailConfigResponse?) -> Unit) { viewModelScope.launch {
+        try { r(repository.getEmailConfig()) } catch (_: Exception) { r(null) }
+    } }
+
+    /**
+     * Send the Gmail credentials to the backend over HTTPS. The server encrypts the
+     * app password at rest with AES-256-GCM (key derived per-user) before storing it;
+     * nothing is persisted on the device. On success, kicks off an initial sync.
+     */
+    fun saveEmailConfig(req: SaveEmailConfigReq, r: (String) -> Unit) { viewModelScope.launch { try {
+        repository.saveEmailConfig(req)
+        val synced = try { repository.syncEmailNow(); " Sync started." } catch (_: Exception) { "" }
+        r("Gmail connected — credentials encrypted on the server.$synced")
+    } catch (e: Exception) { r("Error: ${e.message ?: "could not save Gmail config"}") } } }
 }
