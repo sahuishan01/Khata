@@ -152,7 +152,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 navController.navigate(Screen.Transactions.route)
             }) }
 
-            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }) }
+            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }) }
 
             composable(Screen.Transactions.route) {
                 val filterState by viewModel.txnFilterState.collectAsState()

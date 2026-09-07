@@ -161,3 +161,27 @@ data class SaveEmailConfigReq(
     @SerializedName("imap_server") val imapServer: String? = "imap.gmail.com:993",
     @SerializedName("sync_enabled") val syncEnabled: Boolean? = true,
 )
+
+data class EmailSyncError(
+    val stage: String? = null,
+    val item: String? = null,
+    val detail: String? = null,
+)
+
+data class EmailSyncRun(
+    val id: String,
+    @SerializedName("started_at") val startedAt: String,
+    @SerializedName("finished_at") val finishedAt: String? = null,
+    val status: String,
+    val trigger: String,
+    @SerializedName("full_scan") val fullScan: Boolean = false,
+    @SerializedName("messages_scanned") val messagesScanned: Int = 0,
+    @SerializedName("attachments_seen") val attachmentsSeen: Int = 0,
+    @SerializedName("attachments_parsed") val attachmentsParsed: Int = 0,
+    @SerializedName("txns_imported") val txnsImported: Int = 0,
+    @SerializedName("txns_skipped") val txnsSkipped: Int = 0,
+    val errors: List<EmailSyncError> = emptyList(),
+    val error: String? = null,
+) {
+    val isRunning get() = status == "running"
+}

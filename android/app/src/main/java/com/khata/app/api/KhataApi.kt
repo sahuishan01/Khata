@@ -63,6 +63,8 @@ interface KhataApi {
     @PUT("api/ingest/email/config") suspend fun saveEmailConfig(@Body body: SaveEmailConfigReq): UserEmailConfigResponse
     @DELETE("api/ingest/email/config") suspend fun deleteEmailConfig(): MessageResponse
     @POST("api/ingest/email/sync") suspend fun syncEmailNow(): MessageResponse
+    @GET("api/ingest/email/runs") suspend fun listEmailRuns(@Query("limit") limit: Int = 10): List<EmailSyncRun>
+    @GET("api/ingest/email/runs/latest") suspend fun latestEmailRun(): EmailSyncRun?
 
     @GET("api/chat/history") suspend fun chatHistory(): List<ChatHistoryResponse>
     @POST("api/chat/ask") suspend fun chatAsk(@Body body: ChatAskRequest): ChatAskResponse

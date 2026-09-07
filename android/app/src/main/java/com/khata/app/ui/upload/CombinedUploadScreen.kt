@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.CreateTxnReq
+import com.khata.app.api.EmailSyncRun
 import com.khata.app.api.SaveEmailConfigReq
 import com.khata.app.api.UserEmailConfigResponse
 import java.time.LocalDate
@@ -27,7 +28,9 @@ fun CombinedUploadScreen(
     onClearAllData: () -> Unit,
     onAddTxn: (CreateTxnReq) -> Unit,
     onSaveGmail: (SaveEmailConfigReq, (String) -> Unit) -> Unit = { _, cb -> cb("Error: not wired") },
-    onLoadGmailConfig: ((UserEmailConfigResponse?) -> Unit) -> Unit = { it(null) }
+    onLoadGmailConfig: ((UserEmailConfigResponse?) -> Unit) -> Unit = { it(null) },
+    onLoadLatestRun: ((EmailSyncRun?) -> Unit) -> Unit = { it(null) },
+    onSyncNow: ((String) -> Unit) -> Unit = { it("Error: not wired") }
 ) {
     var tab by remember { mutableStateOf(1) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -85,15 +88,23 @@ fun CombinedUploadScreen(
                 var statusMsg by remember { mutableStateOf("") }
                 var saving by remember { mutableStateOf(false) }
                 var hasStoredKey by remember { mutableStateOf(false) }
+                var latestRun by remember { mutableStateOf<EmailSyncRun?>(null) }
+                var showErrors by remember { mutableStateOf(false) }
 
                 LaunchedEffect(Unit) {
                     onLoadGmailConfig { cfg ->
                         if (cfg != null) {
                             hasStoredKey = true
                             if (emailInput.isBlank()) emailInput = cfg.emailAddress
-                            statusMsg = "A Gmail key is already stored" +
-                                (cfg.lastError?.let { " · last error: $it" } ?: "")
                         }
+                    }
+                }
+
+                // Poll the latest run: fast while one is running, slow otherwise.
+                LaunchedEffect(hasStoredKey) {
+                    while (hasStoredKey) {
+                        onLoadLatestRun { latestRun = it }
+                        kotlinx.coroutines.delay(if (latestRun?.isRunning == true) 3000L else 15000L)
                     }
                 }
 
@@ -148,6 +159,53 @@ fun CombinedUploadScreen(
                         Icon(Icons.Default.Lock, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text(if (saving) "Saving…" else "Save Encrypted Config")
+                    }
+
+                    if (hasStoredKey) {
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = { statusMsg = "Starting sync…"; onSyncNow { statusMsg = it } },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Sync now") }
+
+                        latestRun?.let { run ->
+                            Spacer(Modifier.height(12.dp))
+                            val bg = when (run.status) {
+                                "error" -> MaterialTheme.colorScheme.errorContainer
+                                "running" -> MaterialTheme.colorScheme.secondaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                            Surface(shape = RoundedCornerShape(10.dp), color = bg, modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(12.dp)) {
+                                    val label = when (run.status) {
+                                        "running" -> if (run.fullScan) "Full mailbox scan running…" else "Syncing…"
+                                        "ok" -> "Last sync complete"
+                                        "error" -> "Last sync failed"
+                                        else -> "Last sync: ${run.status}"
+                                    }
+                                    Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "${run.messagesScanned} messages · ${run.attachmentsParsed}/${run.attachmentsSeen} statements · " +
+                                            "${run.txnsImported} imported · ${run.txnsSkipped} skipped",
+                                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    run.error?.let {
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                                    }
+                                    if (run.errors.isNotEmpty()) {
+                                        Spacer(Modifier.height(4.dp))
+                                        TextButton(onClick = { showErrors = !showErrors }, contentPadding = PaddingValues(0.dp)) {
+                                            Text(if (showErrors) "Hide ${run.errors.size} issues" else "Show ${run.errors.size} issues", fontSize = 12.sp)
+                                        }
+                                        if (showErrors) run.errors.forEach { e ->
+                                            Text("• ${e.item ?: e.stage ?: ""}: ${e.detail ?: ""}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } else {

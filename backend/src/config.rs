@@ -19,6 +19,21 @@ pub struct Config {
     /// so a backend accidentally (or deliberately) exposed on a public
     /// interface cannot have its sole admin account claimed by a stranger.
     pub allow_remote_setup: bool,
+    /// Email ingestion background poll interval, seconds. `0` disables the poll
+    /// loop (manual `POST /api/ingest/email/sync` still works). Default 900.
+    pub email_sync_poll_secs: u64,
+    /// Max messages processed per email sync run. Default 200.
+    pub email_sync_max_messages: usize,
+    /// Per-attachment size cap for email sync, bytes. Default 15 MiB.
+    pub email_sync_max_attach_bytes: usize,
+}
+
+/// Parse an unsigned-integer env var; unset or unparseable falls back to `default`.
+fn env_uint<T: std::str::FromStr>(key: &str, default: T) -> T {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
 }
 
 /// Parse a boolean-ish environment variable. Truthy values: `1`, `true`, `yes`,
@@ -62,6 +77,9 @@ impl Config {
                 .collect(),
             cookie_secure: env_flag("COOKIE_SECURE", true),
             allow_remote_setup: env_flag("KHATA_ALLOW_REMOTE_SETUP", false),
+            email_sync_poll_secs: env_uint("EMAIL_SYNC_POLL_SECS", 900),
+            email_sync_max_messages: env_uint("EMAIL_SYNC_MAX_MESSAGES", 200),
+            email_sync_max_attach_bytes: env_uint("EMAIL_SYNC_MAX_ATTACH_BYTES", 15 * 1024 * 1024),
         })
     }
 
@@ -101,6 +119,9 @@ mod tests {
             cors_origins: vec![],
             cookie_secure: true,
             allow_remote_setup: false,
+            email_sync_poll_secs: 0,
+            email_sync_max_messages: 200,
+            email_sync_max_attach_bytes: 15 * 1024 * 1024,
         }
     }
 
