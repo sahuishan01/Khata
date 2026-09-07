@@ -15,6 +15,14 @@ pub async fn ask_handler(
         return Err(AppError::BadRequest("question is empty".into()));
     }
 
+    // Reject an over-long question before any sanitization / LLM work. The
+    // sanitizer and predefined matcher are synchronous and run on a Tokio
+    // worker; a multi-KB question is already far larger than any real query.
+    const MAX_QUESTION_LEN: usize = 4096;
+    if req.question.len() > MAX_QUESTION_LEN {
+        return Err(AppError::BadRequest("question is too long".into()));
+    }
+
     // ── Rate limiting: one call per user per 30 seconds ──────────────────
     {
         let mut ratelimit = state.chat_ratelimit.lock().unwrap();

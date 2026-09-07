@@ -1,0 +1,14 @@
+# GitGuardian / ggshield configuration
+# https://docs.gitguardian.com/ggshield-docs/reference/config
+version: 2
+
+secret:
+  ignored-paths:
+    # backend/src/ingest/email.rs: the "Generic Password" hits are the SQL
+    # presence-checks `encrypted_app_password <> ''` / `encrypted_pdf_password <> ''`
+    # (empty-string literals in NULL/empty guards), not credentials. Every real
+    # credential in this file flows through `crypto::encrypt_credential(<request value>)`
+    # and is never a source literal.
+    - "backend/src/ingest/email.rs"
+    - "**/target/**"
+    - "**/node_modules/**"

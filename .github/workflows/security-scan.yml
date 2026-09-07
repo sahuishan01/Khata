@@ -17,11 +17,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Each scanner runs to completion regardless of the others' results; a
+      # single gate step at the end fails the job if any of them found something.
+      # (Previously a failing `npm audit` skipped Trivy, which then made the
+      # SARIF upload error out with "Path does not exist: trivy-results.sarif".)
+
       - name: Run npm audit (frontend)
+        id: npm_audit
         working-directory: frontend
         run: npm audit --audit-level=high
+        continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
+        id: trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
@@ -30,10 +38,25 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
+        continue-on-error: true
 
       - name: Upload Trivy results to GitHub Security
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
+
+      - name: Fail if any scanner reported findings
+        if: always()
+        run: |
+          fail=0
+          if [ "${{ steps.npm_audit.outcome }}" = "failure" ]; then
+            echo "::error::npm audit found HIGH+ advisories in frontend/"
+            fail=1
+          fi
+          if [ "${{ steps.trivy.outcome }}" = "failure" ]; then
+            echo "::error::Trivy found HIGH/CRITICAL vulnerabilities (see the Security tab)"
+            fail=1
+          fi
+          exit $fail

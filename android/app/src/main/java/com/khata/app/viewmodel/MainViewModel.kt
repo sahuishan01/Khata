@@ -55,7 +55,7 @@ class MainViewModel @Inject constructor(
     fun checkAuth() { viewModelScope.launch {
         try {
             val sr = repository.checkSetupStatus()
-            if (!sr) { try { val u = repository.getMe(); _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, user = u) } catch (_: Exception) { _authState.value = AuthUiState(isChecking = false) } }
+            if (!sr) { try { val u = repository.getMe(); _authState.value = AuthUiState(isChecking = false, isLoggedIn = true, mustResetPassword = u.mustResetPassword, user = if (u.mustResetPassword) null else u) } catch (_: Exception) { _authState.value = AuthUiState(isChecking = false) } }
             else { _authState.value = AuthUiState(isChecking = false, setupRequired = true) }
         } catch (_: Exception) { _authState.value = AuthUiState(isChecking = false, setupRequired = true) }
     }}
