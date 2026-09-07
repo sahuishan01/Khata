@@ -14,6 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.CreateTxnReq
+import com.khata.app.api.SaveEmailConfigReq
+import com.khata.app.api.UserEmailConfigResponse
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -23,7 +25,9 @@ fun CombinedUploadScreen(
     onPickFile: () -> Unit,
     onClearResult: () -> Unit,
     onClearAllData: () -> Unit,
-    onAddTxn: (CreateTxnReq) -> Unit
+    onAddTxn: (CreateTxnReq) -> Unit,
+    onSaveGmail: (SaveEmailConfigReq, (String) -> Unit) -> Unit = { _, cb -> cb("Error: not wired") },
+    onLoadGmailConfig: ((UserEmailConfigResponse?) -> Unit) -> Unit = { it(null) }
 ) {
     var tab by remember { mutableStateOf(1) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -79,6 +83,19 @@ fun CombinedUploadScreen(
                 var appPassInput by remember { mutableStateOf("") }
                 var pdfPassInput by remember { mutableStateOf("") }
                 var statusMsg by remember { mutableStateOf("") }
+                var saving by remember { mutableStateOf(false) }
+                var hasStoredKey by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    onLoadGmailConfig { cfg ->
+                        if (cfg != null) {
+                            hasStoredKey = true
+                            if (emailInput.isBlank()) emailInput = cfg.emailAddress
+                            statusMsg = "A Gmail key is already stored" +
+                                (cfg.lastError?.let { " · last error: $it" } ?: "")
+                        }
+                    }
+                }
 
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     Text("Automated Gmail Statement Sync", fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -100,14 +117,37 @@ fun CombinedUploadScreen(
                         Spacer(Modifier.height(8.dp))
                     }
 
-                    Button(onClick = {
-                        if (emailInput.isNotBlank() && appPassInput.isNotBlank()) {
-                            statusMsg = "Gmail configuration saved securely!"
-                        }
-                    }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp)) {
+                    Button(
+                        onClick = {
+                            val email = emailInput.trim()
+                            val appPass = appPassInput.trim()
+                            if (email.isBlank() || (appPass.isBlank() && !hasStoredKey)) {
+                                statusMsg = "Enter your Gmail address and App Password."
+                                return@Button
+                            }
+                            saving = true
+                            statusMsg = "Sending to server…"
+                            onSaveGmail(
+                                SaveEmailConfigReq(
+                                    emailAddress = email,
+                                    appPassword = appPass,
+                                    pdfPassword = pdfPassInput.trim().ifBlank { null },
+                                )
+                            ) { msg ->
+                                saving = false
+                                statusMsg = msg
+                                if (!msg.startsWith("Error")) {
+                                    appPassInput = ""; pdfPassInput = ""; hasStoredKey = true
+                                }
+                            }
+                        },
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
                         Icon(Icons.Default.Lock, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Save Encrypted Config")
+                        Text(if (saving) "Saving…" else "Save Encrypted Config")
                     }
                 }
             } else {
