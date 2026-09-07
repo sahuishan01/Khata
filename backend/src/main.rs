@@ -81,6 +81,9 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     fmt().with_env_filter(EnvFilter::from_default_env()).init();
 
+    // Pin the rustls crypto provider process-wide (used by the IMAP client).
+    let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
+
     let cfg = Arc::new(config::Config::from_env()?);
     let db = db::make_pool(&cfg.database_url).await?;
     let db_ro = db::make_pool(&cfg.ro_database_url).await?;

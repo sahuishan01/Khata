@@ -119,9 +119,13 @@ async fn execute(state: &AppState, user_id: Uuid, run_id: Uuid, cfg: EmailConfig
     )
     .context("decrypt app password")?;
 
-    let mailbox = RustlsImap::connect(&cfg.imap_server, &cfg.email_address, &app_password)
-        .await
-        .context("IMAP connect")?;
+    let mailbox = tokio::time::timeout(
+        std::time::Duration::from_secs(45),
+        RustlsImap::connect(&cfg.imap_server, &cfg.email_address, &app_password),
+    )
+    .await
+    .map_err(|_| anyhow!("IMAP connect timed out"))?
+    .context("IMAP connect")?;
     // app_password dropped here
 
     let counters = drive(state, user_id, run_id, &cfg, mailbox).await?;
