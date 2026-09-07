@@ -5,6 +5,7 @@
 //! and AES-256, so the worker and the manual upload handler both pipe suspect
 //! PDFs through it before parsing.
 
+use std::io::Write;
 use std::process::Stdio;
 
 use anyhow::{anyhow, Context, Result};
@@ -20,19 +21,22 @@ pub fn is_encrypted(bytes: &[u8]) -> bool {
 /// unchanged. An incorrect password (or a qpdf failure) is an `Err`.
 pub fn decrypt_pdf(bytes: &[u8], password: &str) -> Result<Vec<u8>> {
     // qpdf 10.x requires a real input file; the output may be `-` (stdout).
-    let in_path = std::env::temp_dir().join(format!(
-        "khata-pdf-{}-{}.pdf",
-        std::process::id(),
-        nonce()
-    ));
-    std::fs::write(&in_path, bytes).context("stage PDF for qpdf")?;
-    let _guard = RemoveOnDrop(in_path.clone());
+    // NamedTempFile creates the file with O_EXCL + mode 0600 and an
+    // unpredictable name, so a pre-planted symlink in /tmp can't redirect the
+    // write. It's removed on drop.
+    let mut in_file = tempfile::Builder::new()
+        .prefix("khata-pdf-")
+        .suffix(".pdf")
+        .tempfile()
+        .context("create temp file for qpdf")?;
+    in_file.write_all(bytes).context("stage PDF for qpdf")?;
+    in_file.flush().ok();
 
     let out = std::process::Command::new("qpdf")
         .arg(format!("--password={password}"))
         .arg("--decrypt")
         .arg("--stream-data=preserve")
-        .arg(&in_path)
+        .arg(in_file.path())
         .arg("-")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -51,21 +55,6 @@ pub fn decrypt_pdf(bytes: &[u8], password: &str) -> Result<Vec<u8>> {
     let stderr = String::from_utf8_lossy(&out.stderr);
     let first = stderr.lines().next().unwrap_or("qpdf failed").trim();
     Err(anyhow!("qpdf: {first}"))
-}
-
-fn nonce() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
-}
-
-struct RemoveOnDrop(std::path::PathBuf);
-impl Drop for RemoveOnDrop {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
 }
 
 #[cfg(test)]
