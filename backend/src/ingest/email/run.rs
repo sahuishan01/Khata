@@ -79,11 +79,23 @@ pub async fn sync_user(state: AppState, user_id: Uuid, trigger: Trigger) -> Resu
     let run_id = start_run(&state.db, user_id, trigger, full_scan).await?;
 
     // The actual work runs detached so a manual trigger returns immediately.
+    // catch_unwind so a panic in a dependency (pdf-extract, mail-parser…) marks
+    // the run errored instead of leaving it stuck 'running'.
     let st = state.clone();
     tokio::spawn(async move {
-        let result = execute(&st, user_id, run_id, cfg).await;
-        if let Err(e) = &result {
-            let msg = format!("{e:#}");
+        use futures::FutureExt;
+        let outcome = std::panic::AssertUnwindSafe(execute(&st, user_id, run_id, cfg))
+            .catch_unwind()
+            .await;
+        let err = match outcome {
+            Ok(Ok(())) => None,
+            Ok(Err(e)) => Some(format!("{e:#}")),
+            Err(p) => Some(format!(
+                "internal error: {}",
+                p.downcast_ref::<&str>().copied().unwrap_or("panic")
+            )),
+        };
+        if let Some(msg) = err {
             let _ = finish_run_error(&st.db, user_id, run_id, &msg).await;
             tracing::warn!(%user_id, %run_id, "email sync run failed: {msg}");
         }
@@ -259,11 +271,10 @@ async fn process_attachment(
     };
 
     // Two-pass parse: generic profile for the bank hint, then the real profile.
-    let (_, _, hint) = crate::ingest::parse::parse_file(&bytes, kind.clone(), profiles.last().unwrap())
-        .map_err(|e| anyhow!("parse: {e}"))?;
+    // pdf-extract can panic on malformed PDFs — contain it per-attachment.
+    let (_, _, hint) = safe_parse(&bytes, kind.clone(), profiles.last().unwrap())?;
     let profile = detect_bank(profiles, &hint);
-    let (raw_rows, _, _) = crate::ingest::parse::parse_file(&bytes, kind, profile)
-        .map_err(|e| anyhow!("parse: {e}"))?;
+    let (raw_rows, _, _) = safe_parse(&bytes, kind, profile)?;
 
     if raw_rows.is_empty() || profile.name == "GENERIC" {
         counters.push_error("parse", filename, "not recognised as a supported bank statement");
@@ -302,6 +313,21 @@ async fn process_attachment(
     counters.txns_imported += inserted as i32;
     counters.txns_skipped += skipped as i32;
     Ok(())
+}
+
+type ParseOut = (Vec<crate::ingest::models::RawRow>, Vec<String>, String);
+
+/// `parse_file` but a panic (pdf-extract on a malformed PDF) becomes an `Err`.
+fn safe_parse(
+    bytes: &[u8],
+    kind: crate::ingest::detect::FileKind,
+    profile: &crate::ingest::profiles::BankProfile,
+) -> Result<ParseOut> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        crate::ingest::parse::parse_file(bytes, kind, profile)
+    }))
+    .map_err(|_| anyhow!("parser crashed on this file"))?
+    .map_err(|e| anyhow!("parse: {e}"))
 }
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
