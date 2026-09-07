@@ -25,7 +25,7 @@ fn password_reset_required_response() -> Response {
         .into_response()
 }
 
-fn jwt_validation() -> Validation {
+pub(crate) fn jwt_validation() -> Validation {
     let mut v = Validation::new(Algorithm::HS256);
     v.set_issuer(&["khata"]);
     v.set_audience(&["khata-api"]);
