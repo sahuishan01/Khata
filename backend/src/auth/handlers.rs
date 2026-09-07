@@ -155,7 +155,7 @@ pub async fn setup_handler(
     if let Ok(claims) = jsonwebtoken::decode::<serde_json::Value>(
         &token,
         &jsonwebtoken::DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
-        &jsonwebtoken::Validation::default(),
+        &super::middleware::jwt_validation(),
     ) {
         let sub = claims.claims.get("sub").and_then(|v| v.as_str());
         if let Some(uid_str) = sub {
@@ -210,7 +210,7 @@ pub async fn login_handler(
     if let Ok(claims) = jsonwebtoken::decode::<serde_json::Value>(
         &token,
         &jsonwebtoken::DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
-        &jsonwebtoken::Validation::default(),
+        &super::middleware::jwt_validation(),
     ) {
         let sub = claims.claims.get("sub").and_then(|v| v.as_str());
         if let Some(uid_str) = sub {
