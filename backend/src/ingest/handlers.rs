@@ -88,21 +88,51 @@ pub async fn upload_handler(
 
         validate_upload(&filename, &bytes)?;
 
-        let sha = hex::encode(Sha256::digest(&bytes));
+        let kind = detect_file_kind(&filename);
+
+        // Transparently decrypt password-protected statement PDFs using the
+        // user's stored statement password (same key the email worker uses).
+        let bytes: std::borrow::Cow<'_, [u8]> = if kind == super::detect::FileKind::Pdf
+            && super::email::pdf_decrypt::is_encrypted(&bytes)
+        {
+            let stored: Option<(String,)> = sqlx::query_as(
+                "SELECT encrypted_pdf_password FROM user_email_configs \
+                 WHERE user_id = $1 AND encrypted_pdf_password IS NOT NULL AND encrypted_pdf_password <> ''",
+            )
+            .bind(user_id)
+            .fetch_optional(&state.db)
+            .await?;
+            match stored {
+                Some((enc,)) => {
+                    let pw = super::crypto::decrypt_credential(
+                        &enc, &state.config.jwt_secret, &user_id.to_string(),
+                    )
+                    .map_err(|_| AppError::BadRequest("Could not read stored statement password".into()))?;
+                    let plain = super::email::pdf_decrypt::decrypt_pdf(&bytes, &pw)
+                        .map_err(|e| AppError::BadRequest(format!("Encrypted PDF: {e}")))?;
+                    std::borrow::Cow::Owned(plain)
+                }
+                None => return Err(AppError::BadRequest(
+                    "This PDF is password-protected. Add your statement password under Gmail Sync first.".into(),
+                )),
+            }
+        } else {
+            std::borrow::Cow::Borrowed(&bytes[..])
+        };
+
+        let sha = hex::encode(Sha256::digest(bytes.as_ref()));
 
         let mut tx = state.db.begin().await?;
         crate::db::set_current_user(&mut *tx, user_id).await?;
 
-        let kind = detect_file_kind(&filename);
-
         // First pass: generic profile → get full file hint text for bank detection
-        let (_, _, file_hint) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
+        let (_, _, file_hint) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let profile = detect_bank(&profiles, &file_hint);
 
         // Second pass: correct profile
-        let (raw_rows, _, _) = parse_file(&bytes, kind, profile)
+        let (raw_rows, _, _) = parse_file(bytes.as_ref(), kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let rows_parsed = raw_rows.len();
@@ -179,12 +209,12 @@ pub async fn debug_headers_handler(
 
         let kind = detect_file_kind(&filename);
 
-        let (_, _, file_hint) = parse_file(&bytes, kind.clone(), profiles.last().unwrap())
+        let (_, _, file_hint) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let profile = detect_bank(&profiles, &file_hint);
 
-        let (raw_rows, headers, _) = parse_file(&bytes, kind, profile)
+        let (raw_rows, headers, _) = parse_file(bytes.as_ref(), kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let col = |aliases: &[&str]| -> serde_json::Value {

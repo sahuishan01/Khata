@@ -66,6 +66,8 @@ class KhataRepository @Inject constructor(
     suspend fun getEmailConfig(): UserEmailConfigResponse? = api.getEmailConfig()
     suspend fun saveEmailConfig(req: SaveEmailConfigReq): UserEmailConfigResponse = api.saveEmailConfig(req)
     suspend fun syncEmailNow(): MessageResponse = api.syncEmailNow()
+    suspend fun latestEmailRun(): EmailSyncRun? = api.latestEmailRun()
+    suspend fun listEmailRuns(): List<EmailSyncRun> = api.listEmailRuns()
 
     suspend fun getChatHistory(): List<ChatHistoryResponse> = api.chatHistory()
     suspend fun askChat(question: String): ChatAskResponse = api.chatAsk(ChatAskRequest(question))

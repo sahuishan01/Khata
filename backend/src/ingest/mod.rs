@@ -23,5 +23,7 @@ pub fn router() -> Router<AppState> {
         .route("/email/config", put(email::save_email_config_handler))
         .route("/email/config", delete(email::delete_email_config_handler))
         .route("/email/sync", post(email::trigger_email_sync_handler))
+        .route("/email/runs", get(email::list_runs_handler))
+        .route("/email/runs/latest", get(email::latest_run_handler))
         .layer(RequestBodyLimitLayer::new(12 * 1024 * 1024)) // 12 MB
 }
