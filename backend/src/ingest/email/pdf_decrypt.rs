@@ -11,8 +11,56 @@ use std::process::Stdio;
 use anyhow::{anyhow, Context, Result};
 
 /// Cheap check: does the raw PDF declare an `/Encrypt` dictionary?
+///
+/// The bare `/Encrypt` token can appear inside content streams, names or
+/// annotations, so a plain substring scan gives false positives that then get
+/// force-fed to `qpdf`. A real encryption dict is `/Encrypt N G R` (indirect
+/// reference, the common case) or `/Encrypt <<…>>` (inline) in the trailer, so
+/// require one of those shapes.
 pub fn is_encrypted(bytes: &[u8]) -> bool {
-    bytes.windows(8).any(|w| w == b"/Encrypt")
+    const NEEDLE: &[u8] = b"/Encrypt";
+    let is_ws = |b: u8| matches!(b, b' ' | b'\t' | b'\r' | b'\n' | b'\x0c' | b'\0');
+    bytes.windows(NEEDLE.len()).enumerate().any(|(i, w)| {
+        if w != NEEDLE {
+            return false;
+        }
+        let mut rest = &bytes[i + NEEDLE.len()..];
+        // Must be a delimiter right after the token, not e.g. "/Encryptable".
+        match rest.first() {
+            Some(&b) if is_ws(b) || b == b'<' => {}
+            _ => return false,
+        }
+        while let Some(&b) = rest.first() {
+            if is_ws(b) {
+                rest = &rest[1..];
+            } else {
+                break;
+            }
+        }
+        if rest.starts_with(b"<<") {
+            return true;
+        }
+        // Indirect reference: <digits> <ws>+ <digits> <ws>+ R
+        fn skip_digits(s: &[u8]) -> Option<&[u8]> {
+            let n = s.iter().take_while(|b| b.is_ascii_digit()).count();
+            (n > 0).then(|| &s[n..])
+        }
+        fn skip_ws1(s: &[u8]) -> Option<&[u8]> {
+            let n = s
+                .iter()
+                .take_while(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n' | b'\x0c' | b'\0'))
+                .count();
+            (n > 0).then(|| &s[n..])
+        }
+        fn is_indirect_ref(s: &[u8]) -> Option<()> {
+            let s = skip_digits(s)?;
+            let s = skip_ws1(s)?;
+            let s = skip_digits(s)?;
+            let s = skip_ws1(s)?;
+            s.starts_with(b"R").then_some(())
+        }
+        is_indirect_ref(rest).is_some()
+    })
 }
 
 /// Return a decrypted copy of `bytes` using `password`.
@@ -52,9 +100,25 @@ pub fn decrypt_pdf(bytes: &[u8], password: &str) -> Result<Vec<u8>> {
         return Ok(out.stdout);
     }
 
+    // qpdf emits recoverable `WARNING:` lines first and the fatal error last,
+    // so the first line ("reported number of objects…") is usually noise. Pick
+    // the last meaningful line: skip blank lines and qpdf's generic summary.
     let stderr = String::from_utf8_lossy(&out.stderr);
-    let first = stderr.lines().next().unwrap_or("qpdf failed").trim();
-    Err(anyhow!("qpdf: {first}"))
+    let msg = stderr
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with("qpdf: operation"))
+        .filter(|l| !l.starts_with("WARNING:"))
+        .last()
+        .or_else(|| {
+            stderr
+                .lines()
+                .map(str::trim)
+                .rev()
+                .find(|l| !l.is_empty() && !l.starts_with("qpdf: operation"))
+        })
+        .unwrap_or("qpdf failed");
+    Err(anyhow!("qpdf: {msg}"))
 }
 
 #[cfg(test)]
@@ -64,7 +128,17 @@ mod tests {
     #[test]
     fn is_encrypted_detects_token() {
         assert!(is_encrypted(b"%PDF-1.6\n... /Encrypt 12 0 R ..."));
+        assert!(is_encrypted(b"trailer<</Size 9/Root 1 0 R/Encrypt 8 0 R>>"));
+        assert!(is_encrypted(b"<</Filter/Standard/Encrypt<</V 4>>>>"));
         assert!(!is_encrypted(b"%PDF-1.4\nplain document"));
+    }
+
+    #[test]
+    fn is_encrypted_ignores_false_positives() {
+        // Bare token in a content stream, not followed by a ref or dict.
+        assert!(!is_encrypted(b"BT (/Encrypt this text) Tj ET"));
+        assert!(!is_encrypted(b"/Encryptable 3 0 R"));
+        assert!(!is_encrypted(b"/Encrypt/Foo"));
     }
 
     #[test]
