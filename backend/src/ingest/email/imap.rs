@@ -88,8 +88,14 @@ pub struct RustlsImap {
 }
 
 impl RustlsImap {
-    /// Connect, LOGIN, SELECT INBOX.
-    pub async fn connect(server: &str, user: &str, app_password: &str) -> Result<Self> {
+    /// Connect, LOGIN, SELECT `folder` (falling back to INBOX when it does not
+    /// exist — e.g. non-Gmail servers that have no `[Gmail]/All Mail`).
+    pub async fn connect(
+        server: &str,
+        user: &str,
+        app_password: &str,
+        folder: &str,
+    ) -> Result<Self> {
         let (host, port) = split_host_port(server);
 
         let mut roots = RootCertStore::empty();
@@ -117,7 +123,13 @@ impl RustlsImap {
             .await
             .map_err(|(e, _)| anyhow!("IMAP login failed: {e}"))?;
 
-        let mailbox = session.select("INBOX").await.context("SELECT INBOX")?;
+        let mailbox = match session.select(folder).await {
+            Ok(mb) => mb,
+            Err(_) if folder != "INBOX" => {
+                session.select("INBOX").await.context("SELECT INBOX")?
+            }
+            Err(e) => return Err(e).with_context(|| format!("SELECT {folder}")),
+        };
         let uid_validity = mailbox.uid_validity;
 
         Ok(Self { session, uid_validity })
@@ -146,7 +158,11 @@ impl Mailbox for RustlsImap {
             .with_context(|| format!("UID SEARCH {query}"))?;
         let mut uids: Vec<u32> = hits.into_iter().collect();
         uids.sort_unstable();
-        uids.truncate(limit);
+        // Keep the newest `limit` UIDs — on a full-mailbox scan the recent
+        // statements are what matter, not the oldest mail in the account.
+        if uids.len() > limit {
+            uids.drain(..uids.len() - limit);
+        }
         Ok(uids)
     }
 

@@ -17,8 +17,19 @@ import com.khata.app.api.CreateTxnReq
 import com.khata.app.api.EmailSyncRun
 import com.khata.app.api.SaveEmailConfigReq
 import com.khata.app.api.UserEmailConfigResponse
+import com.khata.app.ui.components.shared.CopyButton
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
+private fun EmailSyncRun.summaryText(): String = buildString {
+    appendLine("Khata email sync run $id")
+    appendLine("status: $status  trigger: $trigger  full_scan: $fullScan")
+    appendLine("started: $startedAt  finished: ${finishedAt ?: "—"}")
+    appendLine("messages_scanned: $messagesScanned  attachments_seen: $attachmentsSeen  attachments_parsed: $attachmentsParsed")
+    appendLine("txns_imported: $txnsImported  txns_skipped: $txnsSkipped")
+    error?.let { appendLine("fatal_error: $it") }
+    errors.forEachIndexed { i, e -> appendLine("error[$i]: [${e.stage ?: "?"}] ${e.item ?: ""} — ${e.detail ?: ""}") }
+}.trim()
 
 @Composable
 fun CombinedUploadScreen(
@@ -78,13 +89,15 @@ fun CombinedUploadScreen(
                     resultMessage?.let { msg ->
                         Spacer(Modifier.height(12.dp))
                         Surface(shape = MaterialTheme.shapes.medium, color = if (msg.startsWith("Error")) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer) { Text(msg, modifier = Modifier.padding(12.dp), fontSize = 13.sp) }
-                        if (!msg.startsWith("Error")) { Spacer(Modifier.height(4.dp)); TextButton(onClick = onClearResult) { Text("Dismiss") } }
+                        if (msg.startsWith("Error")) CopyButton(msg, "Copy error")
+                        else { Spacer(Modifier.height(4.dp)); TextButton(onClick = onClearResult) { Text("Dismiss") } }
                     }
                 }
             } else if (tab == 2) {
                 var emailInput by remember { mutableStateOf("") }
                 var appPassInput by remember { mutableStateOf("") }
                 var pdfPassInput by remember { mutableStateOf("") }
+                var folderInput by remember { mutableStateOf("[Gmail]/All Mail") }
                 var statusMsg by remember { mutableStateOf("") }
                 var saving by remember { mutableStateOf(false) }
                 var hasStoredKey by remember { mutableStateOf(false) }
@@ -96,6 +109,7 @@ fun CombinedUploadScreen(
                         if (cfg != null) {
                             hasStoredKey = true
                             if (emailInput.isBlank()) emailInput = cfg.emailAddress
+                            cfg.imapFolder?.let { folderInput = it }
                         }
                     }
                 }
@@ -121,10 +135,14 @@ fun CombinedUploadScreen(
                     Text("Generate at myaccount.google.com/apppasswords", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = pdfPassInput, onValueChange = { pdfPassInput = it }, placeholder = { Text("Statement Password (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = folderInput, onValueChange = { folderInput = it }, label = { Text("IMAP folder", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Text("Default scans all mail — statement emails are usually auto-archived out of the inbox.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(16.dp))
 
                     if (statusMsg.isNotBlank()) {
-                        Text(statusMsg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                        Text(statusMsg, fontSize = 12.sp, color = if (statusMsg.startsWith("Error")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        if (statusMsg.startsWith("Error")) CopyButton(statusMsg, "Copy error")
                         Spacer(Modifier.height(8.dp))
                     }
 
@@ -143,6 +161,7 @@ fun CombinedUploadScreen(
                                     emailAddress = email,
                                     appPassword = appPass,
                                     pdfPassword = pdfPassInput.trim().ifBlank { null },
+                                    imapFolder = folderInput.trim().ifBlank { "[Gmail]/All Mail" },
                                 )
                             ) { msg ->
                                 saving = false
@@ -203,6 +222,14 @@ fun CombinedUploadScreen(
                                             Text("• ${e.item ?: e.stage ?: ""}: ${e.detail ?: ""}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
+                                    if (run.status == "ok" && run.messagesScanned == 0) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "No matching emails found. Statement mails are often archived out of the inbox — the scan now covers all mail.",
+                                            fontSize = 11.sp, color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    CopyButton(run.summaryText(), "Copy details")
                                 }
                             }
                         }
@@ -236,7 +263,7 @@ fun CombinedUploadScreen(
                     // Notes
                     OutlinedTextField(value = notes, onValueChange = { notes = it }, placeholder = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
                     Spacer(Modifier.height(12.dp))
-                    if (error.isNotBlank()) { Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.error); Spacer(Modifier.height(8.dp)) }
+                    if (error.isNotBlank()) { Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.error); CopyButton(error, "Copy error"); Spacer(Modifier.height(8.dp)) }
                     if (success.isNotBlank()) { Text(success, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary); Spacer(Modifier.height(8.dp)) }
                     Button(onClick = {
                         if (desc.isBlank() || amount.isBlank()) { error = "Fill required fields"; return@Button }

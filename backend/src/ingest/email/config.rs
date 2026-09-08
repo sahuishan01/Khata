@@ -12,6 +12,7 @@ use crate::ingest::crypto;
 pub struct UserEmailConfigResponse {
     pub email_address: String,
     pub imap_server: String,
+    pub imap_folder: String,
     pub sync_enabled: bool,
     pub last_synced_at: Option<chrono::DateTime<chrono::Utc>>,
     pub last_error: Option<String>,
@@ -30,6 +31,9 @@ pub struct SaveEmailConfigReq {
     pub app_password: Option<String>,
     pub pdf_password: Option<String>,
     pub imap_server: Option<String>,
+    /// IMAP folder to scan. Defaults to `[Gmail]/All Mail` (statements are
+    /// usually auto-archived out of the inbox).
+    pub imap_folder: Option<String>,
     pub sync_enabled: Option<bool>,
     /// Optional IMAP `FROM` filter — any match. Replaces the stored list when present.
     pub sender_allowlist: Option<Vec<String>>,
@@ -52,10 +56,10 @@ pub async fn get_email_config_handler(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let row: Option<(
-        String, String, bool, Option<chrono::DateTime<chrono::Utc>>, Option<String>,
+        String, String, String, bool, Option<chrono::DateTime<chrono::Utc>>, Option<String>,
         bool, bool, Option<Vec<String>>, Option<Vec<String>>,
     )> = sqlx::query_as(
-        "SELECT email_address, imap_server, sync_enabled, last_synced_at, last_error, \
+        "SELECT email_address, imap_server, imap_folder, sync_enabled, last_synced_at, last_error, \
                 (encrypted_app_password IS NOT NULL AND encrypted_app_password <> ''), \
                 (encrypted_pdf_password IS NOT NULL AND encrypted_pdf_password <> ''), \
                 sender_allowlist, subject_patterns \
@@ -67,10 +71,11 @@ pub async fn get_email_config_handler(
     tx.commit().await?;
 
     Ok(Json(row.map(|(
-        email, imap, enabled, last_synced, last_err, has_app, has_pdf, senders, subjects,
+        email, imap, folder, enabled, last_synced, last_err, has_app, has_pdf, senders, subjects,
     )| UserEmailConfigResponse {
         email_address: email,
         imap_server: imap,
+        imap_folder: folder,
         sync_enabled: enabled,
         last_synced_at: last_synced,
         last_error: last_err,
@@ -98,6 +103,13 @@ pub async fn save_email_config_handler(
         _ => None,
     };
     let imap = req.imap_server.clone().unwrap_or_else(|| "imap.gmail.com:993".to_string());
+    let folder = req
+        .imap_folder
+        .as_deref()
+        .map(str::trim)
+        .filter(|f| !f.is_empty())
+        .unwrap_or("[Gmail]/All Mail")
+        .to_string();
     let enabled = req.sync_enabled.unwrap_or(true);
 
     let mut tx = state.db.begin().await?;
@@ -123,25 +135,27 @@ pub async fn save_email_config_handler(
     sqlx::query(
         "INSERT INTO user_email_configs \
          (user_id, email_address, encrypted_app_password, encrypted_pdf_password, imap_server, \
-          sync_enabled, sender_allowlist, subject_patterns) \
-         VALUES ($1,$2,COALESCE($3,''),$4,$5,$6,$7,$8) \
+          imap_folder, sync_enabled, sender_allowlist, subject_patterns) \
+         VALUES ($1,$2,COALESCE($3,''),$4,$5,$6,$7,$8,$9) \
          ON CONFLICT (user_id) DO UPDATE SET \
             email_address = EXCLUDED.email_address, \
             encrypted_app_password = COALESCE($3, user_email_configs.encrypted_app_password), \
             encrypted_pdf_password = COALESCE($4, user_email_configs.encrypted_pdf_password), \
             imap_server = EXCLUDED.imap_server, \
+            imap_folder = EXCLUDED.imap_folder, \
             sync_enabled = EXCLUDED.sync_enabled, \
-            sender_allowlist = COALESCE($7, user_email_configs.sender_allowlist), \
-            subject_patterns = COALESCE($8, user_email_configs.subject_patterns), \
+            sender_allowlist = COALESCE($8, user_email_configs.sender_allowlist), \
+            subject_patterns = COALESCE($9, user_email_configs.subject_patterns), \
             last_error = NULL, \
-            last_synced_at = CASE WHEN $9 THEN NULL ELSE user_email_configs.last_synced_at END, \
-            last_uid = CASE WHEN $9 THEN NULL ELSE user_email_configs.last_uid END",
+            last_synced_at = CASE WHEN $10 THEN NULL ELSE user_email_configs.last_synced_at END, \
+            last_uid = CASE WHEN $10 THEN NULL ELSE user_email_configs.last_uid END",
     )
     .bind(user_id)
     .bind(&req.email_address)
     .bind(&new_app_pass)
     .bind(&new_pdf_pass)
     .bind(&imap)
+    .bind(&folder)
     .bind(enabled)
     .bind(req.sender_allowlist.as_deref())
     .bind(req.subject_patterns.as_deref())
@@ -172,6 +186,7 @@ pub async fn save_email_config_handler(
         config: UserEmailConfigResponse {
             email_address: req.email_address,
             imap_server: imap,
+            imap_folder: folder,
             sync_enabled: enabled,
             last_synced_at: None,
             last_error: None,

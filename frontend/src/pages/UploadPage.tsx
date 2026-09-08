@@ -1,6 +1,36 @@
 import { useState, useRef } from 'react'
 import { api } from '../api/client'
 import { Upload, CheckCircle, AlertTriangle, Plus } from 'lucide-react'
+import { CopyButton } from '../components/shared/CopyButton'
+
+interface EmailSyncRun {
+  id: string
+  started_at: string
+  finished_at?: string
+  status: string
+  trigger: string
+  full_scan: boolean
+  messages_scanned: number
+  attachments_seen: number
+  attachments_parsed: number
+  txns_imported: number
+  txns_skipped: number
+  errors: { stage?: string; item?: string; detail?: string }[]
+  error?: string
+}
+
+const runSummary = (r: EmailSyncRun) =>
+  [
+    `Khata email sync run ${r.id}`,
+    `status: ${r.status}  trigger: ${r.trigger}  full_scan: ${r.full_scan}`,
+    `started: ${r.started_at}  finished: ${r.finished_at ?? '—'}`,
+    `messages_scanned: ${r.messages_scanned}  attachments_seen: ${r.attachments_seen}  attachments_parsed: ${r.attachments_parsed}`,
+    `txns_imported: ${r.txns_imported}  txns_skipped: ${r.txns_skipped}`,
+    r.error ? `fatal_error: ${r.error}` : null,
+    ...(r.errors ?? []).map((e, i) => `error[${i}]: [${e.stage ?? '?'}] ${e.item ?? ''} — ${e.detail ?? ''}`),
+  ]
+    .filter(Boolean)
+    .join('\n')
 
 export function UploadPage() {
   const [tab, setTab] = useState<'upload' | 'email' | 'manual'>('email')
@@ -45,19 +75,30 @@ export function UploadPage() {
     } finally { setLoading(false) }
   }
 
-  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; sync_enabled: boolean; last_synced_at?: string; last_error?: string; has_app_password?: boolean; has_pdf_password?: boolean } | null>(null)
+  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; imap_folder?: string; sync_enabled: boolean; last_synced_at?: string; last_error?: string; has_app_password?: boolean; has_pdf_password?: boolean } | null>(null)
   const [emailInput, setEmailInput] = useState('')
+  const [folderInput, setFolderInput] = useState('')
   const [appPasswordInput, setAppPasswordInput] = useState('')
   const [pdfPasswordInput, setPdfPasswordInput] = useState('')
   const [emailMsg, setEmailMsg] = useState('')
   const [editingCreds, setEditingCreds] = useState(false)
+  const [latestRun, setLatestRun] = useState<EmailSyncRun | null>(null)
+
+  const fetchLatestRun = async () => {
+    try {
+      const { data } = await api.get('/ingest/email/runs/latest')
+      setLatestRun(data)
+    } catch { /* ignored */ }
+  }
 
   const fetchEmailConfig = async () => {
     try {
       const { data } = await api.get('/ingest/email/config')
       setEmailConfig(data)
       if (data?.email_address) setEmailInput(data.email_address)
+      setFolderInput(data?.imap_folder ?? '[Gmail]/All Mail')
     } catch { /* ignored */ }
+    fetchLatestRun()
   }
 
   const hasExistingKey = !!emailConfig?.has_app_password
@@ -71,6 +112,7 @@ export function UploadPage() {
         email_address: emailInput,
         app_password: appPasswordInput || undefined,
         pdf_password: pdfPasswordInput || undefined,
+        imap_folder: folderInput || undefined,
       })
       setAppPasswordInput('')
       setPdfPasswordInput('')
@@ -93,6 +135,8 @@ export function UploadPage() {
     try {
       const { data } = await api.post('/ingest/email/sync')
       setResult({ type: 'email', message: data.message })
+      // The run is detached; give it a moment then pull the result in.
+      setTimeout(fetchLatestRun, 4000)
     } catch (e: any) {
       setError(e.response?.data?.error ?? 'Sync failed')
     } finally { setLoading(false) }
@@ -139,7 +183,12 @@ export function UploadPage() {
                 <AlertTriangle size={15} /><span><strong>{result!.rows_parsed} rows found but 0 could be parsed.</strong> Bank detected: <strong>{result!.bank_detected}</strong></span>
               </div>
             )}
-            {error && <div className="flex items-center gap-2 mt-3 text-error"><AlertTriangle size={14} />{error}</div>}
+            {error && (
+              <div className="flex items-center gap-2 mt-3 text-error" style={{ flexWrap: 'wrap' }}>
+                <AlertTriangle size={14} />{error}
+                <CopyButton text={error} label="Copy" />
+              </div>
+            )}
           </div>
         ) : tab === 'email' ? (
           <div className="card">
@@ -149,13 +198,51 @@ export function UploadPage() {
             </p>
 
             {emailMsg && <p className="text-success mb-3" style={{ fontSize: 13 }}>{emailMsg}</p>}
-            {error && <p className="text-error mb-3" style={{ fontSize: 13 }}>{error}</p>}
+            {error && (
+              <div className="flex items-center gap-2 mb-3 text-error" style={{ fontSize: 13, flexWrap: 'wrap' }}>
+                <span>{error}</span>
+                <CopyButton text={error} label="Copy" />
+              </div>
+            )}
             {result?.type === 'email' && <p className="text-success mb-3" style={{ fontSize: 13 }}>{result.message}</p>}
+
+            {latestRun && (
+              <div style={{ background: 'var(--surface-2)', padding: 14, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+                <div className="flex items-center gap-2" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: 13 }}>
+                    Last sync:{' '}
+                    <span style={{ color: latestRun.status === 'ok' ? 'var(--income)' : latestRun.status === 'error' ? 'var(--expense)' : 'var(--warn)' }}>
+                      {latestRun.status}
+                    </span>
+                  </strong>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <CopyButton text={runSummary(latestRun)} label="Copy details" />
+                    <button className="btn btn-secondary btn-sm" onClick={fetchLatestRun}>Refresh</button>
+                  </div>
+                </div>
+                <div style={{ color: 'var(--text-2)', marginTop: 6 }}>
+                  {latestRun.messages_scanned} emails scanned · {latestRun.attachments_seen} attachments · {latestRun.txns_imported} imported · {latestRun.txns_skipped} skipped
+                </div>
+                {latestRun.messages_scanned === 0 && latestRun.status === 'ok' && (
+                  <div style={{ color: 'var(--warn)', marginTop: 6 }}>
+                    No matching emails found. Bank statement mails are often archived out of the inbox — the scan now covers all mail, so re-check your sender/subject filters if this persists.
+                  </div>
+                )}
+                {latestRun.error && <div style={{ color: 'var(--expense)', marginTop: 6 }}>{latestRun.error}</div>}
+                {latestRun.errors?.length > 0 && (
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 16, color: 'var(--text-2)' }}>
+                    {latestRun.errors.map((e, i) => (
+                      <li key={i}>[{e.stage}] {e.item}: {e.detail}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {emailConfig && !editingCreds ? (
               <div style={{ background: 'var(--surface-2)', padding: 14, borderRadius: 8, marginBottom: 16 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Connected Email: {emailConfig.email_address}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Server: {emailConfig.imap_server} • AES-256-GCM Encrypted</div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Server: {emailConfig.imap_server} • Folder: {emailConfig.imap_folder ?? '[Gmail]/All Mail'} • AES-256-GCM Encrypted</div>
                 <div className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--income)', marginTop: 6 }}>
                   <CheckCircle size={14} />
                   <span>App Password on file: <strong>•••• •••• •••• ••••</strong></span>
@@ -190,6 +277,11 @@ export function UploadPage() {
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Generate at myaccount.google.com/apppasswords</div>
                 </div>
                 <div className="form-group">
+                  <label className="form-label">IMAP Folder</label>
+                  <input className="form-input" value={folderInput} onChange={e => setFolderInput(e.target.value)} placeholder="[Gmail]/All Mail" />
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Default scans all mail — statement emails are usually auto-archived out of the inbox.</div>
+                </div>
+                <div className="form-group">
                   <label className="form-label">Statement Password (Optional)</label>
                   <input className="form-input" type="password" value={pdfPasswordInput} onChange={e => setPdfPasswordInput(e.target.value)} placeholder={emailConfig?.has_pdf_password ? 'Leave blank to keep current' : 'Password for encrypted PDF e-statements'} />
                 </div>
@@ -220,7 +312,12 @@ export function UploadPage() {
               <div className="form-group"><label className="form-label">Category</label><input className="form-input" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Food & Dining" /></div>
               <div className="form-group"><label className="form-label">Notes</label><textarea className="form-input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} /></div>
               {result?.type === 'manual' && <p className="text-success mb-3">Transaction added successfully!</p>}
-              {error && <p className="text-error mb-3">{error}</p>}
+              {error && (
+                <div className="flex items-center gap-2 mb-3 text-error" style={{ flexWrap: 'wrap' }}>
+                  <span>{error}</span>
+                  <CopyButton text={error} label="Copy" />
+                </div>
+              )}
               <button className="btn btn-primary btn-full btn-lg" disabled={loading}><Plus size={16} /> {loading ? 'Adding…' : 'Add Transaction'}</button>
             </form>
           </div>

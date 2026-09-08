@@ -5,6 +5,26 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-08] — Gmail sync finds archived statements + copy-error buttons (v0.44.5)
+
+### Fixed
+- Gmail sync scanned only `INBOX`, but bank statement mails are almost always
+  auto-archived by Gmail filters — so HDFC/ICICI/SBI/Axis statements were never
+  seen. The scan now defaults to `[Gmail]/All Mail` (new `imap_folder` column,
+  migration `0029`; configurable per user, falls back to `INBOX` on servers
+  without the folder).
+- On a full-mailbox scan the message cap kept the *oldest* N UIDs, so recent
+  statements were dropped. It now keeps the newest N.
+
+### Added
+- `imap_folder` on `PUT /api/ingest/email/config` and both config responses;
+  editable in the Gmail Sync tab on web and Android.
+- "Copy" / "Copy error" / "Copy details" buttons next to error messages and the
+  sync-run status panel on web (`CopyButton`) and Android — one tap puts the
+  full text on the clipboard to paste into a bug report.
+
+---
+
 ## [2026-09-08] — Email statement ingestion worker (v0.44.0)
 
 ### Added
