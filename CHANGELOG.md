@@ -5,6 +5,22 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-08] — Gmail sync: stop misreporting damaged PDFs as decrypt failures (v0.44.7)
+
+### Fixed
+- `is_encrypted()` matched the bare `/Encrypt` byte sequence anywhere in a PDF,
+  so non-encrypted attachments in Gmail were force-routed through `qpdf`. It now
+  requires a real encryption dictionary shape (`/Encrypt N G R` or
+  `/Encrypt <<…>>`).
+- On a `qpdf` failure the worker surfaced the *first* stderr line — usually a
+  recoverable `WARNING:` ("reported number of objects … is not one plus the
+  highest object number") — instead of the actual fatal error. It now reports
+  the last meaningful line, so a damaged / non-statement PDF reads as such
+  rather than looking like a Khata bug. Genuine "invalid password" errors are
+  unaffected and still trigger the password prompt.
+
+---
+
 ## [2026-09-08] — Encrypted-PDF prompt, .xls uploads, alert-email & SMS import (v0.44.6)
 
 ### Fixed
