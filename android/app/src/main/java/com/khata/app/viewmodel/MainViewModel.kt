@@ -29,7 +29,9 @@ data class CategoriesUiState(val list: List<Category> = emptyList(), val isLoadi
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: KhataRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val db: com.khata.app.data.KhataDatabase,
+    private val syncEngine: com.khata.app.data.SyncEngine,
 ) : ViewModel() {
     private val _authState = MutableStateFlow(AuthUiState()); val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
     private val _dashboardState = MutableStateFlow(DashboardUiState()); val dashboardState: StateFlow<DashboardUiState> = _dashboardState.asStateFlow()
@@ -171,13 +173,108 @@ class MainViewModel @Inject constructor(
     fun createCategory(n: String, t: String, c: String?, d: String?) { viewModelScope.launch { try { repository.createCategory(n, t, c, d); loadCategories() } catch (e: Exception) { _categoriesState.value = _categoriesState.value.copy(error = e.message) } }}
     fun deleteCategory(id: String) { viewModelScope.launch { try { repository.deleteCategory(id); loadCategories() } catch (_: Exception) {} }}
 
-    fun uploadStatement(context: Context, uri: Uri, onResult: (String) -> Unit) { viewModelScope.launch { try {
-        val ins = context.contentResolver.openInputStream(uri) ?: return@launch onResult("Error")
+    /** Last file the user picked, kept so a password prompt can retry it. */
+    var lastUploadUri: Uri? = null
+        private set
+
+    /**
+     * Upload a statement. `onResult` receives one of:
+     *  - "Uploaded!" / a bank summary on success
+     *  - "PASSWORD_REQUIRED" — the PDF is locked and needs a password
+     *  - "PASSWORD_INCORRECT" — the supplied password was wrong
+     *  - "Error: <message>" — anything else
+     */
+    fun uploadStatement(
+        context: Context,
+        uri: Uri,
+        password: String? = null,
+        savePassword: Boolean = true,
+        onResult: (String) -> Unit,
+    ) { viewModelScope.launch { try {
+        lastUploadUri = uri
+        val ins = context.contentResolver.openInputStream(uri) ?: return@launch onResult("Error: could not open file")
         val bytes = ins.readBytes(); ins.close()
         val name = getFileName(context, uri) ?: "upload_${System.currentTimeMillis()}"
         val part = MultipartBody.Part.createFormData("file", name, bytes.toRequestBody("application/octet-stream".toMediaTypeOrNull()))
-        repository.uploadStatement(part); onResult("Uploaded!")
+        val pwPart = password?.takeIf { it.isNotBlank() }
+            ?.toRequestBody("text/plain".toMediaTypeOrNull())
+        val savePart = if (pwPart != null) {
+            (if (savePassword) "true" else "false").toRequestBody("text/plain".toMediaTypeOrNull())
+        } else null
+        repository.uploadStatement(part, pwPart, savePart)
+        lastUploadUri = null
+        onResult("Uploaded!")
+    } catch (e: retrofit2.HttpException) {
+        val body = e.response()?.errorBody()?.string().orEmpty()
+        val code = Regex("\"code\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+        val msg = Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+        when (code) {
+            "pdf_password_required" -> onResult("PASSWORD_REQUIRED")
+            "pdf_password_incorrect" -> onResult("PASSWORD_INCORRECT")
+            else -> onResult("Error: ${msg ?: e.message()}")
+        }
     } catch (e: Exception) { onResult("Error: ${e.message}") } }}
+
+    /**
+     * Backfill: read the SMS inbox, parse bank transaction texts and queue any
+     * new ones for the server (real-time capture already handles new SMS).
+     * Requires READ_SMS. `onResult` gets a short summary or an error.
+     */
+    fun scanSmsInbox(context: Context, onResult: (String) -> Unit) { viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val cursor = context.contentResolver.query(
+                android.provider.Telephony.Sms.Inbox.CONTENT_URI,
+                arrayOf(
+                    android.provider.Telephony.Sms.ADDRESS,
+                    android.provider.Telephony.Sms.BODY,
+                    android.provider.Telephony.Sms.DATE,
+                ),
+                null, null,
+                "${android.provider.Telephony.Sms.DATE} DESC LIMIT 500",
+            ) ?: return@launch onResult("Error: cannot read SMS")
+
+            var found = 0
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            cursor.use {
+                val aI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.ADDRESS)
+                val bI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.BODY)
+                val dI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.DATE)
+                while (it.moveToNext()) {
+                    val body = it.getString(bI) ?: continue
+                    val sender = it.getString(aI) ?: ""
+                    val parsed = com.khata.app.sms.SmsParser.parse(body, sender) ?: continue
+                    val date = fmt.format(java.util.Date(it.getLong(dI)))
+                    val clientId = "sms_" + java.util.UUID.nameUUIDFromBytes(
+                        (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + date + "|" + (parsed.refNo ?: body.take(24)))
+                            .toByteArray()
+                    ).toString().take(16)
+                    if (db.transactionDao().getByClientId(clientId) != null) continue
+                    db.transactionDao().upsert(
+                        com.khata.app.data.LocalTransaction(
+                            clientId = clientId,
+                            description = parsed.payee,
+                            amount = parsed.amount,
+                            direction = parsed.direction,
+                            category = "Uncategorized",
+                            bank = parsed.bank,
+                            valueDate = date,
+                            txnDate = date,
+                            notes = "Auto-captured from SMS inbox (${parsed.bank})",
+                            dirty = true,
+                            pendingOp = "CREATE",
+                        )
+                    )
+                    found++
+                }
+            }
+            if (found > 0) syncEngine.sync()
+            onResult(if (found == 0) "No new bank transactions found in SMS." else "Queued $found transaction(s) from SMS.")
+        } catch (e: SecurityException) {
+            onResult("Error: SMS permission not granted")
+        } catch (e: Exception) {
+            onResult("Error: ${e.message}")
+        }
+    } }
 
     private fun getFileName(context: Context, uri: Uri): String? {
         val c = context.contentResolver.query(uri, null, null, null, null)

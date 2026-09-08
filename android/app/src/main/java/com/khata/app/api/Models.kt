@@ -150,6 +150,7 @@ data class UserEmailConfigResponse(
     @SerializedName("email_address") val emailAddress: String,
     @SerializedName("imap_server") val imapServer: String,
     @SerializedName("imap_folder") val imapFolder: String? = null,
+    @SerializedName("parse_txn_emails") val parseTxnEmails: Boolean = true,
     @SerializedName("sync_enabled") val syncEnabled: Boolean,
     @SerializedName("last_synced_at") val lastSyncedAt: String? = null,
     @SerializedName("last_error") val lastError: String? = null,
@@ -161,6 +162,7 @@ data class SaveEmailConfigReq(
     @SerializedName("pdf_password") val pdfPassword: String? = null,
     @SerializedName("imap_server") val imapServer: String? = "imap.gmail.com:993",
     @SerializedName("imap_folder") val imapFolder: String? = "[Gmail]/All Mail",
+    @SerializedName("parse_txn_emails") val parseTxnEmails: Boolean? = true,
     @SerializedName("sync_enabled") val syncEnabled: Boolean? = true,
 )
 

@@ -1,6 +1,7 @@
 package com.khata.app.api
 
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.*
 
 interface KhataApi {
@@ -56,7 +57,11 @@ interface KhataApi {
     @POST("api/portfolio/liabilities") suspend fun createLiability(@Body body: Map<String, Any>): PortfolioLiability
     @DELETE("api/portfolio/liabilities/{id}") suspend fun deleteLiability(@Path("id") id: String): MessageResponse
 
-    @Multipart @POST("api/ingest/upload") suspend fun uploadStatement(@Part file: MultipartBody.Part): Map<String, Any>
+    @Multipart @POST("api/ingest/upload") suspend fun uploadStatement(
+        @Part file: MultipartBody.Part,
+        @Part("password") password: RequestBody? = null,
+        @Part("save_password") savePassword: RequestBody? = null,
+    ): Map<String, Any>
     @HTTP(method = "DELETE", path = "api/ingest/clear", hasBody = true) suspend fun clearAllData(@Body body: Map<String, Boolean> = mapOf("confirm" to true)): MessageResponse
 
     @GET("api/ingest/email/config") suspend fun getEmailConfig(): UserEmailConfigResponse?

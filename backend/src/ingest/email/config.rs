@@ -13,6 +13,8 @@ pub struct UserEmailConfigResponse {
     pub email_address: String,
     pub imap_server: String,
     pub imap_folder: String,
+    #[serde(default)]
+    pub parse_txn_emails: bool,
     pub sync_enabled: bool,
     pub last_synced_at: Option<chrono::DateTime<chrono::Utc>>,
     pub last_error: Option<String>,
@@ -34,6 +36,8 @@ pub struct SaveEmailConfigReq {
     /// IMAP folder to scan. Defaults to `[Gmail]/All Mail` (statements are
     /// usually auto-archived out of the inbox).
     pub imap_folder: Option<String>,
+    /// Parse bank alert emails (no attachment) into transactions. Default true.
+    pub parse_txn_emails: Option<bool>,
     pub sync_enabled: Option<bool>,
     /// Optional IMAP `FROM` filter — any match. Replaces the stored list when present.
     pub sender_allowlist: Option<Vec<String>>,
@@ -56,10 +60,11 @@ pub async fn get_email_config_handler(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let row: Option<(
-        String, String, String, bool, Option<chrono::DateTime<chrono::Utc>>, Option<String>,
+        String, String, String, bool, bool, Option<chrono::DateTime<chrono::Utc>>, Option<String>,
         bool, bool, Option<Vec<String>>, Option<Vec<String>>,
     )> = sqlx::query_as(
-        "SELECT email_address, imap_server, imap_folder, sync_enabled, last_synced_at, last_error, \
+        "SELECT email_address, imap_server, imap_folder, parse_txn_emails, sync_enabled, \
+                last_synced_at, last_error, \
                 (encrypted_app_password IS NOT NULL AND encrypted_app_password <> ''), \
                 (encrypted_pdf_password IS NOT NULL AND encrypted_pdf_password <> ''), \
                 sender_allowlist, subject_patterns \
@@ -71,11 +76,12 @@ pub async fn get_email_config_handler(
     tx.commit().await?;
 
     Ok(Json(row.map(|(
-        email, imap, folder, enabled, last_synced, last_err, has_app, has_pdf, senders, subjects,
+        email, imap, folder, parse_txn, enabled, last_synced, last_err, has_app, has_pdf, senders, subjects,
     )| UserEmailConfigResponse {
         email_address: email,
         imap_server: imap,
         imap_folder: folder,
+        parse_txn_emails: parse_txn,
         sync_enabled: enabled,
         last_synced_at: last_synced,
         last_error: last_err,
@@ -135,8 +141,8 @@ pub async fn save_email_config_handler(
     sqlx::query(
         "INSERT INTO user_email_configs \
          (user_id, email_address, encrypted_app_password, encrypted_pdf_password, imap_server, \
-          imap_folder, sync_enabled, sender_allowlist, subject_patterns) \
-         VALUES ($1,$2,COALESCE($3,''),$4,$5,$6,$7,$8,$9) \
+          imap_folder, sync_enabled, sender_allowlist, subject_patterns, parse_txn_emails) \
+         VALUES ($1,$2,COALESCE($3,''),$4,$5,$6,$7,$8,$9,COALESCE($11,true)) \
          ON CONFLICT (user_id) DO UPDATE SET \
             email_address = EXCLUDED.email_address, \
             encrypted_app_password = COALESCE($3, user_email_configs.encrypted_app_password), \
@@ -146,6 +152,7 @@ pub async fn save_email_config_handler(
             sync_enabled = EXCLUDED.sync_enabled, \
             sender_allowlist = COALESCE($8, user_email_configs.sender_allowlist), \
             subject_patterns = COALESCE($9, user_email_configs.subject_patterns), \
+            parse_txn_emails = COALESCE($11, user_email_configs.parse_txn_emails), \
             last_error = NULL, \
             last_synced_at = CASE WHEN $10 THEN NULL ELSE user_email_configs.last_synced_at END, \
             last_uid = CASE WHEN $10 THEN NULL ELSE user_email_configs.last_uid END",
@@ -160,12 +167,13 @@ pub async fn save_email_config_handler(
     .bind(req.sender_allowlist.as_deref())
     .bind(req.subject_patterns.as_deref())
     .bind(full_rescan_queued)
+    .bind(req.parse_txn_emails)
     .execute(&mut *tx)
     .await?;
 
-    let (has_pdf, senders, subjects): (bool, Option<Vec<String>>, Option<Vec<String>>) = sqlx::query_as(
+    let (has_pdf, senders, subjects, parse_txn): (bool, Option<Vec<String>>, Option<Vec<String>>, bool) = sqlx::query_as(
         "SELECT (encrypted_pdf_password IS NOT NULL AND encrypted_pdf_password <> ''), \
-                sender_allowlist, subject_patterns \
+                sender_allowlist, subject_patterns, parse_txn_emails \
          FROM user_email_configs WHERE user_id = $1",
     )
     .bind(user_id)
@@ -187,6 +195,7 @@ pub async fn save_email_config_handler(
             email_address: req.email_address,
             imap_server: imap,
             imap_folder: folder,
+            parse_txn_emails: parse_txn,
             sync_enabled: enabled,
             last_synced_at: None,
             last_error: None,

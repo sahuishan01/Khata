@@ -27,6 +27,10 @@ pub enum AppError {
     Internal,
     #[error("multipart error: {0}")]
     Multipart(String),
+    /// An uploaded statement is password-protected and no working password was
+    /// supplied. `incorrect` is true when a password was given but rejected.
+    #[error("statement password required")]
+    UploadPassword { incorrect: bool },
 }
 
 impl From<axum::extract::multipart::MultipartError> for AppError {
@@ -37,6 +41,21 @@ impl From<axum::extract::multipart::MultipartError> for AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        // Password-required carries a machine-readable `code` so clients can
+        // show a password prompt instead of a generic error.
+        if let AppError::UploadPassword { incorrect } = &self {
+            let (msg, code) = if *incorrect {
+                ("Incorrect statement password", "pdf_password_incorrect")
+            } else {
+                ("This statement is password-protected", "pdf_password_required")
+            };
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({ "error": msg, "code": code })),
+            )
+                .into_response();
+        }
+
         let (status, msg) = match &self {
             AppError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
@@ -45,6 +64,7 @@ impl IntoResponse for AppError {
             AppError::BadRequest(m) => (StatusCode::BAD_REQUEST, m.clone()),
             AppError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
             AppError::Multipart(m) => (StatusCode::BAD_REQUEST, m.clone()),
+            AppError::UploadPassword { .. } => unreachable!("handled above"),
             AppError::Internal => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             AppError::Sqlx(e) => {
                 tracing::error!("sqlx error: {e}");

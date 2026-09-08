@@ -60,7 +60,11 @@ class KhataRepository @Inject constructor(
     suspend fun createLiability(name: String, type: String, value: Double) = api.createLiability(mapOf("name" to name, "liability_type" to type, "value" to value))
     suspend fun deleteLiability(id: String) = api.deleteLiability(id)
 
-    suspend fun uploadStatement(part: MultipartBody.Part) = api.uploadStatement(part)
+    suspend fun uploadStatement(
+        part: MultipartBody.Part,
+        password: okhttp3.RequestBody? = null,
+        savePassword: okhttp3.RequestBody? = null,
+    ) = api.uploadStatement(part, password, savePassword)
     suspend fun clearAllData() = api.clearAllData()
 
     suspend fun getEmailConfig(): UserEmailConfigResponse? = api.getEmailConfig()

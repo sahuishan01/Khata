@@ -99,10 +99,56 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val showBottomBar = authState.isLoggedIn && currentDestination?.route != null && bottomNavItems.any { currentDestination?.route?.startsWith(it.route) == true }
 
     var uploadResult by remember { mutableStateOf<String?>(null) }
+    var pdfPasswordPrompt by remember { mutableStateOf(false) }
+    var pdfPasswordWrong by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uploadResult) {
+        when (uploadResult) {
+            "PASSWORD_REQUIRED" -> { pdfPasswordPrompt = true; pdfPasswordWrong = false }
+            "PASSWORD_INCORRECT" -> { pdfPasswordPrompt = true; pdfPasswordWrong = true }
+        }
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? -> uri?.let { viewModel.uploadStatement(context, it) { r -> uploadResult = r } } }
+
+    if (pdfPasswordPrompt) {
+        var pw by remember { mutableStateOf("") }
+        var save by remember { mutableStateOf(true) }
+        AlertDialog(
+            onDismissRequest = { pdfPasswordPrompt = false; uploadResult = null },
+            title = { Text("Password required") },
+            text = {
+                Column {
+                    Text("This statement PDF is protected. Enter its password.", fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = pw, onValueChange = { pw = it }, singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        placeholder = { Text("Password") }, modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (pdfPasswordWrong) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("Incorrect password — try again.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = save, onCheckedChange = { save = it })
+                        Text("Save for future statements", fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = pw.isNotBlank(), onClick = {
+                    pdfPasswordPrompt = false
+                    val uri = viewModel.lastUploadUri
+                    if (uri != null) viewModel.uploadStatement(context, uri, pw, save) { r -> uploadResult = r }
+                }) { Text("Unlock") }
+            },
+            dismissButton = { TextButton(onClick = { pdfPasswordPrompt = false; uploadResult = null }) { Text("Cancel") } },
+        )
+    }
 
     LaunchedEffect(Unit) { viewModel.checkAuth() }
 
@@ -152,7 +198,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 navController.navigate(Screen.Transactions.route)
             }) }
 
-            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }) }
+            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult?.takeUnless { it.startsWith("PASSWORD_") }, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }, onScanSms = { cb -> viewModel.scanSmsInbox(context, cb) }) }
 
             composable(Screen.Transactions.route) {
                 val filterState by viewModel.txnFilterState.collectAsState()

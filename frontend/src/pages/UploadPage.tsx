@@ -49,16 +49,30 @@ export function UploadPage() {
   const [category, setCategory] = useState('')
   const [notes, setNotes] = useState('')
 
-  const upload = async (file: File) => {
+  // Kept so the password prompt can retry the same file.
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pwPrompt, setPwPrompt] = useState<null | { incorrect: boolean }>(null)
+  const [pwInput, setPwInput] = useState('')
+  const [savePw, setSavePw] = useState(true)
+
+  const upload = async (file: File, password?: string) => {
     setLoading(true); setError(''); setResult(null)
     const fd = new FormData()
     fd.append('file', file)
+    if (password) { fd.append('password', password); fd.append('save_password', savePw ? 'true' : 'false') }
     try {
       const { data } = await api.post('/ingest/upload', fd)
       setResult(data)
+      setPendingFile(null); setPwPrompt(null); setPwInput('')
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string } }; message?: string }
-      setError(err.response?.data?.error ?? err.message ?? 'Upload failed')
+      const err = e as { response?: { status?: number; data?: { error?: string; code?: string } }; message?: string }
+      const code = err.response?.data?.code
+      if (err.response?.status === 422 && (code === 'pdf_password_required' || code === 'pdf_password_incorrect')) {
+        setPendingFile(file)
+        setPwPrompt({ incorrect: code === 'pdf_password_incorrect' })
+      } else {
+        setError(err.response?.data?.error ?? err.message ?? 'Upload failed')
+      }
     } finally { setLoading(false) }
   }
 
@@ -75,9 +89,10 @@ export function UploadPage() {
     } finally { setLoading(false) }
   }
 
-  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; imap_folder?: string; sync_enabled: boolean; last_synced_at?: string; last_error?: string; has_app_password?: boolean; has_pdf_password?: boolean } | null>(null)
+  const [emailConfig, setEmailConfig] = useState<{ email_address: string; imap_server: string; imap_folder?: string; parse_txn_emails?: boolean; sync_enabled: boolean; last_synced_at?: string; last_error?: string; has_app_password?: boolean; has_pdf_password?: boolean } | null>(null)
   const [emailInput, setEmailInput] = useState('')
   const [folderInput, setFolderInput] = useState('')
+  const [parseTxnEmails, setParseTxnEmails] = useState(true)
   const [appPasswordInput, setAppPasswordInput] = useState('')
   const [pdfPasswordInput, setPdfPasswordInput] = useState('')
   const [emailMsg, setEmailMsg] = useState('')
@@ -97,6 +112,7 @@ export function UploadPage() {
       setEmailConfig(data)
       if (data?.email_address) setEmailInput(data.email_address)
       setFolderInput(data?.imap_folder ?? '[Gmail]/All Mail')
+      setParseTxnEmails(data?.parse_txn_emails ?? true)
     } catch { /* ignored */ }
     fetchLatestRun()
   }
@@ -113,6 +129,7 @@ export function UploadPage() {
         app_password: appPasswordInput || undefined,
         pdf_password: pdfPasswordInput || undefined,
         imap_folder: folderInput || undefined,
+        parse_txn_emails: parseTxnEmails,
       })
       setAppPasswordInput('')
       setPdfPasswordInput('')
@@ -183,6 +200,29 @@ export function UploadPage() {
                 <AlertTriangle size={15} /><span><strong>{result!.rows_parsed} rows found but 0 could be parsed.</strong> Bank detected: <strong>{result!.bank_detected}</strong></span>
               </div>
             )}
+            {pwPrompt && pendingFile && (
+              <form
+                onSubmit={e => { e.preventDefault(); if (pwInput) upload(pendingFile, pwInput) }}
+                className="mt-3"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', padding: 14 }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>🔒 This statement is password-protected</div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 8 }}>{pendingFile.name}</div>
+                <input
+                  className="form-input" type="password" autoFocus value={pwInput}
+                  onChange={e => setPwInput(e.target.value)} placeholder="Statement password"
+                />
+                {pwPrompt.incorrect && <div className="text-error" style={{ fontSize: 12, marginTop: 4 }}>Incorrect password — try again.</div>}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, margin: '8px 0' }}>
+                  <input type="checkbox" checked={savePw} onChange={e => setSavePw(e.target.checked)} />
+                  Save this password for future statements &amp; Gmail sync
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-primary" disabled={loading || !pwInput}>{loading ? 'Unlocking…' : 'Unlock & import'}</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => { setPwPrompt(null); setPendingFile(null); setPwInput('') }}>Cancel</button>
+                </div>
+              </form>
+            )}
             {error && (
               <div className="flex items-center gap-2 mt-3 text-error" style={{ flexWrap: 'wrap' }}>
                 <AlertTriangle size={14} />{error}
@@ -242,7 +282,7 @@ export function UploadPage() {
             {emailConfig && !editingCreds ? (
               <div style={{ background: 'var(--surface-2)', padding: 14, borderRadius: 8, marginBottom: 16 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Connected Email: {emailConfig.email_address}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Server: {emailConfig.imap_server} • Folder: {emailConfig.imap_folder ?? '[Gmail]/All Mail'} • AES-256-GCM Encrypted</div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Server: {emailConfig.imap_server} • Folder: {emailConfig.imap_folder ?? '[Gmail]/All Mail'} • Alert emails: {emailConfig.parse_txn_emails === false ? 'off' : 'on'} • AES-256-GCM</div>
                 <div className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--income)', marginTop: 6 }}>
                   <CheckCircle size={14} />
                   <span>App Password on file: <strong>•••• •••• •••• ••••</strong></span>
@@ -285,6 +325,10 @@ export function UploadPage() {
                   <label className="form-label">Statement Password (Optional)</label>
                   <input className="form-input" type="password" value={pdfPasswordInput} onChange={e => setPdfPasswordInput(e.target.value)} placeholder={emailConfig?.has_pdf_password ? 'Leave blank to keep current' : 'Password for encrypted PDF e-statements'} />
                 </div>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, margin: '4px 0 12px' }}>
+                  <input type="checkbox" checked={parseTxnEmails} onChange={e => setParseTxnEmails(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span>Also import <strong>transaction alert emails</strong> (e.g. "₹450 debited at SWIGGY") — not just attached statements.</span>
+                </label>
                 <button className="btn btn-primary btn-full btn-lg" disabled={loading}>{loading ? 'Encrypting & Saving…' : hasExistingKey ? 'Save New Key & Rescan' : 'Save Encrypted Config'}</button>
                 {editingCreds && (
                   <button type="button" className="btn btn-secondary btn-full" style={{ marginTop: 8 }} onClick={() => { setEditingCreds(false); setAppPasswordInput(''); setPdfPasswordInput(''); setError('') }}>Cancel</button>

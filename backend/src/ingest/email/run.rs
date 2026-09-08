@@ -8,12 +8,13 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::ingest::{
+    categorize::categorize,
     detect::{detect_bank, detect_file_kind},
     email::{
         imap::{Mailbox, RustlsImap, SearchCriteria},
-        mime,
-        pdf_decrypt,
+        mime, pdf_decrypt, txn_email,
     },
+    models::NormalizedTxn,
     normalize::normalize,
     profiles::registry,
     store::store_transactions,
@@ -62,6 +63,7 @@ struct EmailConfig {
     enc_pdf_password: Option<String>,
     imap_server: String,
     imap_folder: String,
+    parse_txn_emails: bool,
     sender_allowlist: Vec<String>,
     subject_patterns: Vec<String>,
     imap_uid_validity: Option<i64>,
@@ -194,7 +196,21 @@ async fn drive<M: Mailbox>(
             counters.messages_scanned += 1;
             max_uid_seen = max_uid_seen.max(msg.uid as i64);
 
-            for att in mime::statement_attachments(&msg.raw) {
+            let attachments = mime::statement_attachments(&msg.raw);
+
+            if attachments.is_empty() {
+                // No statement file — try to read a transaction out of the body.
+                if cfg.parse_txn_emails {
+                    if let Err(e) =
+                        process_body_txn(state, user_id, &profiles, &msg.raw, &mut counters).await
+                    {
+                        counters.push_error("txn-email", "message body", &format!("{e:#}"));
+                    }
+                }
+                continue;
+            }
+
+            for att in attachments {
                 counters.attachments_seen += 1;
 
                 if att.bytes.len() > state.config.email_sync_max_attach_bytes {
@@ -318,6 +334,102 @@ async fn process_attachment(
     Ok(())
 }
 
+/// Parse one transaction out of an alert email's body (no attachment). Keyed by
+/// the raw message hash so re-runs dedupe; the txn itself also dedupes on its
+/// fingerprint against everything imported from statements.
+async fn process_body_txn(
+    state: &AppState,
+    user_id: Uuid,
+    profiles: &[crate::ingest::profiles::BankProfile],
+    raw: &[u8],
+    counters: &mut Counters,
+) -> Result<()> {
+    let Some(meta) = mime::message_meta(raw) else {
+        return Ok(());
+    };
+    let Some(bt) = txn_email::extract(&meta.subject, &meta.body, &meta.from) else {
+        return Ok(());
+    };
+
+    let sha = hex::encode(Sha256::digest(raw));
+
+    let seen: Option<(Uuid,)> = {
+        let mut tx = state.db.begin().await?;
+        crate::db::set_current_user(&mut *tx, user_id).await?;
+        let r = sqlx::query_as("SELECT id FROM statements WHERE user_id = $1 AND file_sha256 = $2")
+            .bind(user_id)
+            .bind(&sha)
+            .fetch_optional(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        r
+    };
+    if seen.is_some() {
+        return Ok(());
+    }
+
+    let hint = format!("{} {} {}", meta.from, meta.subject, meta.body).to_lowercase();
+    let profile = detect_bank(profiles, &hint);
+    let bank = if profile.name == "GENERIC" {
+        "Email".to_string()
+    } else {
+        profile.name.to_string()
+    };
+
+    let date = bt
+        .txn_date
+        .or_else(|| {
+            meta.date_epoch
+                .and_then(|e| chrono::DateTime::from_timestamp(e, 0))
+                .map(|d| d.date_naive())
+        })
+        .unwrap_or_else(|| chrono::Utc::now().date_naive());
+
+    let account_label = bt.account_label.clone().unwrap_or_else(|| bank.clone());
+
+    let stmt_id: Option<(Uuid,)> = {
+        let mut tx = state.db.begin().await?;
+        crate::db::set_current_user(&mut *tx, user_id).await?;
+        let subject = if meta.subject.is_empty() { "transaction alert" } else { &meta.subject };
+        let r = sqlx::query_as(
+            "INSERT INTO statements (user_id, bank, file_name, file_sha256, row_count) \
+             VALUES ($1,$2,$3,$4,1) ON CONFLICT (user_id, file_sha256) DO NOTHING RETURNING id",
+        )
+        .bind(user_id)
+        .bind(&bank)
+        .bind(subject)
+        .bind(&sha)
+        .fetch_optional(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        r
+    };
+    let Some((stmt_id,)) = stmt_id else {
+        return Ok(());
+    };
+
+    let txn = NormalizedTxn {
+        user_id,
+        statement_id: stmt_id,
+        bank,
+        account_label,
+        txn_date: date,
+        value_date: date,
+        description: bt.description.clone(),
+        raw_description: bt.description.clone(),
+        amount: bt.amount,
+        direction: bt.direction.clone(),
+        balance: None,
+        bank_ref: bt.bank_ref.clone(),
+        category: categorize(&bt.description, &bt.direction).to_string(),
+    };
+
+    let (inserted, skipped) = store_transactions(&state.db, user_id, &[txn]).await?;
+    counters.txns_imported += inserted as i32;
+    counters.txns_skipped += skipped as i32;
+    Ok(())
+}
+
 type ParseOut = (Vec<crate::ingest::models::RawRow>, Vec<String>, String);
 
 /// `parse_file` but a panic (pdf-extract on a malformed PDF) becomes an `Err`.
@@ -339,11 +451,11 @@ async fn load_config(db: &PgPool, user_id: Uuid) -> Result<Option<EmailConfig>> 
     let mut tx = db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
     let row: Option<(
-        String, String, Option<String>, String, String,
+        String, String, Option<String>, String, String, bool,
         Option<Vec<String>>, Option<Vec<String>>, Option<i64>, Option<i64>,
     )> = sqlx::query_as(
         "SELECT email_address, encrypted_app_password, \
-                NULLIF(encrypted_pdf_password, ''), imap_server, imap_folder, \
+                NULLIF(encrypted_pdf_password, ''), imap_server, imap_folder, parse_txn_emails, \
                 sender_allowlist, subject_patterns, imap_uid_validity, last_uid \
          FROM user_email_configs WHERE user_id = $1 AND sync_enabled = true",
     )
@@ -352,12 +464,13 @@ async fn load_config(db: &PgPool, user_id: Uuid) -> Result<Option<EmailConfig>> 
     .await?;
     tx.commit().await?;
 
-    Ok(row.map(|(email, app, pdf, imap, folder, senders, subjects, validity, last_uid)| EmailConfig {
+    Ok(row.map(|(email, app, pdf, imap, folder, parse_txn, senders, subjects, validity, last_uid)| EmailConfig {
         email_address: email,
         enc_app_password: app,
         enc_pdf_password: pdf,
         imap_server: imap,
         imap_folder: folder,
+        parse_txn_emails: parse_txn,
         sender_allowlist: senders.unwrap_or_default(),
         subject_patterns: subjects.unwrap_or_default(),
         imap_uid_validity: validity,
@@ -466,6 +579,28 @@ async fn finish_run_ok(
     .bind(run_id)
     .execute(&mut *tx)
     .await?;
+
+    // Surface "needs a PDF password" prominently: it's a fixable config gap, not
+    // a transient per-item glitch.
+    let needs_pw = c.errors.iter().any(|e| {
+        e.get("detail")
+            .and_then(|d| d.as_str())
+            .is_some_and(|d| d.contains("password"))
+    });
+    if needs_pw {
+        let msg = "Some statement PDFs are password-protected — add your statement password under Gmail Sync.";
+        sqlx::query("UPDATE email_sync_runs SET error = $1 WHERE id = $2")
+            .bind(msg)
+            .bind(run_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE user_email_configs SET last_error = $1 WHERE user_id = $2")
+            .bind(msg)
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
     tx.commit().await?;
     Ok(())
 }
@@ -508,6 +643,15 @@ mod tests {
              --b\r\nContent-Type: {mime}; name=\"{name}\"\r\n\
              Content-Disposition: attachment; filename=\"{name}\"\r\n\
              Content-Transfer-Encoding: base64\r\n\r\n{body_b64}\r\n--b--\r\n"
+        )
+        .into_bytes()
+    }
+
+    fn eml_plain(subject: &str, body: &str) -> Vec<u8> {
+        format!(
+            "From: alerts@hdfcbank.net\r\nTo: me@example.com\r\nSubject: {subject}\r\n\
+             Date: Thu, 05 Sep 2024 10:00:00 +0530\r\n\
+             MIME-Version: 1.0\r\nContent-Type: text/plain\r\n\r\n{body}\r\n"
         )
         .into_bytes()
     }
@@ -649,6 +793,72 @@ mod tests {
 
         let txn_count = scalar_i64(&pool, user_id, "SELECT count(*) FROM transactions WHERE user_id = $1").await;
         assert_eq!(txn_count, 2);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn imports_transaction_alert_emails(pool: PgPool) {
+        let state = app_state(&pool);
+        let user_id = seed_user_and_config(&pool, &state).await;
+
+        let mailbox = FakeMailbox {
+            validity: 1,
+            messages: vec![
+                FetchedMessage {
+                    uid: 20,
+                    raw: eml_plain(
+                        "Txn alert",
+                        "Dear Customer, Rs. 450.00 has been debited from account **1234 \
+                         to VPA swiggy@ybl on 05-09-2024. UPI Ref 512345678901. - HDFC Bank",
+                    ),
+                },
+                FetchedMessage {
+                    uid: 21,
+                    raw: eml_plain("OTP", "Your OTP for a txn of Rs 999 is 445566. - HDFC Bank"),
+                },
+            ],
+        };
+
+        let (_run_id, imported, _skipped) =
+            run_inline(&state, user_id, Trigger::Manual, mailbox).await.unwrap();
+        assert_eq!(imported, 1, "one alert-email txn imported, OTP ignored");
+
+        let (amount, direction, acct): (f64, String, String) = {
+            let mut tx = pool.begin().await.unwrap();
+            crate::db::set_current_user(&mut *tx, user_id).await.unwrap();
+            let r = sqlx::query_as(
+                "SELECT amount::float8, direction, account_label FROM transactions WHERE user_id = $1",
+            )
+            .bind(user_id)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+            tx.commit().await.unwrap();
+            r
+        };
+        assert_eq!(amount, 450.0);
+        assert_eq!(direction, "debit");
+        assert_eq!(acct, "XX1234");
+
+        // Re-scan the same message → deduped, no second row.
+        sqlx::query("UPDATE user_email_configs SET last_uid = NULL WHERE user_id = $1")
+            .bind(user_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let rescan = FakeMailbox {
+            validity: 1,
+            messages: vec![FetchedMessage {
+                uid: 20,
+                raw: eml_plain(
+                    "Txn alert",
+                    "Dear Customer, Rs. 450.00 has been debited from account **1234 \
+                     to VPA swiggy@ybl on 05-09-2024. UPI Ref 512345678901. - HDFC Bank",
+                ),
+            }],
+        };
+        let (_, imported2, _) =
+            run_inline(&state, user_id, Trigger::Manual, rescan).await.unwrap();
+        assert_eq!(imported2, 0, "same alert email must not import twice");
     }
 
     #[sqlx::test(migrations = "./migrations")]
