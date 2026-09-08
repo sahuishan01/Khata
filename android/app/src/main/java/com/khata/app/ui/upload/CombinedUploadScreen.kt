@@ -41,7 +41,8 @@ fun CombinedUploadScreen(
     onSaveGmail: (SaveEmailConfigReq, (String) -> Unit) -> Unit = { _, cb -> cb("Error: not wired") },
     onLoadGmailConfig: ((UserEmailConfigResponse?) -> Unit) -> Unit = { it(null) },
     onLoadLatestRun: ((EmailSyncRun?) -> Unit) -> Unit = { it(null) },
-    onSyncNow: ((String) -> Unit) -> Unit = { it("Error: not wired") }
+    onSyncNow: ((String) -> Unit) -> Unit = { it("Error: not wired") },
+    onScanSms: ((String) -> Unit) -> Unit = { it("Error: not wired") },
 ) {
     var tab by remember { mutableStateOf(1) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -92,12 +93,29 @@ fun CombinedUploadScreen(
                         if (msg.startsWith("Error")) CopyButton(msg, "Copy error")
                         else { Spacer(Modifier.height(4.dp)); TextButton(onClick = onClearResult) { Text("Dismiss") } }
                     }
+
+                    Spacer(Modifier.height(20.dp))
+                    var smsScanning by remember { mutableStateOf(false) }
+                    var smsMsg by remember { mutableStateOf("") }
+                    Text("From SMS", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("New bank SMS is captured automatically. Scan your inbox to backfill past ones.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        enabled = !smsScanning,
+                        onClick = { smsScanning = true; smsMsg = ""; onScanSms { smsScanning = false; smsMsg = it } },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (smsScanning) "Scanning SMS…" else "Scan SMS inbox") }
+                    if (smsMsg.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(smsMsg, fontSize = 12.sp, color = if (smsMsg.startsWith("Error")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             } else if (tab == 2) {
                 var emailInput by remember { mutableStateOf("") }
                 var appPassInput by remember { mutableStateOf("") }
                 var pdfPassInput by remember { mutableStateOf("") }
                 var folderInput by remember { mutableStateOf("[Gmail]/All Mail") }
+                var parseTxnEmails by remember { mutableStateOf(true) }
                 var statusMsg by remember { mutableStateOf("") }
                 var saving by remember { mutableStateOf(false) }
                 var hasStoredKey by remember { mutableStateOf(false) }
@@ -110,6 +128,7 @@ fun CombinedUploadScreen(
                             hasStoredKey = true
                             if (emailInput.isBlank()) emailInput = cfg.emailAddress
                             cfg.imapFolder?.let { folderInput = it }
+                            parseTxnEmails = cfg.parseTxnEmails
                         }
                     }
                 }
@@ -138,6 +157,11 @@ fun CombinedUploadScreen(
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = folderInput, onValueChange = { folderInput = it }, label = { Text("IMAP folder", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Text("Default scans all mail — statement emails are usually auto-archived out of the inbox.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = parseTxnEmails, onCheckedChange = { parseTxnEmails = it })
+                        Text("Also import transaction alert emails (no attachment)", fontSize = 12.sp)
+                    }
                     Spacer(Modifier.height(16.dp))
 
                     if (statusMsg.isNotBlank()) {
@@ -162,6 +186,7 @@ fun CombinedUploadScreen(
                                     appPassword = appPass,
                                     pdfPassword = pdfPassInput.trim().ifBlank { null },
                                     imapFolder = folderInput.trim().ifBlank { "[Gmail]/All Mail" },
+                                    parseTxnEmails = parseTxnEmails,
                                 )
                             ) { msg ->
                                 saving = false

@@ -59,9 +59,18 @@ fn check_excel_bomb(bytes: &[u8]) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+/// `.xlsx` / `.ods` are zip containers; a legacy `.xls` is an OLE2 compound
+/// file. Only the zip formats can be zip-bombs.
+fn is_zip(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && bytes[..4] == [0x50, 0x4B, 0x03, 0x04]
+}
+
 fn parse_excel(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>, String)> {
-    // Guard against zip bombs: reject archives whose total uncompressed size exceeds the limit
-    check_excel_bomb(bytes)?;
+    // Guard against zip bombs — but only for zip-based workbooks. A legacy .xls
+    // is OLE2, not a zip, and would fail zip parsing outright.
+    if is_zip(bytes) {
+        check_excel_bomb(bytes)?;
+    }
 
     // Calamine does not process XXE by default – it reads raw XML without entity resolution,
     // so XXE is not a concern with this parser.
@@ -281,4 +290,36 @@ fn parse_pdf(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<St
     }
 
     Ok((raw_rows, headers, file_hint))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ingest::profiles::generic;
+
+    #[test]
+    fn is_zip_only_matches_pk_header() {
+        assert!(is_zip(b"PK\x03\x04rest-of-xlsx"));
+        // Legacy .xls OLE2 compound-file magic must NOT be treated as a zip.
+        assert!(!is_zip(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]));
+        assert!(!is_zip(b"%PDF-1.7"));
+        assert!(!is_zip(b"PK"));
+    }
+
+    #[test]
+    fn legacy_xls_skips_the_zip_bomb_guard() {
+        // An OLE2 blob is not a valid workbook, so parsing still fails — but it
+        // must fail in calamine, never in the zip-bomb guard ("invalid zip
+        // archive"), which used to turn every .xls upload into a 400.
+        let ole2 = [0xD0u8, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]
+            .iter()
+            .copied()
+            .chain(std::iter::repeat(0).take(512))
+            .collect::<Vec<u8>>();
+        let err = parse_excel(&ole2, &generic::profile()).unwrap_err().to_string();
+        assert!(
+            !err.contains("zip"),
+            "xls must not hit the zip-bomb guard, got: {err}"
+        );
+    }
 }

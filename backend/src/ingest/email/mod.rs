@@ -7,6 +7,7 @@ pub mod imap;
 pub mod mime;
 pub mod pdf_decrypt;
 pub mod run;
+pub mod txn_email;
 pub mod worker;
 
 pub use config::{

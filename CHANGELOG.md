@@ -5,6 +5,31 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-08] — Encrypted-PDF prompt, .xls uploads, alert-email & SMS import (v0.44.6)
+
+### Fixed
+- `.xls` (legacy Excel) uploads always 400'd: the zip-bomb guard ran zip
+  parsing on every workbook, but an `.xls` is an OLE2 file. The guard now runs
+  only for real zip containers (`.xlsx` / `.ods`).
+- Encrypted statement PDFs 400'd with no way forward. Upload now returns
+  HTTP 422 `{code: "pdf_password_required" | "pdf_password_incorrect"}` and
+  both clients show a password prompt; the password can be saved (encrypted,
+  AES-256-GCM) for future uploads and Gmail sync. Android also surfaces the
+  server's error text instead of a bare "HTTP 400".
+
+### Added
+- **Transaction alert emails**: the Gmail sync worker now parses bank alert
+  emails that carry no attachment ("Rs 450 debited … to swiggy@ybl") into
+  transactions, deduped by message hash + fingerprint. New per-user
+  `parse_txn_emails` flag (migration `0030`, default on), toggle on web +
+  Android. Rejects OTP / statement-ready / future-debit / promo mails.
+- The sync worker now flags "a statement PDF needs a password" prominently on
+  the run status and `last_error`, instead of burying it in the per-item list.
+- **Android**: "Scan SMS inbox" backfills past bank-SMS transactions (new SMS
+  was already captured live).
+
+---
+
 ## [2026-09-08] — Gmail sync finds archived statements + copy-error buttons (v0.44.5)
 
 ### Fixed

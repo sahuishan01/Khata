@@ -82,42 +82,102 @@ pub async fn upload_handler(
 ) -> Result<Json<UploadResponse>, AppError> {
     let profiles = registry();
 
+    // Collect the multipart fields: one file plus optional `password` /
+    // `save_password` text fields for encrypted statements.
+    let mut filename = String::new();
+    let mut raw: Vec<u8> = Vec::new();
+    let mut password: Option<String> = None;
+    let mut save_password = false;
+
     while let Some(field) = multipart.next_field().await? {
-        let filename = field.file_name().unwrap_or("upload").to_string();
-        let bytes = field.bytes().await?;
-
-        validate_upload(&filename, &bytes)?;
-
-        let kind = detect_file_kind(&filename);
-
-        // Transparently decrypt password-protected statement PDFs using the
-        // user's stored statement password (same key the email worker uses).
-        let bytes: std::borrow::Cow<'_, [u8]> = if kind == super::detect::FileKind::Pdf
-            && super::email::pdf_decrypt::is_encrypted(&bytes)
-        {
-            let stored: Option<(String,)> = sqlx::query_as(
-                "SELECT encrypted_pdf_password FROM user_email_configs \
-                 WHERE user_id = $1 AND encrypted_pdf_password IS NOT NULL AND encrypted_pdf_password <> ''",
-            )
-            .bind(user_id)
-            .fetch_optional(&state.db)
-            .await?;
-            match stored {
-                Some((enc,)) => {
-                    let pw = super::crypto::decrypt_credential(
-                        &enc, &state.config.jwt_secret, &user_id.to_string(),
-                    )
-                    .map_err(|_| AppError::BadRequest("Could not read stored statement password".into()))?;
-                    let plain = super::email::pdf_decrypt::decrypt_pdf(&bytes, &pw)
-                        .map_err(|e| AppError::BadRequest(format!("Encrypted PDF: {e}")))?;
-                    std::borrow::Cow::Owned(plain)
-                }
-                None => return Err(AppError::BadRequest(
-                    "This PDF is password-protected. Add your statement password under Gmail Sync first.".into(),
-                )),
+        let name = field.name().map(str::to_string);
+        let file_name = field.file_name().map(str::to_string);
+        match name.as_deref() {
+            Some("password") => password = Some(field.text().await?),
+            Some("save_password") => {
+                save_password = matches!(field.text().await?.as_str(), "true" | "1" | "on")
             }
+            _ => {
+                filename = file_name.unwrap_or_else(|| "upload".to_string());
+                raw = field.bytes().await?.to_vec();
+            }
+        }
+    }
+
+    let password = password.filter(|p| !p.trim().is_empty());
+
+    if raw.is_empty() {
+        return Err(AppError::BadRequest("No file in upload".into()));
+    }
+
+    validate_upload(&filename, &raw)?;
+
+    let kind = detect_file_kind(&filename);
+
+    {
+        // Transparently decrypt password-protected statement PDFs. Try, in order:
+        // a password supplied with this upload, then the user's stored one.
+        let bytes: std::borrow::Cow<'_, [u8]> = if kind == super::detect::FileKind::Pdf
+            && super::email::pdf_decrypt::is_encrypted(&raw)
+        {
+            let stored_pw: Option<String> = {
+                let row: Option<(String,)> = sqlx::query_as(
+                    "SELECT encrypted_pdf_password FROM user_email_configs \
+                     WHERE user_id = $1 AND encrypted_pdf_password IS NOT NULL AND encrypted_pdf_password <> ''",
+                )
+                .bind(user_id)
+                .fetch_optional(&state.db)
+                .await?;
+                match row {
+                    Some((enc,)) => Some(
+                        super::crypto::decrypt_credential(
+                            &enc, &state.config.jwt_secret, &user_id.to_string(),
+                        )
+                        .map_err(|_| AppError::BadRequest("Could not read stored statement password".into()))?,
+                    ),
+                    None => None,
+                }
+            };
+
+            let candidates: Vec<(String, bool)> = password
+                .iter()
+                .cloned()
+                .map(|p| (p, true))
+                .chain(stored_pw.into_iter().map(|p| (p, false)))
+                .collect();
+
+            if candidates.is_empty() {
+                return Err(AppError::UploadPassword { incorrect: false });
+            }
+
+            let mut decrypted: Option<(Vec<u8>, String)> = None;
+            for (pw, _) in &candidates {
+                if let Ok(plain) = super::email::pdf_decrypt::decrypt_pdf(&raw, pw) {
+                    decrypted = Some((plain, pw.clone()));
+                    break;
+                }
+            }
+            let (plain, working_pw) = decrypted
+                .ok_or(AppError::UploadPassword { incorrect: true })?;
+
+            // Persist the password for next time (uploads + email sync) when asked.
+            if save_password {
+                if let Ok(enc) = super::crypto::encrypt_credential(
+                    &working_pw, &state.config.jwt_secret, &user_id.to_string(),
+                ) {
+                    let _ = sqlx::query(
+                        "UPDATE user_email_configs SET encrypted_pdf_password = $1 WHERE user_id = $2",
+                    )
+                    .bind(&enc)
+                    .bind(user_id)
+                    .execute(&state.db)
+                    .await;
+                }
+            }
+
+            std::borrow::Cow::Owned(plain)
         } else {
-            std::borrow::Cow::Borrowed(&bytes[..])
+            std::borrow::Cow::Borrowed(&raw[..])
         };
 
         let sha = hex::encode(Sha256::digest(bytes.as_ref()));
@@ -177,10 +237,8 @@ pub async fn upload_handler(
             normalized,
             inserted,
             skipped_duplicates,
-        }));
+        }))
     }
-
-    Err(AppError::BadRequest("No file in upload".into()))
 }
 
 // ── Debug headers ─────────────────────────────────────────────────────────────
