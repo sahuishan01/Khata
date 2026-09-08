@@ -1,4 +1,5 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { CopyButton } from './shared/CopyButton'
 
 interface ErrorStateProps {
   title?: string
@@ -14,12 +15,15 @@ export function ErrorState({ title = 'Something went wrong', message, onRetry }:
       </div>
       <div className="error-state-title">{title}</div>
       {message && <div className="error-state-msg">{message}</div>}
-      {onRetry && (
-        <button className="btn btn-secondary btn-sm" onClick={onRetry} style={{ marginTop: 8 }}>
-          <RefreshCw size={14} />
-          Retry
-        </button>
-      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {onRetry && (
+          <button className="btn btn-secondary btn-sm" onClick={onRetry}>
+            <RefreshCw size={14} />
+            Retry
+          </button>
+        )}
+        {message && <CopyButton text={`${title}: ${message}`} label="Copy error" />}
+      </div>
     </div>
   )
 }

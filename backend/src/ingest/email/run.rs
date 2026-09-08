@@ -61,6 +61,7 @@ struct EmailConfig {
     enc_app_password: String,
     enc_pdf_password: Option<String>,
     imap_server: String,
+    imap_folder: String,
     sender_allowlist: Vec<String>,
     subject_patterns: Vec<String>,
     imap_uid_validity: Option<i64>,
@@ -133,7 +134,7 @@ async fn execute(state: &AppState, user_id: Uuid, run_id: Uuid, cfg: EmailConfig
 
     let mailbox = tokio::time::timeout(
         std::time::Duration::from_secs(45),
-        RustlsImap::connect(&cfg.imap_server, &cfg.email_address, &app_password),
+        RustlsImap::connect(&cfg.imap_server, &cfg.email_address, &app_password, &cfg.imap_folder),
     )
     .await
     .map_err(|_| anyhow!("IMAP connect timed out"))?
@@ -338,11 +339,11 @@ async fn load_config(db: &PgPool, user_id: Uuid) -> Result<Option<EmailConfig>> 
     let mut tx = db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
     let row: Option<(
-        String, String, Option<String>, String,
+        String, String, Option<String>, String, String,
         Option<Vec<String>>, Option<Vec<String>>, Option<i64>, Option<i64>,
     )> = sqlx::query_as(
         "SELECT email_address, encrypted_app_password, \
-                NULLIF(encrypted_pdf_password, ''), imap_server, \
+                NULLIF(encrypted_pdf_password, ''), imap_server, imap_folder, \
                 sender_allowlist, subject_patterns, imap_uid_validity, last_uid \
          FROM user_email_configs WHERE user_id = $1 AND sync_enabled = true",
     )
@@ -351,11 +352,12 @@ async fn load_config(db: &PgPool, user_id: Uuid) -> Result<Option<EmailConfig>> 
     .await?;
     tx.commit().await?;
 
-    Ok(row.map(|(email, app, pdf, imap, senders, subjects, validity, last_uid)| EmailConfig {
+    Ok(row.map(|(email, app, pdf, imap, folder, senders, subjects, validity, last_uid)| EmailConfig {
         email_address: email,
         enc_app_password: app,
         enc_pdf_password: pdf,
         imap_server: imap,
+        imap_folder: folder,
         sender_allowlist: senders.unwrap_or_default(),
         subject_patterns: subjects.unwrap_or_default(),
         imap_uid_validity: validity,
@@ -543,7 +545,9 @@ mod tests {
                 .filter(|u| *u >= lo)
                 .collect();
             uids.sort_unstable();
-            uids.truncate(limit);
+            if uids.len() > limit {
+                uids.drain(..uids.len() - limit);
+            }
             Ok(uids)
         }
         async fn fetch(&mut self, uids: &[u32]) -> Result<Vec<FetchedMessage>> {
