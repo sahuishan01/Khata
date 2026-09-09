@@ -9,6 +9,7 @@ use super::extract::Word;
 
 const Y_TOL: f32 = 3.0; // points; words whose y-centres are closer share a row
 const MAX_SCAN: usize = 15; // header must be in the first N rows of a page
+const MIN_HEADER_MATCHES: usize = 3; // a header row must match at least this many columns
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Band {
@@ -75,7 +76,9 @@ pub fn columns(page_rows: &[Vec<Word>], profile: &BankProfile) -> Option<Vec<Ban
                 }
             }
         }
-        if hits.len() >= 3 && best.as_ref().map_or(true, |(n, _)| hits.len() > *n) {
+        if hits.len() >= MIN_HEADER_MATCHES
+            && best.as_ref().map_or(true, |(n, _)| hits.len() > *n)
+        {
             best = Some((hits.len(), hits));
         }
     }
