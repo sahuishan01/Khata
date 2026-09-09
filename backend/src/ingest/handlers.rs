@@ -11,7 +11,7 @@ use super::{
     detect::{detect_bank, detect_file_kind},
     models::UploadResponse,
     normalize::normalize,
-    parse::parse_file,
+    parse::parse_file_safe,
     profiles::registry,
     store::store_transactions,
 };
@@ -193,7 +193,7 @@ pub async fn upload_handler(
             }
             _ => {
                 let (_, _, h, _) =
-                    parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
+                    parse_file_safe(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
                         .map_err(|e| AppError::BadRequest(e.to_string()))?;
                 h
             }
@@ -202,7 +202,7 @@ pub async fn upload_handler(
         let profile = detect_bank(&profiles, &file_hint);
 
         // Second pass: correct profile
-        let (raw_rows, _, _, low_conf) = parse_file(bytes.as_ref(), kind, profile)
+        let (raw_rows, _, _, low_conf) = parse_file_safe(bytes.as_ref(), kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
         let warnings: Vec<String> = low_conf.into_iter().collect();
 
@@ -287,7 +287,7 @@ pub async fn debug_headers_handler(
             }
             _ => {
                 let (_, _, h, _) =
-                    parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
+                    parse_file_safe(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
                         .map_err(|e| AppError::BadRequest(e.to_string()))?;
                 h
             }
@@ -295,7 +295,7 @@ pub async fn debug_headers_handler(
 
         let profile = detect_bank(&profiles, &file_hint);
 
-        let (raw_rows, headers, _, _) = parse_file(bytes.as_ref(), kind, profile)
+        let (raw_rows, headers, _, _) = parse_file_safe(bytes.as_ref(), kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let col = |aliases: &[&str]| -> serde_json::Value {

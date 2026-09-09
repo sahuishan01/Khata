@@ -446,11 +446,7 @@ fn safe_parse(
     kind: crate::ingest::detect::FileKind,
     profile: &crate::ingest::profiles::BankProfile,
 ) -> Result<ParseOut> {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        crate::ingest::parse::parse_file(bytes, kind, profile)
-    }))
-    .map_err(|_| anyhow!("parser crashed on this file"))?
-    .map_err(|e| anyhow!("parse: {e}"))
+    crate::ingest::parse::parse_file_safe(bytes, kind, profile).map_err(|e| anyhow!("parse: {e}"))
 }
 
 // ── DB helpers ────────────────────────────────────────────────────────────────

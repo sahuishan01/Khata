@@ -5,6 +5,22 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-09] — Contain parser panics at every entry point (v0.45.2)
+
+### Fixed
+- `pdf_extract` asserts on malformed font tables (seen in the wild: "assertion
+  `left == right` failed: 257 vs 255" on a Gmail PDF attachment). The email
+  worker already caught that, but the **upload handler did not** — the same file
+  uploaded through the API would panic the request task instead of returning a
+  response. A shared `parse::guard` now wraps every parser entry point:
+  `parse_file_safe` (used by upload, debug-headers and the sync worker) and
+  `pdf::extract_text` (the bank-detection hint pass). A panic becomes a normal
+  `Err`, so the caller gets a 400 with "parser crashed on this file".
+- The worker's private copy of the panic guard is gone; it delegates to the
+  shared one, so a new caller cannot forget it.
+
+---
+
 ## [2026-09-09] — Alert-email parser stops inventing transactions (v0.45.1)
 
 ### Fixed
