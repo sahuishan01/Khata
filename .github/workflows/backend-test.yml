@@ -32,7 +32,10 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://khata:khata@127.0.0.1:5432/khata
+      # Tests connect as khata_app, NOT as the POSTGRES_USER bootstrap role:
+      # that role is a superuser, and superusers bypass RLS entirely, which
+      # breaks the RLS-isolation tests. See the "Prepare database" step.
+      DATABASE_URL: postgresql://khata_app:khata@127.0.0.1:5432/khata
       RO_DATABASE_URL: postgresql://khata_ro:khata_ro@127.0.0.1:5432/khata
 
     steps:
@@ -54,15 +57,17 @@ jobs:
         #    creates the role — dev and prod provision it out of band. Roles are
         #    cluster-global, so creating it once here covers every `#[sqlx::test]`
         #    ephemeral DB.
-        # 2. POSTGRES_USER is always a superuser, and superusers BYPASS RLS
-        #    entirely — which makes the RLS-isolation tests pass vacuously (or
-        #    rather, fail their negative assertions). Drop khata to a normal
-        #    role (keeping CREATEDB for the ephemeral test databases) so RLS is
-        #    actually enforced, matching dev and prod.
+        # 2. POSTGRES_USER is a superuser, and superusers BYPASS RLS entirely,
+        #    so the RLS-isolation tests fail their negative assertions when the
+        #    suite runs as that role. A role also cannot drop its own superuser
+        #    bit ("permission denied to alter role"), so create a separate
+        #    non-superuser role for the tests to connect as. CREATEDB lets
+        #    `#[sqlx::test]` provision its ephemeral databases.
         run: |
           PGPASSWORD=khata psql -h 127.0.0.1 -U khata -d khata \
             -c "CREATE ROLE khata_ro LOGIN PASSWORD 'khata_ro';" \
-            -c "ALTER ROLE khata NOSUPERUSER CREATEDB;"
+            -c "CREATE ROLE khata_app LOGIN PASSWORD 'khata' CREATEDB;" \
+            -c "GRANT ALL PRIVILEGES ON DATABASE khata TO khata_app;"
 
       - name: Fetch pdfium
         working-directory: backend
