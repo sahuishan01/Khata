@@ -1,23 +1,5 @@
-mod accounts;
-mod audit;
-mod auth;
-mod budgets;
-mod categories;
-mod chat;
-mod config;
-mod db;
-mod error;
-mod goals;
-mod ingest;
-mod portfolio;
-mod reports;
-mod rules;
-mod subscriptions;
-mod txns;
-
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use axum::{
     extract::Request,
@@ -32,16 +14,11 @@ use tower_http::{
     trace::TraceLayer,
 };
 use tracing_subscriber::{fmt, EnvFilter};
-use uuid::Uuid;
 
-#[derive(Clone)]
-pub struct AppState {
-    pub db: sqlx::PgPool,
-    pub db_ro: sqlx::PgPool,
-    pub config: Arc<config::Config>,
-    pub chat_ratelimit: Arc<Mutex<HashMap<Uuid, Instant>>>,
-    pub login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
-}
+use khata::{
+    accounts, auth, budgets, categories, chat, config, db, goals, ingest, portfolio, reports, rules,
+    subscriptions, txns, AppState,
+};
 
 async fn security_headers_mw(
     req: Request,
