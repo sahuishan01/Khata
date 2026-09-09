@@ -178,6 +178,7 @@ mod tests {
             email_sync_poll_secs: 0,
             email_sync_max_messages: 200,
             email_sync_max_attach_bytes: 15 * 1024 * 1024,
+            pdfium_lib_path: None,
         }
     }
 

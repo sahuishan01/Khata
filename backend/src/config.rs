@@ -26,6 +26,10 @@ pub struct Config {
     pub email_sync_max_messages: usize,
     /// Per-attachment size cap for email sync, bytes. Default 15 MiB.
     pub email_sync_max_attach_bytes: usize,
+    /// Path to `libpdfium` (a file or a directory). Unset falls back to the
+    /// system library, then to the text-only PDF parser. Set in production by
+    /// the container image (`PDFIUM_LIB_PATH`).
+    pub pdfium_lib_path: Option<String>,
 }
 
 /// Parse an unsigned-integer env var; unset or unparseable falls back to `default`.
@@ -80,6 +84,7 @@ impl Config {
             email_sync_poll_secs: env_uint("EMAIL_SYNC_POLL_SECS", 900),
             email_sync_max_messages: env_uint("EMAIL_SYNC_MAX_MESSAGES", 200),
             email_sync_max_attach_bytes: env_uint("EMAIL_SYNC_MAX_ATTACH_BYTES", 15 * 1024 * 1024),
+            pdfium_lib_path: std::env::var("PDFIUM_LIB_PATH").ok(),
         })
     }
 
@@ -122,6 +127,7 @@ mod tests {
             email_sync_poll_secs: 0,
             email_sync_max_messages: 200,
             email_sync_max_attach_bytes: 15 * 1024 * 1024,
+            pdfium_lib_path: None,
         }
     }
 

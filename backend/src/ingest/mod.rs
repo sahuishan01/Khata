@@ -7,6 +7,7 @@ pub mod handlers;
 pub mod models;
 pub mod normalize;
 pub mod parse;
+pub mod pdf;
 pub mod profiles;
 pub mod store;
 
