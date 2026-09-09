@@ -33,6 +33,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://khata:khata@127.0.0.1:5432/khata
+      RO_DATABASE_URL: postgresql://khata_ro:khata_ro@127.0.0.1:5432/khata
 
     steps:
       - name: Checkout
@@ -47,6 +48,15 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+
+      - name: Prepare database
+        # Migration 0006 (RLS) does `GRANT SELECT ... TO khata_ro` but never
+        # creates the role — dev and prod provision it out of band. `#[sqlx::test]`
+        # runs migrations in ephemeral DBs, and roles are cluster-global, so
+        # creating it once here is enough.
+        run: |
+          PGPASSWORD=khata psql -h 127.0.0.1 -U khata -d khata \
+            -c "CREATE ROLE khata_ro LOGIN PASSWORD 'khata_ro';"
 
       - name: Fetch pdfium
         working-directory: backend
