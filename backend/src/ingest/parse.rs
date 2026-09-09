@@ -9,6 +9,29 @@ const MAX_PARSE_ROWS: usize = 100_000;
 
 /// Returns (raw_rows, column_headers, full_file_text_for_bank_detection)
 /// The third value is all row text joined — used to detect the bank from preamble rows.
+/// Run `f`, turning a panic into an `Err`.
+///
+/// `pdf_extract` asserts on malformed font tables (observed in the wild:
+/// "assertion `left == right` failed: 257 vs 255"), and a panic in an axum
+/// handler takes the request down rather than returning a response. Every
+/// entry point into the parsers goes through this.
+pub fn guard<T>(what: &str, f: impl FnOnce() -> Result<T>) -> Result<T> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(r) => r,
+        Err(_) => Err(anyhow::anyhow!("{what} crashed on this file")),
+    }
+}
+
+/// `parse_file`, but a parser panic becomes an `Err` instead of killing the
+/// caller's task. Prefer this at every request/worker boundary.
+pub fn parse_file_safe(
+    bytes: &[u8],
+    kind: FileKind,
+    profile: &BankProfile,
+) -> Result<(Vec<RawRow>, Vec<String>, String, Option<String>)> {
+    guard("parser", || parse_file(bytes, kind, profile))
+}
+
 pub fn parse_file(
     bytes: &[u8],
     kind: FileKind,
@@ -233,6 +256,25 @@ mod tests {
         assert!(!is_zip(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]));
         assert!(!is_zip(b"%PDF-1.7"));
         assert!(!is_zip(b"PK"));
+    }
+
+    #[test]
+    fn guard_turns_a_panic_into_an_err() {
+        // pdf_extract asserts on malformed font tables; in an axum handler that
+        // would kill the request instead of returning a response.
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {})); // keep the test output clean
+        let r: Result<()> = guard("parser", || panic!("assertion failed: 257 == 255"));
+        std::panic::set_hook(prev);
+        let e = r.unwrap_err().to_string();
+        assert!(e.contains("crashed on this file"), "got: {e}");
+    }
+
+    #[test]
+    fn guard_passes_through_ok_and_err() {
+        assert_eq!(guard("parser", || Ok(7)).unwrap(), 7);
+        let e: Result<u8> = guard("parser", || Err(anyhow::anyhow!("normal failure")));
+        assert!(e.unwrap_err().to_string().contains("normal failure"));
     }
 
     #[test]

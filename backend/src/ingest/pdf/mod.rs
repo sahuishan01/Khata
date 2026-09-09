@@ -24,7 +24,10 @@ pub fn extract_text(bytes: &[u8]) -> String {
             }
         }
     }
-    legacy::extract_text(bytes)
+    // pdf_extract can assert on malformed font tables; a hint pass must never
+    // take the request down.
+    crate::ingest::parse::guard("pdf text extraction", || Ok(legacy::extract_text(bytes)))
+        .unwrap_or_default()
 }
 
 /// Returns (rows, headers, lowercased_full_text, low_confidence_reason).

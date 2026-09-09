@@ -328,3 +328,17 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod realworld {
+    use super::*;
+    #[test]
+    fn real_hdfc_upi_shape_still_parses() {
+        let b = "Dear Customer, Rs.20.00 has been debited from account 3621 to VPA mmrda1@ybl \
+                 on 08-09-26. Your UPI transaction reference number is 173220547445. \
+                 If you did not authorize this, report to HDFC Bank.";
+        let t = extract("❗ You have done a UPI txn. Check details!", b, "alerts@hdfcbank.net");
+        println!("RESULT: {t:?}");
+        assert!(t.is_some(), "real HDFC UPI alert must still parse");
+    }
+}
