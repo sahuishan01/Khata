@@ -1,4 +1,4 @@
-use super::BankProfile;
+use super::{BankProfile, ColKind, PdfColumn, StatementKind};
 
 pub fn profile() -> BankProfile {
     BankProfile {
@@ -14,5 +14,15 @@ pub fn profile() -> BankProfile {
         ref_aliases: &["chq./ref.no.", "chq/ref number", "cheque no", "chq no", "ref no", "reference number"],
         date_formats: &["%d/%m/%y", "%d/%m/%Y", "%d-%m-%Y", "%d-%b-%Y", "%d %b %Y"],
         skip_rows: 0,
+        statement_kind: StatementKind::Account,
+        pdf_columns: &[
+            PdfColumn { kind: ColKind::TxnDate, headers: &["date", "txn date", "transaction date", "posting date"] },
+            PdfColumn { kind: ColKind::ValueDate, headers: &["value date", "value dt"] },
+            PdfColumn { kind: ColKind::Description, headers: &["narration", "description", "particulars", "remarks"] },
+            PdfColumn { kind: ColKind::Ref, headers: &["chq./ref.no.", "chq/ref number", "cheque no", "chq no", "ref no", "reference number"] },
+            PdfColumn { kind: ColKind::Debit, headers: &["withdrawal amt", "debit amount", "dr", "debit"] },
+            PdfColumn { kind: ColKind::Credit, headers: &["deposit amt", "credit amount", "cr", "credit"] },
+            PdfColumn { kind: ColKind::Balance, headers: &["closing balance", "balance", "running balance"] },
+        ],
     }
 }
