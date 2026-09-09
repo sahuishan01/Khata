@@ -8,6 +8,9 @@ use khata::ingest::profiles;
 fn ready() -> bool {
     let ok = extract::init(std::env::var("PDFIUM_LIB_PATH").ok().as_deref()).is_ok();
     if !ok {
+        if std::env::var("CI").is_ok() {
+            panic!("pdfium unavailable but CI=true — integration tests must run in CI");
+        }
         eprintln!("skip: no pdfium");
     }
     ok
@@ -142,7 +145,9 @@ fn repeated_page_header_does_not_create_rows() {
     }
     let pdf = gen::statement(&spec);
     let (rows, ..) = parse_pdf(&pdf, &profiles::hdfc::profile()).unwrap();
-    assert!(rows.iter().all(|r| r.description != "Narration"));
+    assert!(rows
+        .iter()
+        .all(|r| !r.description.contains("Narration") && !r.description.contains("Withdrawal")));
     assert!(
         rows.len() >= 40,
         "expected the 5 real + 40 filler txns, got {}",

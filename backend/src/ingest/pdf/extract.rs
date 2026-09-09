@@ -1,12 +1,14 @@
 //! Positioned text extraction from PDF statements via `pdfium-render`.
 //!
 //! `libpdfium` is loaded dynamically at runtime (it is not bundled). Binding is
-//! attempted once, lazily, against `$PDFIUM_LIB_PATH` (a file or a directory) and
-//! then the system library. If neither is present, [`words`] returns `Err` and
-//! callers fall back to the text-only parser.
+//! attempted once, at [`init`] time, against `$PDFIUM_LIB_PATH` (a file or a
+//! directory) and then the system library. Exactly one [`Pdfium`] instance is
+//! created for the whole process and never dropped — dropping it would call
+//! `FPDF_DestroyLibrary()` and tear the library down under any concurrent
+//! extraction. All extraction is serialized through a `Mutex`.
 
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use anyhow::{anyhow, Result};
 use pdfium_render::prelude::*;
@@ -22,40 +24,44 @@ pub struct Word {
     pub page: usize, // 0-based
 }
 
-/// How pdfium was bound, recorded on first success so per-call [`Pdfium`]
-/// instances can re-acquire the (already loaded) library cheaply.
-#[derive(Debug, Clone)]
-enum BindTarget {
-    /// An explicit `$PDFIUM_LIB_PATH` (file or directory).
-    Path(String),
-    /// The system library resolved by name.
-    System,
-}
+/// The single process-wide pdfium instance. Never dropped.
+static PDFIUM: OnceLock<Mutex<Pdfium>> = OnceLock::new();
+/// Guards one-time initialisation so concurrent `init()` callers cannot each
+/// build (and then drop) a throwaway `Pdfium` — a drop calls
+/// `FPDF_DestroyLibrary()` and would tear the library down under another thread.
+static INIT: OnceLock<std::result::Result<(), String>> = OnceLock::new();
 
-static BOUND: OnceLock<std::result::Result<BindTarget, String>> = OnceLock::new();
+/// Hard caps for the coordinate path — the email worker ingests attachments
+/// from an external mailbox, so a pathological file must not exhaust memory.
+const MAX_PAGES: usize = 500;
+const MAX_WORDS: usize = 300_000;
 
 /// Called once at startup. Binds to `$PDFIUM_LIB_PATH` (file or dir), then to
-/// the system library. Idempotent; returns the bind result.
+/// the system library, and constructs the process-wide [`Pdfium`]. Idempotent:
+/// once the instance exists this is a no-op returning `Ok(())`.
 pub fn init(lib_path: Option<&str>) -> std::result::Result<(), String> {
-    BOUND
-        .get_or_init(|| resolve_binding(lib_path))
-        .clone()
-        .map(|_| ())
+    INIT.get_or_init(|| {
+        let bindings = resolve_binding(lib_path)?;
+        let _ = PDFIUM.set(Mutex::new(Pdfium::new(bindings)));
+        Ok(())
+    })
+    .clone()
 }
 
-/// True once [`init`] has bound to a libpdfium library this process.
+/// True once [`init`] has constructed the process-wide pdfium instance.
 pub fn is_available() -> bool {
-    matches!(BOUND.get(), Some(Ok(_)))
+    PDFIUM.get().is_some()
 }
 
-fn resolve_binding(lib_path: Option<&str>) -> std::result::Result<BindTarget, String> {
+fn resolve_binding(
+    lib_path: Option<&str>,
+) -> std::result::Result<Box<dyn PdfiumLibraryBindings>, String> {
     if let Some(p) = lib_path.map(str::trim).filter(|p| !p.is_empty()) {
-        if bind_path(p).is_ok() {
-            return Ok(BindTarget::Path(p.to_string()));
+        if let Ok(b) = bind_path(p) {
+            return Ok(b);
         }
     }
     Pdfium::bind_to_system_library()
-        .map(|_| BindTarget::System)
         .map_err(|e| format!("pdfium: could not bind to a libpdfium library: {e}"))
 }
 
@@ -68,28 +74,26 @@ fn bind_path(p: &str) -> std::result::Result<Box<dyn PdfiumLibraryBindings>, Pdf
     }
 }
 
-fn bindings() -> Result<Box<dyn PdfiumLibraryBindings>> {
-    match BOUND.get() {
-        Some(Ok(BindTarget::Path(p))) => {
-            bind_path(p).map_err(|e| anyhow!("pdfium unavailable: {e}"))
-        }
-        Some(Ok(BindTarget::System)) => {
-            Pdfium::bind_to_system_library().map_err(|e| anyhow!("pdfium unavailable: {e}"))
-        }
-        _ => Err(anyhow!("pdfium is not available")),
-    }
-}
-
 /// Extract every positioned text segment from every page.
 /// `Err` if pdfium is not available or the PDF cannot be loaded.
 pub fn words(bytes: &[u8]) -> Result<Vec<Word>> {
-    let pdfium = Pdfium::new(bindings()?);
-    let doc = pdfium
+    let guard = PDFIUM
+        .get()
+        .ok_or_else(|| anyhow!("pdfium not initialised"))?
+        .lock()
+        .unwrap();
+
+    let doc = guard
         .load_pdf_from_byte_slice(bytes, None)
         .map_err(|e| anyhow!("pdfium could not load PDF: {e}"))?;
 
+    let pages = doc.pages();
+    if pages.len() as usize > MAX_PAGES {
+        return Err(anyhow!("PDF has too many pages ({})", pages.len()));
+    }
+
     let mut out = Vec::new();
-    for (pi, page) in doc.pages().iter().enumerate() {
+    for (pi, page) in pages.iter().enumerate() {
         let text = match page.text() {
             Ok(t) => t,
             Err(_) => continue,
@@ -108,6 +112,9 @@ pub fn words(bytes: &[u8]) -> Result<Vec<Word>> {
                 y1: b.top().value,
                 page: pi,
             });
+            if out.len() > MAX_WORDS {
+                return Err(anyhow!("PDF produced too many text segments"));
+            }
         }
     }
     Ok(out)
@@ -151,5 +158,25 @@ mod tests {
     #[test]
     fn hello_pdf_is_a_pdf() {
         assert!(hello_pdf().starts_with(b"%PDF"));
+    }
+
+    #[test]
+    fn concurrent_words_calls_are_serialized_and_succeed() {
+        if !pdfium_ready() {
+            return;
+        }
+        let pdf = std::sync::Arc::new(hello_pdf());
+        let handles: Vec<_> = (0..2)
+            .map(|_| {
+                let p = pdf.clone();
+                std::thread::spawn(move || {
+                    let ws = words(&p).expect("words() under concurrency");
+                    assert!(ws.iter().any(|w| w.text.contains("HELLO")));
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
     }
 }

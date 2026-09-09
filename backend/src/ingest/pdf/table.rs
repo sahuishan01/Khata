@@ -8,7 +8,10 @@ use crate::ingest::profiles::{BankProfile, ColKind};
 use super::extract::Word;
 
 const Y_TOL: f32 = 3.0; // points; words whose y-centres are closer share a row
-const MAX_SCAN: usize = 15; // header must be in the first N rows of a page
+// Header must be in the first N rows of a page. A wide scan is safe because the
+// `MIN_HEADER_MATCHES >= 3` gate rejects non-header rows — address/summary/legend
+// blocks above the table do not match three column aliases at once.
+const MAX_SCAN: usize = 40;
 const MIN_HEADER_MATCHES: usize = 3; // a header row must match at least this many columns
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,15 +54,31 @@ pub fn rows(mut words: Vec<Word>) -> Vec<Vec<Word>> {
     out
 }
 
-/// First `PdfColumn` (in declared, visual L-to-R order) whose `headers`
-/// substring-matches the lowercased word; `None` if nothing matches.
-fn match_kind(text: &str, profile: &BankProfile) -> Option<ColKind> {
+/// The `ColKind` whose *longest* header alias is contained in the lowercased
+/// word, across ALL columns. Longest-match (not first-match) so `"value date"`
+/// beats the bare `"date"` alias of `TxnDate`. Ties break by declared column
+/// order. `None` if nothing matches.
+pub(crate) fn match_kind(text: &str, profile: &BankProfile) -> Option<ColKind> {
     let t = text.to_lowercase();
-    profile
-        .pdf_columns
+    let mut best: Option<(ColKind, usize)> = None;
+    for c in profile.pdf_columns {
+        for h in c.headers {
+            if t.contains(h) && best.map_or(true, |(_, len)| h.len() > len) {
+                best = Some((c.kind, h.len()));
+            }
+        }
+    }
+    best.map(|(k, _)| k)
+}
+
+/// True if a row is a repeated header row: at least two of its cell values
+/// match a column header alias (same longest-match logic as [`match_kind`]).
+pub(crate) fn cell_is_header_row(values: &[&str], profile: &BankProfile) -> bool {
+    values
         .iter()
-        .find(|c| c.headers.iter().any(|h| t.contains(h)))
-        .map(|c| c.kind)
+        .filter(|v| match_kind(v, profile).is_some())
+        .count()
+        >= 2
 }
 
 /// Scan the first `MAX_SCAN` rows for the row matching the most
@@ -218,6 +237,32 @@ mod tests {
         assert_eq!(c[&ColKind::TxnDate], "01/02/2024");
         assert_eq!(c[&ColKind::Description], "UPI swiggy");
         assert_eq!(c[&ColKind::Balance], "1,234.00");
+    }
+
+    #[test]
+    fn value_date_column_is_reachable_despite_bare_date_alias() {
+        let p = hdfc::profile();
+        assert_eq!(match_kind("Date", &p), Some(ColKind::TxnDate));
+        assert_eq!(match_kind("Value Date", &p), Some(ColKind::ValueDate));
+        assert_eq!(match_kind("Posting Date", &p), Some(ColKind::TxnDate)); // hdfc: posting date -> TxnDate alias
+    }
+
+    #[test]
+    fn header_with_both_date_and_value_date_yields_distinct_bands() {
+        let header2 = vec![
+            w("Date", 10.0, 40.0, 750.0),
+            w("Value Date", 60.0, 115.0, 750.0),
+            w("Narration", 140.0, 210.0, 750.0),
+            w("Withdrawal Amt", 260.0, 330.0, 750.0),
+            w("Balance", 400.0, 450.0, 750.0),
+        ];
+        let bands = columns(&[header2], &hdfc::profile()).expect("header matched");
+        let kinds: Vec<ColKind> = bands.iter().map(|b| b.kind).collect();
+        assert!(kinds.contains(&ColKind::TxnDate));
+        assert!(kinds.contains(&ColKind::ValueDate));
+        let ti = kinds.iter().position(|k| *k == ColKind::TxnDate).unwrap();
+        let vi = kinds.iter().position(|k| *k == ColKind::ValueDate).unwrap();
+        assert!(ti < vi, "TxnDate band left of ValueDate band");
     }
 
     #[test]

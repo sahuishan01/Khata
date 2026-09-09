@@ -156,6 +156,14 @@ pub fn assemble(rows: Vec<BTreeMap<ColKind, String>>, profile: &BankProfile) -> 
             if is_totals(&cells) {
                 continue;
             }
+            // Drop repeated per-page header rows and empty rows instead of
+            // appending their text to the previous transaction.
+            let values: Vec<&str> = cells.values().map(|s| s.as_str()).collect();
+            if values.iter().all(|v| v.trim().is_empty())
+                || super::table::cell_is_header_row(&values, profile)
+            {
+                continue;
+            }
             if let Some(row) = out.last_mut() {
                 merge_continuation(row, &cells);
             }

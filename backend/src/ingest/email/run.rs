@@ -289,7 +289,12 @@ async fn process_attachment(
 
     // Two-pass parse: generic profile for the bank hint, then the real profile.
     // pdf-extract can panic on malformed PDFs — contain it per-attachment.
-    let (_, _, hint, _) = safe_parse(&bytes, kind.clone(), profiles.last().unwrap())?;
+    let hint = if kind == crate::ingest::detect::FileKind::Pdf {
+        // `extract_text` can't panic — no catch_unwind needed.
+        crate::ingest::pdf::extract_text(&bytes).to_lowercase()
+    } else {
+        safe_parse(&bytes, kind.clone(), profiles.last().unwrap())?.2
+    };
     let profile = detect_bank(profiles, &hint);
     let (raw_rows, _, _, low_conf) = safe_parse(&bytes, kind, profile)?;
 

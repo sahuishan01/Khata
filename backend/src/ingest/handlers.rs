@@ -185,9 +185,19 @@ pub async fn upload_handler(
         let mut tx = state.db.begin().await?;
         crate::db::set_current_user(&mut *tx, user_id).await?;
 
-        // First pass: generic profile → get full file hint text for bank detection
-        let (_, _, file_hint, _) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
-            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        // First pass: cheap text-only hint for bank detection. For PDFs this
+        // avoids running the full coordinate pipeline twice.
+        let file_hint = match kind {
+            super::detect::FileKind::Pdf => {
+                crate::ingest::pdf::extract_text(bytes.as_ref()).to_lowercase()
+            }
+            _ => {
+                let (_, _, h, _) =
+                    parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
+                        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+                h
+            }
+        };
 
         let profile = detect_bank(&profiles, &file_hint);
 
@@ -271,8 +281,17 @@ pub async fn debug_headers_handler(
 
         let kind = detect_file_kind(&filename);
 
-        let (_, _, file_hint, _) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
-            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        let file_hint = match kind {
+            super::detect::FileKind::Pdf => {
+                crate::ingest::pdf::extract_text(bytes.as_ref()).to_lowercase()
+            }
+            _ => {
+                let (_, _, h, _) =
+                    parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
+                        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+                h
+            }
+        };
 
         let profile = detect_bank(&profiles, &file_hint);
 
