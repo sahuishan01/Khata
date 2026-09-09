@@ -9,10 +9,9 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS builder
 COPY --from=planner /build/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY backend/ .
-RUN cargo build --release
 
 # Download a pinned pdfium prebuilt (loaded dynamically at runtime; not bundled).
+# Kept above `COPY backend/ .` so a source-only change does not re-download it.
 ARG PDFIUM_VER=chromium/8044
 RUN set -eux; \
     deb_arch="$(dpkg --print-architecture)"; \
@@ -24,6 +23,9 @@ RUN set -eux; \
     mkdir -p /pdfium; \
     curl -fsSL "https://github.com/bblanchon/pdfium-binaries/releases/download/${PDFIUM_VER}/pdfium-linux-${pdfium_arch}.tgz" \
       | tar -xz -C /pdfium
+
+COPY backend/ .
+RUN cargo build --release
 
 FROM docker.io/library/debian:bookworm-slim
 RUN apt-get update -qq && apt-get install -y -qq ca-certificates libgcc-s1 && rm -rf /var/lib/apt/lists/*

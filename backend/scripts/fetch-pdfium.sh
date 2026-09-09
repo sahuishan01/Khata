@@ -7,7 +7,12 @@ set -eu
 
 VER="chromium/8044"                    # pin; bump deliberately
 OS="${1:-linux}"
-ARCH="${2:-x64}"
+case "$(uname -m)" in
+  x86_64|amd64)      HOST_ARCH=x64 ;;
+  aarch64|arm64)     HOST_ARCH=arm64 ;;
+  *)                 HOST_ARCH=x64 ;;
+esac
+ARCH="${2:-$HOST_ARCH}"
 DEST="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/.pdfium"
 
 mkdir -p "$DEST"

@@ -37,8 +37,9 @@ PDF statements are parsed on a coordinate-aware path:
    (`src/ingest/pdf/legacy.rs`). Low confidence is surfaced as
    `UploadResponse.warnings` and a non-fatal `parse-confidence` email-sync entry.
 
-Credit-card statements are detected in `src/ingest/pdf/detect.rs` and use the
-`generic_cc` profile (single signed `Amount` column, `Cr`/`Dr` suffix aware).
+Credit-card statements are detected in the shared `src/ingest/detect.rs` module,
+which selects the `generic_cc` profile (single signed `Amount` column, `Cr`/`Dr`
+suffix aware); its `statement_kind` is then read in `src/ingest/pdf/mod.rs`.
 
 ### Adding a bank's `pdf_columns`
 

@@ -164,7 +164,8 @@ orchestrated by `backend/src/ingest/pdf/mod.rs`.
   back to the legacy `pdf_extract` line-heuristic (`backend/src/ingest/pdf/legacy.rs`).
 - **Low confidence** surfaces as `UploadResponse.warnings` (web + Android) and a
   non-fatal `parse-confidence` entry in email sync runs.
-- **Credit-card statements** are detected (`detect.rs`) and use the `generic_cc` profile.
+- **Credit-card statements** are detected in the shared `src/ingest/detect.rs`, which
+  selects the `generic_cc` profile; `pdf/mod.rs` reads its `statement_kind`.
 - Integration tests (`backend/tests/pdf_parser.rs`) self-skip unless `PDFIUM_LIB_PATH` is set.
 - Spec: `docs/superpowers/specs/2026-09-09-pdf-table-parser-design.md`
 - **Deploy:** the repo-root `Dockerfile` downloads pinned `libpdfium` (`chromium/8044`)

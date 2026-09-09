@@ -23,6 +23,21 @@ pub fn confidence(rows: &[RawRow], kind: StatementKind, full_text: &str) -> Conf
 }
 
 fn account(rows: &[RawRow]) -> Confidence {
+    let with_balance = rows.iter().filter(|r| r.balance.is_some()).count();
+    if with_balance * 2 < rows.len() {
+        return Confidence::Low(
+            "could not verify amounts: no running balance column found — please check the transactions"
+                .into(),
+        );
+    }
+    let no_amount = rows
+        .iter()
+        .filter(|r| r.debit.is_none() && r.credit.is_none())
+        .count();
+    if no_amount > 0 {
+        return Confidence::Low(format!("{no_amount} transaction(s) have no parseable amount"));
+    }
+
     let mut checked = 0usize;
     let mut bad = 0usize;
     let mut prev: Option<f64> = None;
@@ -128,6 +143,32 @@ mod tests {
             confidence(&[r(Some(1.0), None, Some(1.0))], StatementKind::Account, ""),
             Confidence::Low(_)
         ));
+    }
+
+    #[test]
+    fn account_low_when_no_running_balance_column() {
+        let rows = vec![
+            r(Some(450.0), None, None),
+            r(None, Some(50_000.0), None),
+            r(Some(1_000.0), None, None),
+        ];
+        match confidence(&rows, StatementKind::Account, "") {
+            Confidence::Low(m) => assert!(m.contains("no running balance")),
+            _ => panic!("expected Low"),
+        }
+    }
+
+    #[test]
+    fn account_low_when_a_row_has_no_amount() {
+        let rows = vec![
+            r(Some(450.0), None, Some(9_550.0)),
+            r(None, None, Some(9_550.0)), // no debit or credit
+            r(Some(1_000.0), None, Some(8_550.0)),
+        ];
+        match confidence(&rows, StatementKind::Account, "") {
+            Confidence::Low(m) => assert!(m.contains("no parseable amount")),
+            _ => panic!("expected Low"),
+        }
     }
 
     #[test]
