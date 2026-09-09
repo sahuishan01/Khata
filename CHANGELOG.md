@@ -5,6 +5,28 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-09] — Alert-email parser stops inventing transactions (v0.45.1)
+
+### Fixed
+- The payee pattern had no word boundary, so the `to` inside ordinary prose
+  matched: *"we wish **to** inform you that Rs 514…"* produced the payee
+  `"inform you that Rs"`. The alternation is now `\b`-anchored, the payee is
+  searched only **after** the amount (a real alert reads "Rs 450 … to
+  swiggy@ybl"), and captures whose first word is English prose are rejected.
+- A transaction now requires a hard signal — a masked account/card number or a
+  UPI/txn reference — before it is created. Without it, a 6G news digest that
+  quoted a rupee figure became a ₹601 "Udaan parent Trustroot Internet", and
+  insurance marketing became ₹3.24 "grow" / "avail your policy benefits".
+- Dates: chrono's `%Y` reads `"26"` as year 26, so `08/09/26` was stored as
+  `0026-09-08` and a fund code `ULIF 24/11/09` as `0009-11-24` (41 rows). Two-
+  digit-year formats are now tried first and implausible years are rejected.
+- The same payee fixes are mirrored in the Android `SmsParser`.
+
+### Changed
+- Upload picker labels now mention PDF alongside CSV / XLS / XLSX.
+
+---
+
 ## [2026-09-09] — Coordinate-aware PDF statement parser (v0.45.0)
 
 ### Added
