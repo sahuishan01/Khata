@@ -54,13 +54,26 @@ pub fn amount(cell: &str) -> Option<Signed> {
     }
 
     let trailing_minus = s.ends_with('-');
-    let leading_minus = s.starts_with('-');
 
     // Strip currency symbols / whitespace / explicit signs.
-    let core: String = s
+    let no_currency: String = s
         .chars()
-        .filter(|c| !matches!(c, '₹' | '$' | ' ' | '-' | '+' | '\t'))
+        .filter(|c| !matches!(c, '₹' | '$' | ' ' | '+' | '\t'))
         .collect();
+    let no_currency = no_currency
+        .strip_prefix("Rs.")
+        .or_else(|| no_currency.strip_prefix("RS."))
+        .or_else(|| no_currency.strip_prefix("rs."))
+        .or_else(|| no_currency.strip_prefix("Rs"))
+        .or_else(|| no_currency.strip_prefix("RS"))
+        .or_else(|| no_currency.strip_prefix("rs"))
+        .or_else(|| no_currency.strip_prefix("INR"))
+        .or_else(|| no_currency.strip_prefix("inr"))
+        .unwrap_or(&no_currency)
+        .trim();
+    let leading_minus = no_currency.starts_with('-');
+
+    let core: String = no_currency.chars().filter(|c| *c != '-').collect();
     let core = core
         .strip_prefix("Rs.")
         .or_else(|| core.strip_prefix("RS."))
@@ -111,7 +124,7 @@ fn is_totals(cells: &BTreeMap<ColKind, String>) -> bool {
             d.contains("closing balance")
                 || d.contains("opening balance")
                 || d.contains("grand total")
-                || d.contains("total")
+                || d.split(|c: char| !c.is_alphanumeric()).next() == Some("total")
         })
         .unwrap_or(false)
 }
@@ -250,6 +263,20 @@ mod tests {
         assert_eq!(amount("1,234.00-").unwrap().sign, Some(Sign::Dr));
         assert_eq!(amount("-1,234.00").unwrap().sign, Some(Sign::Dr));
         assert_eq!(amount("1,234.00").unwrap().sign, None);
+        assert_eq!(amount("Rs. -1,234.00").unwrap().sign, Some(Sign::Dr));
+    }
+
+    #[test]
+    fn assemble_keeps_dated_row_with_total_in_narration() {
+        let rows = vec![cell(&[
+            (ColKind::TxnDate, "01/02/2024"),
+            (ColKind::Description, "TOTALENERGIES FUEL"),
+            (ColKind::Debit, "3,200.00"),
+        ])];
+        let out = assemble(rows, &generic::profile());
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].description, "TOTALENERGIES FUEL");
+        assert_eq!(out[0].debit, Some(3200.0));
     }
 
     fn cell(pairs: &[(ColKind, &str)]) -> BTreeMap<ColKind, String> {
