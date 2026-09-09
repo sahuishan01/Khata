@@ -195,6 +195,12 @@ export function UploadPage() {
             {result && !parseFailed && !result.type && (
               <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--income)', fontSize: 13 }}><CheckCircle size={15} /><span><strong>{result.bank_detected}</strong> — {result.rows_parsed} rows, <strong>{result.inserted} new</strong>, {result.skipped_duplicates} duplicates</span></div>
             )}
+            {result?.warnings?.length ? (
+              <div className="mt-2 text-[13px] flex items-start gap-2" style={{ color: 'var(--expense, #b45309)' }}>
+                <AlertTriangle size={15} />
+                <span>{result.warnings.join(' ')}</span>
+              </div>
+            ) : null}
             {parseFailed && (
               <div className="flex gap-2 mt-3" style={{ background: 'rgba(224,163,58,.1)', border: '1px solid rgba(217, 119, 6, 0.2)', borderRadius: 'var(--r-md)', padding: '10px 14px', color: 'var(--warn)', fontSize: 13 }}>
                 <AlertTriangle size={15} /><span><strong>{result!.rows_parsed} rows found but 0 could be parsed.</strong> Bank detected: <strong>{result!.bank_detected}</strong></span>

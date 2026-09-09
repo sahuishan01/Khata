@@ -289,9 +289,9 @@ async fn process_attachment(
 
     // Two-pass parse: generic profile for the bank hint, then the real profile.
     // pdf-extract can panic on malformed PDFs — contain it per-attachment.
-    let (_, _, hint) = safe_parse(&bytes, kind.clone(), profiles.last().unwrap())?;
+    let (_, _, hint, _) = safe_parse(&bytes, kind.clone(), profiles.last().unwrap())?;
     let profile = detect_bank(profiles, &hint);
-    let (raw_rows, _, _) = safe_parse(&bytes, kind, profile)?;
+    let (raw_rows, _, _, low_conf) = safe_parse(&bytes, kind, profile)?;
 
     // Guard against false positives: a real statement has several rows, and a
     // GENERIC match means the bank fingerprint never hit.
@@ -331,6 +331,9 @@ async fn process_attachment(
     counters.attachments_parsed += 1;
     counters.txns_imported += inserted as i32;
     counters.txns_skipped += skipped as i32;
+    if let Some(reason) = low_conf {
+        counters.push_error("parse-confidence", filename, &reason);
+    }
     Ok(())
 }
 
@@ -430,7 +433,7 @@ async fn process_body_txn(
     Ok(())
 }
 
-type ParseOut = (Vec<crate::ingest::models::RawRow>, Vec<String>, String);
+type ParseOut = (Vec<crate::ingest::models::RawRow>, Vec<String>, String, Option<String>);
 
 /// `parse_file` but a panic (pdf-extract on a malformed PDF) becomes an `Err`.
 fn safe_parse(

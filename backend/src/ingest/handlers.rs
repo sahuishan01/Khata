@@ -186,14 +186,15 @@ pub async fn upload_handler(
         crate::db::set_current_user(&mut *tx, user_id).await?;
 
         // First pass: generic profile → get full file hint text for bank detection
-        let (_, _, file_hint) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
+        let (_, _, file_hint, _) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let profile = detect_bank(&profiles, &file_hint);
 
         // Second pass: correct profile
-        let (raw_rows, _, _) = parse_file(bytes.as_ref(), kind, profile)
+        let (raw_rows, _, _, low_conf) = parse_file(bytes.as_ref(), kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        let warnings: Vec<String> = low_conf.into_iter().collect();
 
         let rows_parsed = raw_rows.len();
         if rows_parsed == 0 {
@@ -225,6 +226,7 @@ pub async fn upload_handler(
                 normalized: 0,
                 inserted: 0,
                 skipped_duplicates: 0,
+                warnings: warnings.clone(),
             }));
         }
 
@@ -237,6 +239,7 @@ pub async fn upload_handler(
             normalized,
             inserted,
             skipped_duplicates,
+            warnings,
         }))
     }
 }
@@ -267,12 +270,12 @@ pub async fn debug_headers_handler(
 
         let kind = detect_file_kind(&filename);
 
-        let (_, _, file_hint) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
+        let (_, _, file_hint, _) = parse_file(bytes.as_ref(), kind.clone(), profiles.last().unwrap())
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let profile = detect_bank(&profiles, &file_hint);
 
-        let (raw_rows, headers, _) = parse_file(bytes.as_ref(), kind, profile)
+        let (raw_rows, headers, _, _) = parse_file(bytes.as_ref(), kind, profile)
             .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
         let col = |aliases: &[&str]| -> serde_json::Value {

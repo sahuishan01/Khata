@@ -201,9 +201,10 @@ class MainViewModel @Inject constructor(
         val savePart = if (pwPart != null) {
             (if (savePassword) "true" else "false").toRequestBody("text/plain".toMediaTypeOrNull())
         } else null
-        repository.uploadStatement(part, pwPart, savePart)
+        val res = repository.uploadStatement(part, pwPart, savePart)
         lastUploadUri = null
-        onResult("Uploaded!")
+        val warnings = (res["warnings"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
+        onResult(if (warnings.isNotEmpty()) "Uploaded! ${warnings.joinToString(" ")}" else "Uploaded!")
     } catch (e: retrofit2.HttpException) {
         val body = e.response()?.errorBody()?.string().orEmpty()
         val code = Regex("\"code\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)

@@ -26,6 +26,7 @@ pub struct UploadResponse {
     pub normalized: usize,
     pub inserted: usize,
     pub skipped_duplicates: usize,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone)]
