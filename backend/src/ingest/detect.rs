@@ -22,7 +22,7 @@ pub fn detect_file_kind(filename: &str) -> FileKind {
 /// `file_hint` is already lowercased.
 pub fn detect_bank<'a>(profiles: &'a [BankProfile], file_hint: &str) -> &'a BankProfile {
     // Credit-card statements: strong CC wording + no running-balance column.
-    let looks_cc = ["credit card", "minimum amount due", "total amount due", "statement of account"]
+    let looks_cc = ["credit card", "minimum amount due", "total amount due"]
         .iter()
         .any(|k| file_hint.contains(k));
     let has_balance_header = ["closing balance", "running balance", "available balance"]
