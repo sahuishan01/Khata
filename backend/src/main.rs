@@ -62,6 +62,11 @@ async fn main() -> anyhow::Result<()> {
     let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
 
     let cfg = Arc::new(config::Config::from_env()?);
+
+    match khata::ingest::pdf::extract::init(cfg.pdfium_lib_path.as_deref()) {
+        Ok(()) => tracing::info!("pdfium: loaded"),
+        Err(e) => tracing::warn!("{e} — PDF parsing will use the fallback parser"),
+    }
     let db = db::make_pool(&cfg.database_url).await?;
     let db_ro = db::make_pool(&cfg.ro_database_url).await?;
 

@@ -42,6 +42,8 @@ rustls-pki-types = "1.15.1"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 tempfile = "3"
 regex = "1"
+pdfium-render = { version = "=0.8.37", features = ["sync", "thread_safe"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+printpdf = "0.7"
