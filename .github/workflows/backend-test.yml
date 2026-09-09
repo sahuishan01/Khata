@@ -50,13 +50,19 @@ jobs:
           workspaces: backend
 
       - name: Prepare database
-        # Migration 0006 (RLS) does `GRANT SELECT ... TO khata_ro` but never
-        # creates the role — dev and prod provision it out of band. `#[sqlx::test]`
-        # runs migrations in ephemeral DBs, and roles are cluster-global, so
-        # creating it once here is enough.
+        # 1. Migration 0006 (RLS) does `GRANT SELECT ... TO khata_ro` but never
+        #    creates the role — dev and prod provision it out of band. Roles are
+        #    cluster-global, so creating it once here covers every `#[sqlx::test]`
+        #    ephemeral DB.
+        # 2. POSTGRES_USER is always a superuser, and superusers BYPASS RLS
+        #    entirely — which makes the RLS-isolation tests pass vacuously (or
+        #    rather, fail their negative assertions). Drop khata to a normal
+        #    role (keeping CREATEDB for the ephemeral test databases) so RLS is
+        #    actually enforced, matching dev and prod.
         run: |
           PGPASSWORD=khata psql -h 127.0.0.1 -U khata -d khata \
-            -c "CREATE ROLE khata_ro LOGIN PASSWORD 'khata_ro';"
+            -c "CREATE ROLE khata_ro LOGIN PASSWORD 'khata_ro';" \
+            -c "ALTER ROLE khata NOSUPERUSER CREATEDB;"
 
       - name: Fetch pdfium
         working-directory: backend
