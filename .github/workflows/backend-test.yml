@@ -1,0 +1,64 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-test.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: khata
+          POSTGRES_PASSWORD: khata
+          POSTGRES_DB: khata
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U khata"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://khata:khata@127.0.0.1:5432/khata
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Fetch pdfium
+        working-directory: backend
+        run: |
+          ./scripts/fetch-pdfium.sh linux x64
+          echo "PDFIUM_LIB_PATH=$PWD/.pdfium/lib" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: cargo test --manifest-path backend/Cargo.toml
+
+      - name: Clippy
+        # `-D warnings` is deferred: the backend carries ~40 pre-existing
+        # clippy warnings unrelated to this workflow. Tighten once that
+        # debt is cleared.
+        run: cargo clippy --manifest-path backend/Cargo.toml --all-targets

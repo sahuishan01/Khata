@@ -143,6 +143,11 @@ fn repeated_page_header_does_not_create_rows() {
     let pdf = gen::statement(&spec);
     let (rows, ..) = parse_pdf(&pdf, &profiles::hdfc::profile()).unwrap();
     assert!(rows.iter().all(|r| r.description != "Narration"));
+    assert!(
+        rows.len() >= 40,
+        "expected the 5 real + 40 filler txns, got {}",
+        rows.len()
+    );
 }
 
 #[test]

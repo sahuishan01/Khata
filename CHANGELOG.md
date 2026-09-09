@@ -5,6 +5,31 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-09] — Coordinate-aware PDF statement parser (v0.45.0)
+
+### Added
+- New PDF statement parser built on **pdfium-render** for positioned (x/y) text
+  extraction, replacing the layout-blind `pdf_extract` line heuristic as the
+  primary path.
+- Per-bank **column profiles** (`BankProfile.pdf_columns`): header-matched vertical
+  bands reconstruct table columns from word coordinates.
+- **Credit-card statement support**: detected automatically and parsed with the
+  `generic_cc` profile (signed amount column, `Cr`/`Dr` aware).
+- **Balance reconciliation** with a confidence score; low-confidence parses surface
+  as `UploadResponse.warnings` (web + Android) and a non-fatal `parse-confidence`
+  entry in email sync runs.
+- **Synthetic-PDF test suite** (`backend/tests/pdf/gen.rs`, `backend/tests/pdf_parser.rs`)
+  covering the spec's fixture cases; self-skips unless `PDFIUM_LIB_PATH` is set.
+- CI: `.github/workflows/backend-test.yml` runs `cargo test` + clippy with a
+  Postgres service and a pinned `libpdfium` fetch.
+
+### Notes
+- The legacy `pdf_extract` line parser is retained as a fallback for when pdfium is
+  unavailable or confidence is very low.
+- Deploy: Dockerfile rebuild pulls `libpdfium` (pinned `chromium/8044`); no DB migration.
+
+---
+
 ## [2026-09-08] — Gmail sync: stop misreporting damaged PDFs as decrypt failures (v0.44.7)
 
 ### Fixed

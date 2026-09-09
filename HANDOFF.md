@@ -1,8 +1,8 @@
 # HANDOFF.md — Khata Project Handoff
 
-**Current Version:** v0.43.0  
-**Last Updated:** 2026-08-26  
-**Status:** Pre-release (0.x.y)
+**Current Version:** post-v0.44.7  
+**Last Updated:** 2026-09-09  
+**Status:** PDF table parser on `feat/pdf-table-parser`, pending merge
 
 ---
 
@@ -141,6 +141,34 @@ Khata/
 **Workflow:** `.github/workflows/security-scan.yml`
 - **Trigger:** Push to `master`
 - **Steps:** `npm audit` + Trivy filesystem scan. Blocks on high-severity.
+
+**Workflow:** `.github/workflows/backend-test.yml`
+- **Trigger:** Push/PR to `master` touching `backend/**`
+- **Steps:** Rust stable + clippy → `Postgres 16` service → fetch pinned `libpdfium`
+  (`backend/scripts/fetch-pdfium.sh`, sets `PDFIUM_LIB_PATH`) → `cargo test` → `cargo clippy --all-targets`
+- **Note:** clippy `-D warnings` deferred until ~40 pre-existing warnings are cleared.
+
+---
+
+## PDF Statement Parsing
+
+The PDF ingest path uses **`pdfium-render`** to pull positioned words (x/y coords) from
+each page, then reconstructs table columns from per-bank `BankProfile.pdf_columns`
+bands (`backend/src/ingest/pdf/table.rs` → `rows.rs` → `reconcile.rs` confidence scoring),
+orchestrated by `backend/src/ingest/pdf/mod.rs`.
+
+- **`PDFIUM_LIB_PATH`** must point at the dir containing `libpdfium.so` (or the file).
+  Local setup: `cd backend && ./scripts/fetch-pdfium.sh linux x64` (arch `arm64` on ARM),
+  then `export PDFIUM_LIB_PATH="$PWD/.pdfium/lib"`.
+- **Fallback:** when pdfium is unavailable or confidence is very low, the parser falls
+  back to the legacy `pdf_extract` line-heuristic (`backend/src/ingest/pdf/legacy.rs`).
+- **Low confidence** surfaces as `UploadResponse.warnings` (web + Android) and a
+  non-fatal `parse-confidence` entry in email sync runs.
+- **Credit-card statements** are detected (`detect.rs`) and use the `generic_cc` profile.
+- Integration tests (`backend/tests/pdf_parser.rs`) self-skip unless `PDFIUM_LIB_PATH` is set.
+- Spec: `docs/superpowers/specs/2026-09-09-pdf-table-parser-design.md`
+- **Deploy:** the repo-root `Dockerfile` downloads pinned `libpdfium` (`chromium/8044`)
+  in the builder and sets `ENV PDFIUM_LIB_PATH=/usr/local/lib/libpdfium.so`. No DB migration.
 
 **Releasing:** Tag `vX.Y.Z`, push. Build creates release with `khata_X.Y.Z-debug.apk` and `khata_X.Y.Z-release.apk`.
 

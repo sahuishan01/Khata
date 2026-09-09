@@ -28,3 +28,20 @@ After the user confirms a build was successful, auto-update the version number s
 
 ## Security
 - Read SECURITY.md for security related instructions
+
+## PDF Statement Parsing
+- The PDF ingest path uses `pdfium-render` for positioned (coordinate-aware) text
+  extraction, then reconstructs table columns from per-bank `BankProfile.pdf_columns`
+  bands. Code: `backend/src/ingest/pdf/` (`table.rs`, `rows.rs`, `reconcile.rs`, `mod.rs`).
+- Requires `PDFIUM_LIB_PATH` (dir containing `libpdfium.so`, or the file itself).
+  Local setup: `cd backend && ./scripts/fetch-pdfium.sh linux x64` then
+  `export PDFIUM_LIB_PATH="$PWD/.pdfium/lib"`.
+- Fallback: when pdfium is unavailable or confidence is very low, it falls back to the
+  legacy `pdf_extract` line-heuristic (`backend/src/ingest/pdf/legacy.rs`).
+- Low confidence → `UploadResponse.warnings` (web + Android) and a non-fatal
+  `parse-confidence` entry in email sync runs.
+- Credit-card statements are detected and use the `generic_cc` profile.
+- Integration tests (`backend/tests/pdf_parser.rs`) self-skip unless `PDFIUM_LIB_PATH` is set.
+- Deploy: the root `Dockerfile` pulls pinned `libpdfium` (`chromium/8044`); no DB migration.
+- Spec: `docs/superpowers/specs/2026-09-09-pdf-table-parser-design.md`
+- See `backend/README.md` for how to add a bank's `pdf_columns` and fixtures.
