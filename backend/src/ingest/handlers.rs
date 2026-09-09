@@ -262,7 +262,8 @@ pub async fn debug_headers_handler(
 ) -> Result<Json<DebugHeadersResponse>, AppError> {
     let profiles = registry();
 
-    while let Some(field) = multipart.next_field().await? {
+    // Only the first field is inspected; the handler returns after it.
+    if let Some(field) = multipart.next_field().await? {
         let filename = field.file_name().unwrap_or("upload").to_string();
         let bytes = field.bytes().await?;
 
