@@ -40,7 +40,7 @@ fn patterns() -> &'static Patterns {
         credit: Regex::new(r"(?i)(?:credited|received|deposited|refund(?:ed)? of|added)\D{0,40}?(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)|(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\D{0,20}?(?:credited|received|deposited)").unwrap(),
         acct: Regex::new(r"(?i)(?:a/?c|account|card)(?:\s*(?:no\.?|number|ending|ending in|xx+|x+))?[:\s#\-x\*]*([0-9]{3,6})").unwrap(),
         reference: Regex::new(r"(?i)(?:upi(?:\s+transaction)?\s+ref(?:erence)?(?:\s+(?:no|number))?|txn\s*id|transaction\s+id|rrn|ref(?:erence)?\s+(?:no|number))\D{0,6}([A-Za-z0-9]{6,})").unwrap(),
-        payee: Regex::new(r"(?i)(?:to(?:\s+vpa)?|at|towards|in\s+favou?r\s+of|paid\s+to)\s+([A-Za-z0-9@._][A-Za-z0-9@._\- ]{1,39}?)(?:\s+on\b|\s+ref\b|\s+dated\b|\s+txn\b|[.,;\n]|$)").unwrap(),
+        payee: Regex::new(r"(?i)\b(?:to(?:\s+vpa)?|at|towards|in\s+favou?r\s+of|paid\s+to)\s+([A-Za-z0-9@._][A-Za-z0-9@._\- ]{1,39}?)(?:\s+on\b|\s+ref\b|\s+dated\b|\s+txn\b|[.,;\n]|$)").unwrap(),
         date: Regex::new(r"(?i)\b(\d{1,2}[-/ ](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-/ ]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b").unwrap(),
         bank_kw: Regex::new(r"(?i)\b(hdfc|icici|sbi|state bank|axis|kotak|pnb|punjab national|bob|bank of baroda|canara|idfc|yes bank|indusind|federal|rbl|au small)\b").unwrap(),
     })
@@ -66,21 +66,62 @@ fn parse_amount(s: &str) -> Option<f64> {
     cleaned.parse().ok().filter(|v: &f64| *v > 0.0)
 }
 
-fn first_group(caps: &regex::Captures) -> Option<f64> {
+/// The amount, plus the byte offset just past the whole match — the payee is
+/// searched only *after* that point, since a real alert reads
+/// "Rs 450 … to swiggy@ybl" while prose reads "…wish to inform you that Rs 514".
+fn first_group(caps: &regex::Captures) -> Option<(f64, usize)> {
+    let end = caps.get(0)?.end();
     caps.iter()
         .skip(1)
         .flatten()
         .find_map(|m| parse_amount(m.as_str()))
+        .map(|a| (a, end))
+}
+
+/// A payee capture that is really English prose ("inform you that Rs",
+/// "help you", "your account"). The alternation can only be preceded by a word
+/// boundary now, but "…to help you…" still matches, so reject by first word.
+fn is_prose(candidate: &str) -> bool {
+    const STOP: &[&str] = &[
+        "inform", "you", "your", "yours", "help", "know", "the", "a", "an", "be",
+        "is", "are", "was", "has", "have", "had", "this", "that", "these", "those",
+        "we", "our", "us", "it", "its", "avail", "get", "view", "check", "make",
+        "see", "use", "enjoy", "grow", "earn", "save", "claim", "apply", "opt",
+        "continue", "confirm", "verify", "update", "download", "click", "read",
+        "learn", "discover", "explore", "ensure", "keep", "stay", "find", "start",
+        "date", "and", "or", "for", "with", "from", "all", "any", "more", "new",
+    ];
+    let first = candidate
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_lowercase();
+    // A VPA / email-looking token is always a real payee, whatever the word.
+    if candidate.contains('@') {
+        return false;
+    }
+    STOP.contains(&first.as_str())
 }
 
 fn parse_body_date(s: &str) -> Option<NaiveDate> {
     let s = s.replace(['/', ' '], "-");
-    for fmt in ["%d-%m-%Y", "%d-%m-%y", "%d-%b-%Y", "%d-%b-%y", "%d-%B-%Y"] {
+    // Two-digit-year formats first: chrono's %Y happily reads "26" as year 26,
+    // which is how "08/09/26" became 0026-09-08 and a fund code "24/11/09"
+    // became 0009-11-24.
+    for fmt in ["%d-%m-%y", "%d-%b-%y", "%d-%m-%Y", "%d-%b-%Y", "%d-%B-%Y"] {
         if let Ok(d) = NaiveDate::parse_from_str(&s, fmt) {
-            return Some(d);
+            return Some(d).filter(plausible_txn_date);
         }
     }
     None
+}
+
+/// Guard against a stray number series parsing as a date in the far past or future.
+fn plausible_txn_date(d: &NaiveDate) -> bool {
+    use chrono::Datelike;
+    let year = d.year();
+    year >= 2000 && year <= chrono::Utc::now().year() + 1
 }
 
 /// `subject` + `body` are the mail's text; `sender` is the From address. Returns
@@ -96,16 +137,16 @@ pub fn extract(subject: &str, body: &str, sender: &str) -> Option<BodyTxn> {
 
     let p = patterns();
 
-    let (amount, direction) = p
+    let (amount, amount_end, direction) = p
         .debit
         .captures(&flat)
         .and_then(|c| first_group(&c))
-        .map(|a| (a, "debit"))
+        .map(|(a, e)| (a, e, "debit"))
         .or_else(|| {
             p.credit
                 .captures(&flat)
                 .and_then(|c| first_group(&c))
-                .map(|a| (a, "credit"))
+                .map(|(a, e)| (a, e, "credit"))
         })?;
 
     // Require a bank signal so newsletters that happen to quote a rupee figure
@@ -130,12 +171,20 @@ pub fn extract(subject: &str, body: &str, sender: &str) -> Option<BodyTxn> {
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().to_string());
 
+    // A real alert always identifies the instrument (masked a/c or card) or
+    // carries a UPI/txn reference. Newsletters and marketing mail that merely
+    // quote a rupee figure carry neither — that is what turned a 6G news digest
+    // into a ₹601 "Udaan parent Trustroot Internet".
+    if account_label.is_none() && bank_ref.is_none() {
+        return None;
+    }
+
     let description = p
         .payee
-        .captures(&flat)
+        .captures(&flat[amount_end.min(flat.len())..])
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().trim().trim_end_matches('.').to_string())
-        .filter(|s| s.len() > 2 && !s.eq_ignore_ascii_case("your"))
+        .filter(|s| s.len() > 2 && !s.eq_ignore_ascii_case("your") && !is_prose(s))
         .unwrap_or_else(|| {
             if direction == "credit" { "Credit".to_string() } else { "Debit".to_string() }
         });
@@ -210,5 +259,72 @@ mod tests {
     fn rejects_non_bank_sender_and_body() {
         let b = "Grab this deal! Save Rs 500 credited as cashback on your next order.";
         assert!(extract("Sale!", b, "offers@shopping.com").is_none());
+    }
+
+    // ── Regressions from real mis-parsed mail (v0.45.x) ──────────────────────
+
+    #[test]
+    fn prose_to_is_not_a_payee() {
+        // "...wish to inform you that Rs 514..." used to yield the payee
+        // "inform you that Rs" because the payee alternation matched the "to"
+        // of ordinary prose.
+        let b = "Dear Customer, we wish to inform you that Rs 514.00 has been \
+                 debited from your HDFC Bank Credit Card ending 1234 on 06/09/2026.";
+        let t = extract("A payment was made using your Credit Card", b, "alerts@hdfcbank.net")
+            .expect("real debit alert must still parse");
+        assert_eq!(t.amount, 514.0);
+        let d = t.description.to_lowercase();
+        assert!(!d.contains("inform"), "prose captured as payee: {}", t.description);
+        assert!(!d.contains("you that"), "prose captured as payee: {}", t.description);
+    }
+
+    #[test]
+    fn help_you_is_not_a_payee() {
+        let b = "INR 1029 spent on credit card no. XX6916 at BIGBASKET. \
+                 We are here to help you with any queries.";
+        let t = extract("Card spend", b, "alerts@axisbank.com").unwrap();
+        assert!(
+            !t.description.to_lowercase().contains("help you"),
+            "prose captured as payee: {}",
+            t.description
+        );
+    }
+
+    #[test]
+    fn rejects_news_letter_quoting_a_rupee_figure() {
+        // A news digest naming a bank and a rupee amount, with no account or
+        // reference anywhere — became a ₹601 "Udaan parent Trustroot Internet".
+        let b = "India joins global 6G initiative. Udaan parent Trustroot Internet \
+                 raised Rs 601 crore, sources at HDFC told us. Swiggy's Lynks starts up.";
+        assert!(extract("Morning brief", b, "digest@news.example.com").is_none());
+    }
+
+    #[test]
+    fn rejects_marketing_without_account_or_reference() {
+        let b = "Opt for settlement option now and avail your policy benefits. \
+                 Watch your savings grow — returns of Rs 3.24 lakh credited over the term. \
+                 ICICI Prudential.";
+        assert!(extract("Opt for settlement option now!", b, "no-reply@iciciprulife.com").is_none());
+    }
+
+    #[test]
+    fn two_digit_year_resolves_to_this_century() {
+        // "08/09/26" used to parse as year 0026 via %d-%m-%Y.
+        let b = "Rs. 90.00 has been debited from a/c XX1234 to VPA bandhan@ybl on 08/09/26. \
+                 UPI Ref No 661711758545. - HDFC Bank";
+        let t = extract("You have done a UPI txn", b, "alerts@hdfcbank.net").unwrap();
+        assert_eq!(t.txn_date, NaiveDate::from_ymd_opt(2026, 9, 8));
+    }
+
+    #[test]
+    fn implausible_body_date_is_rejected_not_stored() {
+        // A fund code "(ULIF 24/11/09 LMCapBal...)" parsed as year 0009.
+        let b = "Rs 88.00 debited from a/c XX4321 towards Multi Cap Balanced Fund \
+                 (ULIF 24/11/09 LMCapBal 105). Ref No ABC123456.";
+        let t = extract("Premium debit", b, "alerts@icicibank.com").unwrap();
+        if let Some(d) = t.txn_date {
+            use chrono::Datelike;
+            assert!(d.year() >= 2000, "implausible year stored: {d}");
+        }
     }
 }
