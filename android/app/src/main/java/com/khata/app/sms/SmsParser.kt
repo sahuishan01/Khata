@@ -24,7 +24,28 @@ object SmsParser {
     )
 
     private val BANK_PATTERN = Pattern.compile("(?i)\\b(HDFC|ICICI|SBI|AXIS|KOTAK|PNB|BOB|CANARA|PAYTM|IDFC|YES|INDUSIND)\\b")
-    private val PAYEE_PATTERN = Pattern.compile("(?i)(?:to|at|info|vpa)\\s+([A-Za-z0-9\\s\\.\\@\\-\\_]+?)(?:\\s+on|\\s+ref|\\s+avail|\\s+bal|\\s+bal:|\\.|\\,|$)")
+    // \b matters: without it the "to" inside ordinary prose ("...wish to inform
+    // you that Rs 514...") matches and the payee becomes "inform you that Rs".
+    private val PAYEE_PATTERN = Pattern.compile("(?i)\\b(?:to|at|info|vpa)\\s+([A-Za-z0-9\\s\\.\\@\\-\\_]+?)(?:\\s+on|\\s+ref|\\s+avail|\\s+bal|\\s+bal:|\\.|\\,|$)")
+
+    /** First words that mean the capture is English prose, not a merchant. */
+    private val PAYEE_STOP_WORDS = setOf(
+        "inform", "you", "your", "yours", "help", "know", "the", "a", "an", "be",
+        "is", "are", "was", "has", "have", "had", "this", "that", "these", "those",
+        "we", "our", "us", "it", "its", "avail", "get", "view", "check", "make",
+        "see", "use", "enjoy", "grow", "earn", "save", "claim", "apply", "opt",
+        "continue", "confirm", "verify", "update", "download", "click", "read",
+        "learn", "discover", "explore", "ensure", "keep", "stay", "find", "start",
+        "date", "and", "or", "for", "with", "from", "all", "any", "more", "new",
+    )
+
+    private fun isProse(candidate: String): Boolean {
+        if (candidate.contains("@")) return false // a VPA is always a real payee
+        val first = candidate.trim().substringBefore(' ')
+            .trim { !it.isLetterOrDigit() }
+            .lowercase(Locale.ROOT)
+        return first in PAYEE_STOP_WORDS
+    }
     private val REF_PATTERN = Pattern.compile("(?i)(?:ref|upi ref|txn id|rrn)\\s*:?\\s*([A-Za-z0-9]+)")
 
     fun parse(body: String, sender: String = ""): ParsedSmsTxn? {
@@ -86,7 +107,11 @@ object SmsParser {
         val payeeMatcher = PAYEE_PATTERN.matcher(cleanBody)
         if (payeeMatcher.find()) {
             val rawPayee = payeeMatcher.group(1)?.trim() ?: ""
-            if (rawPayee.length > 2 && !rawPayee.lowercase(Locale.ROOT).startsWith("ac") && !rawPayee.lowercase(Locale.ROOT).startsWith("a/c")) {
+            if (rawPayee.length > 2 &&
+                !rawPayee.lowercase(Locale.ROOT).startsWith("ac") &&
+                !rawPayee.lowercase(Locale.ROOT).startsWith("a/c") &&
+                !isProse(rawPayee)
+            ) {
                 payee = rawPayee.take(40)
             }
         }

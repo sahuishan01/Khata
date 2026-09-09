@@ -84,7 +84,7 @@ fun CombinedUploadScreen(
                     Surface(onClick = onPickFile, modifier = Modifier.fillMaxWidth().height(200.dp), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
                         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.height(8.dp)); Text("Tap to select a file"); Text("CSV, XLS, XLSX", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(8.dp)); Text("Tap to select a file"); Text("CSV, XLS, XLSX, PDF", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     resultMessage?.let { msg ->
