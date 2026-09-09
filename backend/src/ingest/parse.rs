@@ -13,11 +13,17 @@ pub fn parse_file(
     bytes: &[u8],
     kind: FileKind,
     profile: &BankProfile,
-) -> Result<(Vec<RawRow>, Vec<String>, String)> {
+) -> Result<(Vec<RawRow>, Vec<String>, String, Option<String>)> {
     match kind {
-        FileKind::Excel => parse_excel(bytes, profile),
-        FileKind::Csv => parse_csv(bytes, profile),
-        FileKind::Pdf => parse_pdf(bytes, profile),
+        FileKind::Excel => {
+            let (r, h, t) = parse_excel(bytes, profile)?;
+            Ok((r, h, t, None))
+        }
+        FileKind::Csv => {
+            let (r, h, t) = parse_csv(bytes, profile)?;
+            Ok((r, h, t, None))
+        }
+        FileKind::Pdf => crate::ingest::pdf::parse_pdf(bytes, profile),
     }
 }
 
@@ -215,11 +221,6 @@ fn extract_rows(
     Ok((raw_rows, headers, file_hint))
 }
 
-fn parse_pdf(bytes: &[u8], profile: &BankProfile) -> Result<(Vec<RawRow>, Vec<String>, String)> {
-    let (rows, headers, text, _reason) = crate::ingest::pdf::parse_pdf(bytes, profile)?;
-    Ok((rows, headers, text))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,6 +233,14 @@ mod tests {
         assert!(!is_zip(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]));
         assert!(!is_zip(b"%PDF-1.7"));
         assert!(!is_zip(b"PK"));
+    }
+
+    #[test]
+    fn parse_file_csv_reports_no_warning() {
+        let csv = b"Date,Narration,Debit,Credit,Balance\n01/02/2024,Test,100.00,,900.00\n02/02/2024,Two,,50.00,950.00\n";
+        let (_rows, _h, _t, reason) =
+            parse_file(csv, FileKind::Csv, &generic::profile()).unwrap();
+        assert_eq!(reason, None);
     }
 
     #[test]
