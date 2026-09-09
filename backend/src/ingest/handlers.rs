@@ -377,12 +377,11 @@ pub async fn clear_all_data_handler(
         .await
         .ok();
 
-    // Invalidate all existing tokens for this user
-    sqlx::query("UPDATE users SET token_version = token_version + 1 WHERE id = $1")
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await
-        .ok();
+    // NB: deliberately does NOT bump `token_version`. Wiping your own
+    // transactions is a data action, not a credential one — bumping it
+    // invalidated every in-flight JWT and 401'd the user out of their own
+    // session with no explanation. Token invalidation belongs with password
+    // change / reset, which already do it.
 
     tx.commit().await?;
 
@@ -397,4 +396,78 @@ pub async fn clear_all_data_handler(
         "message": "All data cleared",
         "deleted_transactions": deleted.rows_affected()
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::PgPool;
+    use std::sync::{Arc, Mutex};
+
+    fn app_state(pool: &PgPool) -> AppState {
+        AppState {
+            db: pool.clone(),
+            db_ro: pool.clone(),
+            config: Arc::new(crate::config::Config {
+                database_url: String::new(),
+                ro_database_url: String::new(),
+                jwt_secret: "test-secret-32-chars-min-aaaaaaaaaa".into(),
+                claude_bin: "claude".into(),
+                bind_addr: "127.0.0.1:0".into(),
+                cors_origins: vec![],
+                cookie_secure: true,
+                allow_remote_setup: false,
+                email_sync_poll_secs: 0,
+                email_sync_max_messages: 200,
+                email_sync_max_attach_bytes: 15 * 1024 * 1024,
+                pdfium_lib_path: None,
+            }),
+            chat_ratelimit: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            login_attempts: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        }
+    }
+
+    async fn seed_user(pool: &PgPool) -> uuid::Uuid {
+        let id = uuid::Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, role) VALUES ($1,$2,'x','admin')",
+        )
+        .bind(id)
+        .bind(format!("{id}@example.com"))
+        .execute(pool)
+        .await
+        .unwrap();
+        id
+    }
+
+    /// Clearing your own data is not a credential event: it must not bump
+    /// `token_version`, which would 401 every in-flight client token and log the
+    /// user out of their own session with no explanation.
+    #[sqlx::test(migrations = "./migrations")]
+    async fn clear_all_data_keeps_the_session_valid(pool: PgPool) {
+        let user_id = seed_user(&pool).await;
+        let before: (i32,) = sqlx::query_as("SELECT token_version FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+        clear_all_data_handler(
+            axum::extract::State(app_state(&pool)),
+            CurrentUser(user_id),
+            axum::Json(ClearDataReq { confirm: true }),
+        )
+        .await
+        .expect("clear must succeed");
+
+        let after: (i32,) = sqlx::query_as("SELECT token_version FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            before.0, after.0,
+            "clear_all_data bumped token_version and logged the user out"
+        );
+    }
 }

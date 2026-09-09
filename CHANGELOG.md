@@ -5,6 +5,17 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-09] — Clearing data no longer logs you out (v0.45.3)
+
+### Fixed
+- `POST /api/ingest/clear` bumped `token_version`, which invalidates every
+  issued JWT — so clearing your own data 401'd the client on the very next
+  request, with no prompt to sign in again. Wiping your own transactions is a
+  data action, not a credential one; the bump is gone. Password change and
+  reset still invalidate tokens, as they should.
+
+---
+
 ## [2026-09-09] — Contain parser panics at every entry point (v0.45.2)
 
 ### Fixed
