@@ -5,6 +5,24 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-15] — Surface a misconfigured CLAUDE_BIN at startup (v0.45.4)
+
+### Fixed
+- "Ask Claude" returned HTTP 400 with only "SQL generation failed: failed to
+  spawn claude CLI" in the log. `CLAUDE_BIN` defaults to a bare `claude`, but a
+  systemd unit runs with `PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin`
+  — an nvm-installed `claude` resolves for the operator's shell and is
+  unreachable for the service, so the feature could never have worked there.
+- The CLI is now probed once at startup (like pdfium): the log shows
+  `claude CLI: <version>`, or a warning naming `CLAUDE_BIN`, instead of the
+  failure only surfacing as a 400 on the first question.
+
+### Ops
+- Set `CLAUDE_BIN` to an **absolute** path when the binary lives outside the
+  service PATH (nvm, asdf, ~/.local/bin).
+
+---
+
 ## [2026-09-09] — Clearing data no longer logs you out (v0.45.3)
 
 ### Fixed
