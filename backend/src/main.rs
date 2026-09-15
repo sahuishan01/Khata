@@ -67,6 +67,17 @@ async fn main() -> anyhow::Result<()> {
         Ok(()) => tracing::info!("pdfium: loaded"),
         Err(e) => tracing::warn!("{e} — PDF parsing will use the fallback parser"),
     }
+
+    // The service PATH is not the shell's: a bare "claude" that resolves for
+    // the operator can be unreachable here (nvm installs outside /usr/bin), and
+    // the failure only surfaced as a 400 on the first Ask-Claude question. Say
+    // so at startup instead.
+    match chat::claude_cli::probe(&cfg.claude_bin) {
+        Ok(v) => tracing::info!("claude CLI: {v}"),
+        Err(e) => tracing::warn!(
+            "claude CLI unavailable ({e}) — Ask Claude will fail; set CLAUDE_BIN to an absolute path"
+        ),
+    }
     let db = db::make_pool(&cfg.database_url).await?;
     let db_ro = db::make_pool(&cfg.ro_database_url).await?;
 

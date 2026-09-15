@@ -262,3 +262,17 @@ mod tests {
         assert_eq!(out, "How much did I spend on groceries last month?");
     }
 }
+
+/// Check the configured CLI is actually spawnable, returning its version.
+/// Called once at startup so a misconfigured `CLAUDE_BIN` is visible in the log
+/// rather than only as a 400 on the first question.
+pub fn probe(bin: &str) -> Result<String> {
+    let out = std::process::Command::new(bin)
+        .arg("--version")
+        .output()
+        .with_context(|| format!("cannot spawn {bin:?}"))?;
+    if !out.status.success() {
+        bail!("{bin:?} exited with {}", out.status);
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
