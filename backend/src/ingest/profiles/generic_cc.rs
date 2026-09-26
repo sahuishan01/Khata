@@ -19,6 +19,7 @@ pub fn profile() -> BankProfile {
             PdfColumn { kind: ColKind::TxnDate, headers: &["date", "transaction date", "txn date"] },
             PdfColumn { kind: ColKind::ValueDate, headers: &["posting date", "post date"] },
             PdfColumn { kind: ColKind::Description, headers: &["description", "transaction details", "particulars", "merchant"] },
+            PdfColumn { kind: ColKind::Category, headers: &["category"] },
             PdfColumn { kind: ColKind::Amount, headers: &["amount"] },
         ],
     }

@@ -21,6 +21,10 @@ pub enum ColKind {
     Amount,
     Balance,
     Ref,
+    /// Merchant/spend category on some credit-card statements. Never read
+    /// downstream — matching it just keeps its header from stretching a
+    /// neighboring band (e.g. Amount) over the category text.
+    Category,
 }
 
 #[derive(Debug, Clone, Copy)]
