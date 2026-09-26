@@ -5,6 +5,22 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-09-26] — Fix credit-card statements with a merchant-category column (v0.45.5)
+
+### Fixed
+- PDF credit-card statements with a merchant/spend-category column between
+  Description and Amount (seen on Kotak statements) had every transaction
+  silently dropped: the unrecognised "Category" header stretched the Amount
+  column band over the category text, so no row's amount could be parsed and
+  `normalize()` filtered all of them out with no error.
+- `GENERIC_CC`'s column matcher now recognises a `Category` column so it gets
+  its own band instead of swallowing Amount.
+
+### Ops
+- No migration. Rebuild and redeploy the backend to pick this up.
+
+---
+
 ## [2026-09-15] — Surface a misconfigured CLAUDE_BIN at startup (v0.45.4)
 
 ### Fixed
