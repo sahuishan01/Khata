@@ -266,6 +266,32 @@ mod tests {
     }
 
     #[test]
+    fn category_column_gets_its_own_band_instead_of_swallowing_amount() {
+        use crate::ingest::profiles::generic_cc;
+        let p = generic_cc::profile();
+        let header = vec![
+            w("Date", 60.0, 75.0, 750.0),
+            w("Description", 110.0, 160.0, 750.0),
+            w("Spends", 165.0, 190.0, 750.0),
+            w("Category", 370.0, 400.0, 750.0),
+            w("Amount", 480.0, 510.0, 750.0),
+            w("(₹)", 512.0, 525.0, 750.0),
+        ];
+        let bands = columns(&[header], &p).expect("header matched");
+        let txn = vec![
+            w("25-Aug-2026", 51.0, 100.0, 700.0),
+            w("UPI-K-BAN", 121.0, 160.0, 700.0),
+            w("RSI", 165.0, 180.0, 700.0),
+            w("Restaurants", 358.0, 396.0, 700.0),
+            w("90.00", 508.0, 529.0, 700.0),
+        ];
+        let cells = cells(&txn, &bands);
+        assert_eq!(cells[&ColKind::Description], "UPI-K-BAN RSI");
+        assert_eq!(cells[&ColKind::Category], "Restaurants");
+        assert_eq!(cells[&ColKind::Amount], "90.00");
+    }
+
+    #[test]
     fn match_kind_respects_declared_order_and_rejects_plain_words() {
         let p = hdfc::profile();
         let header = ["Date", "Narration", "Withdrawal Amt", "Deposit Amt", "Closing Balance"];
