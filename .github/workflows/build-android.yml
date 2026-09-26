@@ -6,7 +6,35 @@ on:
       - 'v*'
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for app changes since the previous tag
+        id: diff
+        run: |
+          prev_tag=$(git tag --sort=-v:refname --merged "$GITHUB_REF_NAME" | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          if [ -z "$prev_tag" ]; then
+            echo "no previous tag found; building unconditionally"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "diffing android/ between $prev_tag and $GITHUB_REF_NAME"
+          if git diff --quiet "$prev_tag" "$GITHUB_REF_NAME" -- android/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
