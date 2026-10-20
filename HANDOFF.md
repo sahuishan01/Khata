@@ -1,5 +1,16 @@
 # HANDOFF.md — Khata Project Handoff
 
+**SMS HTTP 422 follow-up (2026-10-20):** The `v0.45.3` live receiver wrote
+`valueDate` but left `txnDate` empty. `v0.45.6` repaired IDs but still serialized
+that empty date. A read-only API contract probe on the VPS reproduced HTTP 422
+at `[0].txn_date`; empty-queue push and v2 pull returned 200, with zero transaction
+changes. Evidence: `/root/.local/state/khata-ingest-fix/sms-422-probe.json`.
+The `v0.45.7` uploader uses the known date for its missing counterpart, omits
+absent optional dates, and canonicalizes UUIDs. Validation messages report only
+schema field/queue position. Existing queued rows are retained. The existing
+release pipeline now runs `testReleaseUnitTest` before packaging; backend changes
+only add contract tests. No backend deploy or migration is needed for this fix.
+
 **VPS deployment update (2026-10-20):** Khata is hosted at
 `https://khaata2.algosculptor.com` through Cloudflare and Caddy. The web UI uses
 compiled static assets; the API and database remain on loopback. Admin setup
@@ -66,7 +77,7 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.6
+**Current Version:** v0.45.7
 
 **Last Updated:** 2026-10-20
 

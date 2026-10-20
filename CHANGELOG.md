@@ -5,6 +5,26 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-20] — Fix HTTP 422 when uploading older SMS queues (v0.45.7)
+
+### Fixed
+- Older live-SMS entries stored a value date but left the transaction date empty.
+  Sending that empty string rejected the entire upload batch with HTTP 422.
+  The uploader now reuses the known date and omits optional dates when absent.
+- Normalize queued UUIDs to the canonical wire format while retaining local rows
+  and stable identities across retries.
+- Validation errors identify the rejected field and queue position without
+  displaying SMS contents or financial references.
+
+### Validation
+- The existing signed release workflow now runs release unit tests before
+  packaging. Regression coverage checks mixed legacy/current batches, optional
+  dates, UUID normalization and private error messages.
+- Backend contract tests cover omitted/null dates, empty-date rejection and
+  preservation of transaction/value dates. No server behavior or migration change.
+
+---
+
 ## [2026-10-20] — Recover queued SMS and report ingestion progress (v0.45.6)
 
 ### Fixed

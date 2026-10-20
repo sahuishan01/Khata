@@ -83,11 +83,29 @@ jobs:
           EOF
 
       - name: Build release APK
-        run: ./gradlew clean assembleRelease --no-daemon
+        run: ./gradlew clean testReleaseUnitTest assembleRelease --no-daemon
         working-directory: android
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Report release unit tests
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          suites = [ET.parse(p).getroot() for p in Path('app/build/test-results/testReleaseUnitTest').glob('TEST-*.xml')]
+          assert suites, 'Release unit-test results are missing'
+          tests = sum(int(s.get('tests', 0)) for s in suites)
+          failures = sum(int(s.get('failures', 0)) + int(s.get('errors', 0)) for s in suites)
+          assert failures == 0, 'Release regression tests failed'
+          message = f'Android release unit tests: {tests} passed, {failures} failed.'
+          print(message)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(message + '\n')
+          PY
 
       - name: Get version from tag
         id: version

@@ -58,13 +58,7 @@ class SyncEngine @Inject constructor(
             _state.value = SyncUiState.Idle
             throw e
         } catch (e: Exception) {
-            val message = when {
-                e is retrofit2.HttpException && e.code() == 401 -> "Your session expired. Sign in again to upload queued transactions."
-                e is retrofit2.HttpException && e.code() == 403 -> "The selected server denied access. Check the server address and sign in again."
-                e is java.io.IOException -> "Cannot reach the selected server. Check your connection and retry."
-                else -> e.message ?: "Sync failed"
-            }
-            _state.value = SyncUiState.Error(message)
+            _state.value = SyncUiState.Error(e.syncErrorMessage())
             false
         }
     }
