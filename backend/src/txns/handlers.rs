@@ -396,7 +396,7 @@ pub async fn get_analytics_detail(
     if let Some(ref v) = params.payee { q = q.bind(v); }
     let top_payees: Vec<TopMerchant> = q.fetch_all(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
-    let sql = format!("SELECT category, SUM(amount)::float8 AS amount, COUNT(*)::bigint AS txn_count, 0.0 AS pct FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY amount DESC LIMIT 10", w);
+    let sql = format!("SELECT category, SUM(amount)::float8 AS amount, COUNT(*)::bigint AS txn_count, 0.0::float8 AS pct FROM transactions WHERE {} AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY amount DESC LIMIT 10", w);
     let mut q = sqlx::query_as::<_, CategoryBucket>(&sql).bind(user_id);
     if let Some(ref v) = params.category { q = q.bind(v); }
     if let Some(ref v) = params.month { q = q.bind(v); }
