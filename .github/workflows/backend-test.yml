@@ -87,7 +87,7 @@ jobs:
       - name: Build verified backend deployment artifact
         if: github.event_name == 'push'
         run: |
-          cargo build --release --locked --manifest-path backend/Cargo.toml
+          cargo build --release --locked --bin khata --manifest-path backend/Cargo.toml
           mkdir -p deploy
           install -m 755 backend/target/release/khata deploy/khata
           install -m 644 backend/.pdfium/lib/libpdfium.so deploy/libpdfium.so
