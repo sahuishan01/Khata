@@ -46,6 +46,26 @@ mobile layout. Web release `v0.45.5-sms-retry-20261020T110054Z` is deployed and
 verified at the public and origin URLs. Backend release/migrations are unchanged.
 Follow-up deployment evidence: `/root/.local/state/khata-ingest-fix/sms-deployment.json`.
 
+**Verified CI release (2026-10-20):** `v0.45.6` tags commit `6049fe1`.
+The existing Android workflow passed in run `39419480906` and published
+`https://github.com/sahuishan01/Khata/releases/download/v0.45.6/khata_0.45.6-release.apk`.
+APK verification confirmed package `com.khata.app`, version code 189 (previously
+186), a matching release signing certificate, and the SMS retry UI/default VPS URL.
+Backend tests passed in run `39419237583`; security passed in `39419419324`.
+The existing SDK setup needed an explicit `platform-tools` input because the
+action otherwise requested the removed `tools` package.
+
+Phone queue recovery remains unverified until the user installs this signed APK
+as an update and syncs the persisted queue. Never uninstall or clear storage to
+work around installation issues. Verify an existing server override points to
+the VPS. Eleven local Android tests passed before the CI release build.
+Evidence: `/root/.local/state/khata-ingest-fix/ci-release-verification.json`.
+
+Separate follow-ups: CodeQL's existing Java/Kotlin autobuild still fails and needs
+explicit build configuration. The dependency security fixes in the repository
+have passed CI but have not been redeployed to the VPS backend/static frontend;
+the deployed ingestion functionality is still the releases documented above.
+
 **Current Version:** v0.45.6
 
 **Last Updated:** 2026-10-20
