@@ -9,6 +9,12 @@ import com.khata.app.data.KhataRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import com.khata.app.sms.SmsImportProgress
+import com.khata.app.sms.SmsParser
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -33,6 +39,8 @@ class MainViewModel @Inject constructor(
     private val db: com.khata.app.data.KhataDatabase,
     private val syncEngine: com.khata.app.data.SyncEngine,
 ) : ViewModel() {
+    private val _smsProgress = MutableStateFlow(SmsImportProgress())
+    val smsProgress: StateFlow<SmsImportProgress> = _smsProgress.asStateFlow()
     private val _authState = MutableStateFlow(AuthUiState()); val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
     private val _dashboardState = MutableStateFlow(DashboardUiState()); val dashboardState: StateFlow<DashboardUiState> = _dashboardState.asStateFlow()
     private val _txnState = MutableStateFlow(TxnUiState()); val txnState: StateFlow<TxnUiState> = _txnState.asStateFlow()
@@ -46,6 +54,67 @@ class MainViewModel @Inject constructor(
     private val _txnFilterState = MutableStateFlow(TxnFilter()); val txnFilterState: StateFlow<TxnFilter> = _txnFilterState.asStateFlow()
     private val _cachedTxns = MutableStateFlow<TxnListResponse?>(null); val cachedTxns: StateFlow<TxnListResponse?> = _cachedTxns.asStateFlow()
     private val _serverUrl = MutableStateFlow(tokenManager.getServerUrl()); val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
+    val deviceSyncState = syncEngine.state
+    val lastDeviceSync = syncEngine.lastSuccess
+    val pendingSyncCount = db.transactionDao().pendingCountFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    init {
+        viewModelScope.launch {
+            syncEngine.lastSuccess.filterNotNull().collect {
+                if (_authState.value.isLoggedIn && !_authState.value.mustResetPassword) {
+                    val f = _txnFilterState.value
+                    loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+                    refreshDashboard()
+                    _smsProgress.update { progress ->
+                        if (!progress.running && progress.failed) progress.copy(
+                            phase = "Complete", failed = false,
+                            message = "Device sync complete. Queued transactions uploaded.",
+                        ) else progress
+                    }
+                }
+            }
+        }
+    }
+
+    /** Called only while the signed-in app is in the foreground. */
+    suspend fun syncPendingTransactions(force: Boolean = false) {
+        if (!_authState.value.isLoggedIn || _authState.value.mustResetPassword || _smsProgress.value.running) return
+        withContext(Dispatchers.IO) {
+            if (force || db.transactionDao().getOutbox().isNotEmpty()) syncEngine.sync()
+        }
+    }
+
+    fun retryDeviceSync() {
+        if (_smsProgress.value.running || syncEngine.state.value is com.khata.app.data.SyncUiState.Syncing) return
+        val progress = _smsProgress.value.copy(running = true, phase = "Retrying queued uploads…", failed = false, message = "")
+        _smsProgress.value = progress
+        viewModelScope.launch(Dispatchers.IO) {
+            try { finishSmsSync(progress) }
+            catch (e: CancellationException) {
+                _smsProgress.value = progress.copy(running = false, phase = "Stopped", message = "Upload stopped. Transactions remain queued.")
+                throw e
+            } catch (e: Exception) {
+                _smsProgress.value = progress.copy(running = false, phase = "Upload needs attention", failed = true,
+                    message = "Could not upload queued transactions: ${e.message ?: "please retry"}.")
+            }
+        }
+    }
+
+    private suspend fun finishSmsSync(progress: SmsImportProgress): String {
+        val queued = db.transactionDao().getOutbox().size
+        _smsProgress.value = progress.copy(phase = "Uploading $queued queued transactions…")
+        val synced = syncEngine.sync()
+        val message = if (synced) {
+            "$queued queued transactions uploaded. Server sync complete."
+        } else {
+            val detail = (syncEngine.state.value as? com.khata.app.data.SyncUiState.Error)?.message
+                ?: "Resolve sync conflicts and retry."
+            "Server sync failed: $detail Saved transactions remain queued on this device."
+        }
+        _smsProgress.value = progress.copy(running = false, phase = if (synced) "Complete" else "Upload needs attention", message = message, failed = !synced)
+        return message
+    }
 
     fun updateServerUrl(url: String) {
         tokenManager.setServerUrl(url)
@@ -221,61 +290,70 @@ class MainViewModel @Inject constructor(
      * new ones for the server (real-time capture already handles new SMS).
      * Requires READ_SMS. `onResult` gets a short summary or an error.
      */
-    fun scanSmsInbox(context: Context, onResult: (String) -> Unit) { viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val cursor = context.contentResolver.query(
-                android.provider.Telephony.Sms.Inbox.CONTENT_URI,
-                arrayOf(
-                    android.provider.Telephony.Sms.ADDRESS,
-                    android.provider.Telephony.Sms.BODY,
-                    android.provider.Telephony.Sms.DATE,
-                ),
-                null, null,
-                "${android.provider.Telephony.Sms.DATE} DESC LIMIT 500",
-            ) ?: return@launch onResult("Error: cannot read SMS")
-
-            var found = 0
-            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-            cursor.use {
-                val aI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.ADDRESS)
-                val bI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.BODY)
-                val dI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.DATE)
-                while (it.moveToNext()) {
-                    val body = it.getString(bI) ?: continue
-                    val sender = it.getString(aI) ?: ""
-                    val parsed = com.khata.app.sms.SmsParser.parse(body, sender) ?: continue
-                    val date = fmt.format(java.util.Date(it.getLong(dI)))
-                    val clientId = "sms_" + java.util.UUID.nameUUIDFromBytes(
-                        (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + date + "|" + (parsed.refNo ?: body.take(24)))
-                            .toByteArray()
-                    ).toString().take(16)
-                    if (db.transactionDao().getByClientId(clientId) != null) continue
-                    db.transactionDao().upsert(
-                        com.khata.app.data.LocalTransaction(
-                            clientId = clientId,
-                            description = parsed.payee,
-                            amount = parsed.amount,
-                            direction = parsed.direction,
-                            category = "Uncategorized",
-                            bank = parsed.bank,
-                            valueDate = date,
-                            txnDate = date,
-                            notes = "Auto-captured from SMS inbox (${parsed.bank})",
-                            dirty = true,
-                            pendingOp = "CREATE",
-                        )
-                    )
-                    found++
+    fun scanSmsInbox(context: Context, onResult: (String) -> Unit) {
+        if (_smsProgress.value.running) return
+        _smsProgress.value = SmsImportProgress(running = true, phase = "Opening SMS inbox…")
+        viewModelScope.launch(Dispatchers.IO) {
+            var progress = _smsProgress.value
+            try {
+                val cursor = context.contentResolver.query(
+                    android.provider.Telephony.Sms.Inbox.CONTENT_URI,
+                    arrayOf(android.provider.Telephony.Sms.ADDRESS, android.provider.Telephony.Sms.BODY, android.provider.Telephony.Sms.DATE),
+                    null, null, "${android.provider.Telephony.Sms.DATE} DESC",
+                ) ?: error("Cannot read SMS inbox")
+                val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                cursor.use {
+                    progress = progress.copy(total = it.count, phase = "Scanning SMS inbox…")
+                    _smsProgress.value = progress
+                    val aI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.ADDRESS)
+                    val bI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.BODY)
+                    val dI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.DATE)
+                    while (it.moveToNext()) {
+                        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                        progress = progress.copy(scanned = progress.scanned + 1)
+                        val body = it.getString(bI).orEmpty()
+                        val sender = it.getString(aI).orEmpty()
+                        val timestamp = it.getLong(dI)
+                        val parsed = SmsParser.parse(body, sender)
+                        if (parsed != null) {
+                            progress = progress.copy(matched = progress.matched + 1)
+                            val date = fmt.format(java.util.Date(timestamp))
+                            val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
+                            if (db.transactionDao().getByClientId(clientId) == null) {
+                                val legacyId = "sms_" + java.util.UUID.nameUUIDFromBytes(
+                                    (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + date + "|" + (parsed.refNo ?: body.take(24))).toByteArray()
+                                ).toString().take(16)
+                                val repairedId = java.util.UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
+                                val old = db.transactionDao().getByClientId(legacyId) ?: db.transactionDao().getByClientId(repairedId)
+                                // An acknowledged legacy entry must retain its server identity.
+                                val txn = old?.let { if (it.rev > 0 || it.baseRev > 0) it else it.copy(clientId = clientId) } ?: com.khata.app.data.LocalTransaction(
+                                    clientId = clientId, description = parsed.payee, amount = parsed.amount,
+                                    direction = parsed.direction, category = "Uncategorized", bank = parsed.bank,
+                                    bankRef = parsed.refNo.orEmpty(), valueDate = date, txnDate = date,
+                                    notes = "Auto-captured from SMS inbox (${parsed.bank})", dirty = true, pendingOp = "CREATE",
+                                )
+                                if (txn != old) {
+                                    db.transactionDao().upsert(txn)
+                                    progress = progress.copy(saved = progress.saved + 1)
+                                }
+                            }
+                        }
+                        if (progress.scanned % 25 == 0 || progress.scanned == progress.total) _smsProgress.value = progress
+                    }
                 }
+                val message = finishSmsSync(progress)
+                withContext(Dispatchers.Main) { onResult(message) }
+            } catch (e: CancellationException) {
+                _smsProgress.value = progress.copy(running = false, phase = "Stopped", message = "Scan stopped. Saved transactions remain queued.")
+                throw e
+            } catch (e: Exception) {
+                val message = if (e is SecurityException) "SMS permission is not granted. Allow SMS access in Android settings, then retry."
+                    else "SMS import failed: ${e.message ?: "Unknown error"}. Saved transactions remain on this device."
+                _smsProgress.value = progress.copy(running = false, phase = "Failed", message = message, failed = true)
+                withContext(Dispatchers.Main) { onResult("Error: $message") }
             }
-            if (found > 0) syncEngine.sync()
-            onResult(if (found == 0) "No new bank transactions found in SMS." else "Queued $found transaction(s) from SMS.")
-        } catch (e: SecurityException) {
-            onResult("Error: SMS permission not granted")
-        } catch (e: Exception) {
-            onResult("Error: ${e.message}")
         }
-    } }
+    }
 
     private fun getFileName(context: Context, uri: Uri): String? {
         val c = context.contentResolver.query(uri, null, null, null, null)
@@ -285,8 +363,8 @@ class MainViewModel @Inject constructor(
     fun clearAllData(r: (String) -> Unit) { viewModelScope.launch { try { repository.clearAllData(); r("Cleared!") } catch (e: Exception) { r("Error: ${e.message}") } } }
 
     /** Load the current Gmail config so the UI can show whether a key is already stored. */
-    fun loadEmailConfig(r: (UserEmailConfigResponse?) -> Unit) { viewModelScope.launch {
-        try { r(repository.getEmailConfig()) } catch (_: Exception) { r(null) }
+    fun loadEmailConfig(r: (UserEmailConfigResponse?, String?) -> Unit) { viewModelScope.launch {
+        try { r(repository.getEmailConfig(), null) } catch (e: Exception) { r(null, "Could not load email connection: ${e.message ?: "connection failed"}") }
     } }
 
     /**
@@ -296,13 +374,13 @@ class MainViewModel @Inject constructor(
      */
     fun saveEmailConfig(req: SaveEmailConfigReq, r: (String) -> Unit) { viewModelScope.launch { try {
         repository.saveEmailConfig(req)
-        val synced = try { repository.syncEmailNow(); " Sync started." } catch (_: Exception) { "" }
+        val synced = try { repository.syncEmailNow(); " Sync started." } catch (e: Exception) { " Configuration saved, but sync could not start: ${e.message ?: "please retry"}." }
         r("Gmail connected — credentials encrypted on the server.$synced")
     } catch (e: Exception) { r("Error: ${e.message ?: "could not save Gmail config"}") } } }
 
     /** Most recent sync run, for the progress panel. */
-    fun latestEmailRun(r: (EmailSyncRun?) -> Unit) { viewModelScope.launch {
-        try { r(repository.latestEmailRun()) } catch (_: Exception) { r(null) }
+    fun latestEmailRun(r: (EmailSyncRun?, String?) -> Unit) { viewModelScope.launch {
+        try { r(repository.latestEmailRun(), null) } catch (e: Exception) { r(null, "Could not refresh sync progress: ${e.message ?: "connection failed"}") }
     } }
 
     /** Trigger a run now; [r] gets a status line. */

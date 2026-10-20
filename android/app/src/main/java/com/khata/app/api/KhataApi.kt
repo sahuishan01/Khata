@@ -80,7 +80,7 @@ interface KhataApi {
 
     // Sync
     @GET("api/txns/sync/pull")
-    suspend fun syncPull(@Query("since_rev") sinceRev: Long = 0, @Query("limit") limit: Int = 200): SyncPullResponse
+    suspend fun syncPull(@Query("since_rev") sinceRev: Long = 0, @Query("limit") limit: Int = 200, @Query("cursor_version") cursorVersion: Int = 2): SyncPullResponse
 
     @POST("api/txns/sync/push")
     suspend fun syncPush(@Body ops: List<SyncPushOp>): SyncPushResult

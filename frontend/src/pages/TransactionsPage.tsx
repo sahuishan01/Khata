@@ -1,9 +1,10 @@
-import { useEffect, useState, Fragment } from 'react'
+import { useCallback, useEffect, useRef, useState, Fragment } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { CategoryEditor } from '../components/CategoryEditor'
 import { formatINR, formatDate } from '../utils/format'
+import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 
 interface TxnRow {
   id: string; value_date: string; description: string
@@ -65,39 +66,47 @@ export function TransactionsPage() {
   const [noteText, setNoteText]     = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const requestId = useRef(0)
 
   const categoryFilter = searchParams.get('category') ?? ''
 
-  const fetchPage = (
-    p: number, by = sortBy, dir = sortDir,
-    cat = categoryFilter, preset = datePreset, cf = customFrom, ct = customTo, search = searchQuery,
-  ) => {
-    const params = new URLSearchParams({ page: String(p), per_page: '50', sort_by: by, sort_dir: dir })
-    if (cat) params.set('category', cat)
-    if (search) params.set('search', search)
-    const { from, to } = getDateRange(preset, cf, ct)
+  const fetchPage = useCallback((p: number) => {
+    const request = ++requestId.current
+    const params = new URLSearchParams({ page: String(p), per_page: '50', sort_by: sortBy, sort_dir: sortDir })
+    if (categoryFilter) params.set('category', categoryFilter)
+    if (searchQuery) params.set('search', searchQuery)
+    const { from, to } = getDateRange(datePreset, customFrom, customTo)
     if (from) params.set('from', from)
     if (to)   params.set('to', to)
-    return api.get<TxnList>(`/txns?${params}`).then(r => setList(r.data))
-  }
-
-  useEffect(() => {
-    setPage(1)
-    fetchPage(1, sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery)
-    Promise.all([
-      api.get<string[]>('/txns/categories'),
-      api.get<any[]>('/categories').catch(() => ({ data: [] as any[] })),
-    ]).then(([txnRes, catRes]) => {
-      const txnCats = txnRes.data
-      const managed = catRes.data || []
-      const managedNames = managed.map((c: any) => c.name)
-      setCategories([...new Set([...txnCats, ...managedNames])].sort())
+    return api.get<TxnList>(`/txns?${params}`).then(r => {
+      if (request !== requestId.current) return
+      setList(r.data)
+      setRefreshError(null)
+      setLastUpdated(new Date())
+    }).catch(() => {
+      if (request === requestId.current) setRefreshError('Could not refresh transactions. Retrying automatically…')
     })
   }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery])
 
+  useVisibleRefresh(() => fetchPage(page))
+
   useEffect(() => {
-    fetchPage(page)
-  }, [page])
+    Promise.all([
+      api.get<string[]>('/txns/categories'),
+      api.get<{ name: string }[]>('/categories').catch(() => ({ data: [] as { name: string }[] })),
+    ]).then(([txnRes, catRes]) => {
+      const txnCats = txnRes.data
+      const managed = catRes.data || []
+      const managedNames = managed.map(c => c.name)
+      setCategories([...new Set([...txnCats, ...managedNames])].sort())
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    void fetchPage(page)
+  }, [page, fetchPage])
 
   const handleSort = (col: SortBy) => {
     if (col === sortBy) {
@@ -120,7 +129,7 @@ export function TransactionsPage() {
     try {
       await api.patch(`/txns/${id}/transfer`, { is_transfer: val })
       setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, is_transfer: val } : t) } : l)
-    } catch {}
+    } catch { setRefreshError('Could not save the transaction change. Please retry.') }
   }
 
   const saveNotes = async (id: string) => {
@@ -128,7 +137,7 @@ export function TransactionsPage() {
       await api.patch(`/txns/${id}/notes`, { notes: noteText })
       setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, notes: noteText } : t) } : l)
       setEditingNotes(null)
-    } catch {}
+    } catch { setRefreshError('Could not save the transaction change. Please retry.') }
   }
 
   const totalPages = list ? Math.ceil(list.total / list.per_page) : 1
@@ -140,6 +149,9 @@ export function TransactionsPage() {
         <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
           <h1 className="page-title">Transactions</h1>
           {list && <span className="badge badge-gray">{list.total.toLocaleString()} total</span>}
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchPage(page)}>Refresh</button>
+          {lastUpdated && <span style={{ color: 'var(--text-2)', fontSize: 11 }}>Updated {lastUpdated.toLocaleTimeString()} · refreshes every 15s</span>}
+          {refreshError && <span role="status" style={{ color: 'var(--warn)', fontSize: 12 }}>{refreshError}</span>}
           {categoryFilter && (
             <span className="badge badge-purple" style={{ gap: 6 }}>
               {categoryFilter}
@@ -169,6 +181,7 @@ export function TransactionsPage() {
             value={categoryFilter}
             onChange={e => {
               const val = e.target.value
+              setPage(1)
               if (val) setSearchParams({ category: val })
               else { setSearchParams({}); setPage(1) }
             }}

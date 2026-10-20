@@ -20,6 +20,10 @@ pub struct EmailSyncRun {
     pub status: String,
     pub trigger: String,
     pub full_scan: bool,
+    pub phase: String,
+    pub messages_total: Option<i32>,
+    pub has_more: bool,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
     pub messages_scanned: i32,
     pub attachments_seen: i32,
     pub attachments_parsed: i32,
@@ -31,7 +35,7 @@ pub struct EmailSyncRun {
 
 const RUN_COLUMNS: &str = "id, started_at, finished_at, status, trigger, full_scan, \
     messages_scanned, attachments_seen, attachments_parsed, txns_imported, txns_skipped, \
-    errors, error";
+    errors, error, phase, messages_total, has_more, updated_at";
 
 pub async fn trigger_email_sync_handler(
     State(state): State<AppState>,

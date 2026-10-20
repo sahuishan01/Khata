@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.CreateTxnReq
@@ -18,7 +19,10 @@ import com.khata.app.api.EmailSyncRun
 import com.khata.app.api.SaveEmailConfigReq
 import com.khata.app.api.UserEmailConfigResponse
 import com.khata.app.ui.components.shared.CopyButton
+import com.khata.app.sms.SmsImportProgress
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private fun EmailSyncRun.summaryText(): String = buildString {
@@ -39,12 +43,14 @@ fun CombinedUploadScreen(
     onClearAllData: () -> Unit,
     onAddTxn: (CreateTxnReq) -> Unit,
     onSaveGmail: (SaveEmailConfigReq, (String) -> Unit) -> Unit = { _, cb -> cb("Error: not wired") },
-    onLoadGmailConfig: ((UserEmailConfigResponse?) -> Unit) -> Unit = { it(null) },
-    onLoadLatestRun: ((EmailSyncRun?) -> Unit) -> Unit = { it(null) },
+    onLoadGmailConfig: ((UserEmailConfigResponse?, String?) -> Unit) -> Unit = { it(null, null) },
+    onLoadLatestRun: ((EmailSyncRun?, String?) -> Unit) -> Unit = { it(null, null) },
     onSyncNow: ((String) -> Unit) -> Unit = { it("Error: not wired") },
     onScanSms: ((String) -> Unit) -> Unit = { it("Error: not wired") },
+    smsProgress: SmsImportProgress = SmsImportProgress(),
+    deviceSyncStatus: @Composable () -> Unit = {},
 ) {
-    var tab by remember { mutableStateOf(1) }
+    var tab by remember { mutableStateOf(2) }
     var showClearDialog by remember { mutableStateOf(false) }
     var clearConfirmText by remember { mutableStateOf("") }
     val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -95,19 +101,23 @@ fun CombinedUploadScreen(
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    var smsScanning by remember { mutableStateOf(false) }
-                    var smsMsg by remember { mutableStateOf("") }
                     Text("From SMS", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     Text("New bank SMS is captured automatically. Scan your inbox to backfill past ones.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    deviceSyncStatus()
                     Spacer(Modifier.height(6.dp))
                     OutlinedButton(
-                        enabled = !smsScanning,
-                        onClick = { smsScanning = true; smsMsg = ""; onScanSms { smsScanning = false; smsMsg = it } },
+                        enabled = !smsProgress.running,
+                        onClick = { onScanSms {} },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (smsScanning) "Scanning SMS…" else "Scan SMS inbox") }
-                    if (smsMsg.isNotBlank()) {
+                    ) { Text(if (smsProgress.running) smsProgress.phase else "Scan SMS inbox") }
+                    if (smsProgress.running || smsProgress.message.isNotBlank()) {
+                        if (smsProgress.total > 0) LinearProgressIndicator(
+                            progress = { smsProgress.scanned.toFloat() / smsProgress.total }, modifier = Modifier.fillMaxWidth()
+                        ) else if (smsProgress.running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text("${smsProgress.scanned} of ${smsProgress.total} SMS scanned · ${smsProgress.matched} matched · ${smsProgress.saved} saved", fontSize = 12.sp)
                         Spacer(Modifier.height(4.dp))
-                        Text(smsMsg, fontSize = 12.sp, color = if (smsMsg.startsWith("Error")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(smsProgress.message, fontSize = 12.sp, color = if (smsProgress.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (smsProgress.failed) CopyButton(smsProgress.message, "Copy error")
                     }
                 }
             } else if (tab == 2) {
@@ -121,9 +131,12 @@ fun CombinedUploadScreen(
                 var hasStoredKey by remember { mutableStateOf(false) }
                 var latestRun by remember { mutableStateOf<EmailSyncRun?>(null) }
                 var showErrors by remember { mutableStateOf(false) }
+                var progressError by remember { mutableStateOf<String?>(null) }
+                var starting by remember { mutableStateOf(false) }
 
                 LaunchedEffect(Unit) {
-                    onLoadGmailConfig { cfg ->
+                    onLoadGmailConfig { cfg, problem ->
+                        if (problem != null) statusMsg = "Error: $problem"
                         if (cfg != null) {
                             hasStoredKey = true
                             if (emailInput.isBlank()) emailInput = cfg.emailAddress
@@ -136,8 +149,11 @@ fun CombinedUploadScreen(
                 // Poll the latest run: fast while one is running, slow otherwise.
                 LaunchedEffect(hasStoredKey) {
                     while (hasStoredKey) {
-                        onLoadLatestRun { latestRun = it }
-                        kotlinx.coroutines.delay(if (latestRun?.isRunning == true) 3000L else 15000L)
+                        onLoadLatestRun { run, problem ->
+                            if (problem == null) latestRun = run
+                            progressError = problem
+                        }
+                        kotlinx.coroutines.delay(if (latestRun?.isRunning == true || starting) 1500L else 5000L)
                     }
                 }
 
@@ -149,11 +165,11 @@ fun CombinedUploadScreen(
 
                     OutlinedTextField(value = emailInput, onValueChange = { emailInput = it }, placeholder = { Text("Gmail Address (yourname@gmail.com)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = appPassInput, onValueChange = { appPassInput = it }, placeholder = { Text("Google App Password (16 chars)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = appPassInput, onValueChange = { appPassInput = it }, placeholder = { Text("Google App Password (16 chars)") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(4.dp))
                     Text("Generate at myaccount.google.com/apppasswords", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = pdfPassInput, onValueChange = { pdfPassInput = it }, placeholder = { Text("Statement Password (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = pdfPassInput, onValueChange = { pdfPassInput = it }, placeholder = { Text("Statement Password (optional)") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = folderInput, onValueChange = { folderInput = it }, label = { Text("IMAP folder", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Text("Default scans all mail — statement emails are usually auto-archived out of the inbox.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -196,7 +212,7 @@ fun CombinedUploadScreen(
                                 }
                             }
                         },
-                        enabled = !saving,
+                        enabled = !saving && latestRun?.isRunning != true,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -208,9 +224,18 @@ fun CombinedUploadScreen(
                     if (hasStoredKey) {
                         Spacer(Modifier.height(16.dp))
                         OutlinedButton(
-                            onClick = { statusMsg = "Starting sync…"; onSyncNow { statusMsg = it } },
+                            enabled = !starting && latestRun?.isRunning != true,
+                            onClick = {
+                                starting = true; statusMsg = "Starting sync…"
+                                onSyncNow { msg ->
+                                    starting = false; statusMsg = msg
+                                    onLoadLatestRun { run, problem -> if (problem == null) latestRun = run; progressError = problem }
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Sync now") }
+                        ) { Text(if (latestRun?.isRunning == true) "Sync in progress…" else "Sync now") }
+                        progressError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+                        if (starting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
 
                         latestRun?.let { run ->
                             Spacer(Modifier.height(12.dp))
@@ -222,11 +247,27 @@ fun CombinedUploadScreen(
                             Surface(shape = RoundedCornerShape(10.dp), color = bg, modifier = Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp)) {
                                     val label = when (run.status) {
-                                        "running" -> if (run.fullScan) "Full mailbox scan running…" else "Syncing…"
-                                        "ok" -> "Last sync complete"
+                                        "running" -> when (run.phase) {
+                                            "searching" -> "Finding emails…"
+                                            "fetching" -> "Downloading emails…"
+                                            "processing" -> "Importing transactions…"
+                                            else -> "Connecting to mailbox…"
+                                        }
+                                        "ok" -> if (run.errors.isEmpty()) "Sync complete" else "Finished with issues"
                                         "error" -> "Last sync failed"
                                         else -> "Last sync: ${run.status}"
                                     }
+                                    if (run.messagesTotal != null && run.messagesTotal > 0) {
+                                        LinearProgressIndicator(progress = {
+                                            (run.messagesScanned.toFloat() / run.messagesTotal).coerceIn(0f, if (run.isRunning) .99f else 1f)
+                                        }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                                        Text("${run.messagesScanned} of ${run.messagesTotal} emails scanned", fontSize = 12.sp)
+                                    } else if (run.isRunning) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                                    run.updatedAt?.let {
+                                        val time = runCatching { DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm:ss").withZone(ZoneId.systemDefault()).format(Instant.parse(it)) }.getOrDefault("Unavailable")
+                                        Text("Updated: $time", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (run.hasMore && !run.isRunning) Text("More emails remain. Sync again to continue; automatic sync will also continue while enabled.", fontSize = 12.sp)
                                     Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                     Spacer(Modifier.height(4.dp))
                                     Text(
@@ -250,7 +291,7 @@ fun CombinedUploadScreen(
                                     if (run.status == "ok" && run.messagesScanned == 0) {
                                         Spacer(Modifier.height(4.dp))
                                         Text(
-                                            "No matching emails found. Statement mails are often archived out of the inbox — the scan now covers all mail.",
+                                            "No new emails matched this scan. Check the mailbox folder and filters if you expected transactions.",
                                             fontSize = 11.sp, color = MaterialTheme.colorScheme.error
                                         )
                                     }

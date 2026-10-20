@@ -1,5 +1,11 @@
 # Khata Development Guidelines
 
+## Deployment
+
+- Use Caddy for public web UI exposure; keep backend and database ports on loopback.
+- See `DEPLOYMENT.md` for this VPS's Cloudflare hostname, service paths, and access setup.
+- Build and distribute Android updates through the existing GitHub Actions workflow in `.github/workflows/build-android.yml`, using its tag-triggered signed release pipeline.
+
 ## Feature Parity
 
 Changes made to the web frontend should also be applied to the Android app, and vice versa. Before considering a feature complete, verify it works on both platforms:

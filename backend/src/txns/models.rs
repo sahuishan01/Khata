@@ -49,6 +49,9 @@ pub struct TxnRow {
     pub deleted: bool,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub client_id: Option<Uuid>,
+    #[sqlx(default)]
+    #[serde(skip_serializing)]
+    pub sync_rev: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -246,6 +249,7 @@ pub struct SyncConflict {
 pub struct SyncPullQuery {
     pub since_rev: Option<i64>,
     pub limit: Option<i64>,
+    pub cursor_version: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -263,6 +267,8 @@ pub struct SyncPushOp {
     pub direction: Option<String>,
     pub description: Option<String>,
     pub category: Option<String>,
+    pub bank: Option<String>,
+    pub bank_ref: Option<String>,
     pub txn_date: Option<NaiveDate>,
     pub value_date: Option<NaiveDate>,
     pub notes: Option<String>,

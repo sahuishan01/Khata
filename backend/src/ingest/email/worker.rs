@@ -37,6 +37,7 @@ async fn tick(state: &AppState) -> anyhow::Result<()> {
            AND NOT EXISTS ( \
                SELECT 1 FROM email_sync_runs r \
                WHERE r.user_id = c.user_id AND r.status = 'running' \
+                 AND r.updated_at > now() - interval '30 minutes' \
            )",
     )
     .bind(secs.to_string())

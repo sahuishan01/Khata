@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,101 +35,66 @@ class SyncEngine @Inject constructor(
 ) {
     private val _state = MutableStateFlow<SyncUiState>(SyncUiState.Idle)
     val state: StateFlow<SyncUiState> = _state
+    private val syncMutex = Mutex()
+    private val _lastSuccess = MutableStateFlow<Long?>(null)
+    val lastSuccess: StateFlow<Long?> = _lastSuccess
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    fun startPeriodicSync(intervalMs: Long = 30_000) {
-        scope.launch {
-            while (isActive) {
-                sync()
-                delay(intervalMs)
-            }
-        }
-    }
-
-    suspend fun sync() {
+    suspend fun sync(): Boolean = syncMutex.withLock {
         _state.value = SyncUiState.Syncing
         try {
-            pushOutbox()
+            val conflicts = SyncOutbox(db.transactionDao(), api).push()
+            if (conflicts.isNotEmpty()) _state.value = SyncUiState.Conflicts(conflicts)
             pullDeltas()
+            val complete = _state.value !is SyncUiState.Conflicts
+            if (complete) {
+                check(db.transactionDao().getOutbox().isEmpty()) { "New changes remain queued. Sync again to upload them." }
+                _state.value = SyncUiState.Idle
+                _lastSuccess.value = System.currentTimeMillis()
+            }
+            complete
+        } catch (e: CancellationException) {
             _state.value = SyncUiState.Idle
+            throw e
         } catch (e: Exception) {
-            _state.value = SyncUiState.Error(e.message ?: "Sync failed")
-        }
-    }
-
-    private suspend fun pushOutbox() {
-        val outbox = db.transactionDao().getOutbox()
-        if (outbox.isEmpty()) return
-
-        val ops = outbox.map { txn ->
-            SyncPushOp(
-                clientId = txn.clientId,
-                baseRev = txn.baseRev,
-                amount = txn.amount,
-                direction = txn.direction,
-                description = txn.description,
-                category = txn.category,
-                txnDate = txn.txnDate,
-                valueDate = txn.valueDate,
-                notes = txn.notes,
-                isTransfer = txn.isTransfer,
-                deleted = txn.deleted,
-            )
-        }
-
-        val result = api.syncPush(ops)
-        for (accepted in result.accepted) {
-            val local = db.transactionDao().getByClientId(accepted.clientId)
-            if (local != null) {
-                db.transactionDao().upsert(
-                    local.copy(
-                        rev = accepted.serverRev,
-                        baseRev = accepted.serverRev,
-                        dirty = false,
-                        pendingOp = null,
-                    ),
-                )
+            val message = when {
+                e is retrofit2.HttpException && e.code() == 401 -> "Your session expired. Sign in again to upload queued transactions."
+                e is retrofit2.HttpException && e.code() == 403 -> "The selected server denied access. Check the server address and sign in again."
+                e is java.io.IOException -> "Cannot reach the selected server. Check your connection and retry."
+                else -> e.message ?: "Sync failed"
             }
-        }
-
-        if (result.conflicts.isNotEmpty()) {
-            val conflicts = result.conflicts.map { c ->
-                val local = db.transactionDao().getByClientId(c.clientId)
-                SyncConflict(
-                    clientId = c.clientId,
-                    serverRev = c.serverRev,
-                    serverTxn = LocalTransaction(
-                        id = c.serverTxn.id,
-                        clientId = c.serverTxn.clientId?.toString() ?: "",
-                        description = c.serverTxn.description,
-                        amount = c.serverTxn.amount,
-                        direction = c.serverTxn.direction,
-                        category = c.serverTxn.category,
-                        valueDate = c.serverTxn.valueDate,
-                        rev = c.serverRev,
-                    ),
-                    localTxn = local ?: LocalTransaction(),
-                )
-            }
-            _state.value = SyncUiState.Conflicts(conflicts)
+            _state.value = SyncUiState.Error(message)
+            false
         }
     }
 
     private suspend fun pullDeltas() {
         var state = db.syncStateDao().get() ?: SyncState(cursor = 0)
+        val prefs = context.getSharedPreferences("khata_sync", Context.MODE_PRIVATE)
+        if (prefs.getInt("cursor_format", 1) < 2) {
+            // Replace only reproducible server cache, keeping unsent local work.
+            db.transactionDao().clearLegacyServerCache()
+            state = state.copy(cursor = 0)
+        }
         var hasMore = true
 
         while (hasMore) {
             val pull = api.syncPull(state.cursor)
             if (pull.txns.isNotEmpty()) {
-                val local = pull.txns.map { it.toLocal() }
+                val local = pull.txns.mapNotNull { row ->
+                    val incoming = row.toLocal()
+                    val existing = db.transactionDao().getByClientId(incoming.clientId)
+                    if (existing?.dirty == true) null
+                    else incoming.copy(id = existing?.id ?: incoming.id)
+                }
                 db.transactionDao().upsertAll(local)
             }
             state = state.copy(cursor = pull.newRev)
             db.syncStateDao().set(state)
             hasMore = pull.hasMore
         }
+        prefs.edit().putInt("cursor_format", 2).apply()
     }
 
     fun resolveConflicts(resolutions: List<Pair<String, SyncPushOp>>) {

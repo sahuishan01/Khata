@@ -29,11 +29,17 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE dirty = 1 AND pendingOp IS NOT NULL")
     suspend fun getOutbox(): List<LocalTransaction>
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE dirty = 1 AND pendingOp IS NOT NULL")
+    fun pendingCountFlow(): Flow<Int>
+
     @Query("SELECT MAX(rev) FROM transactions")
     suspend fun maxRev(): Long?
 
     @Query("DELETE FROM transactions")
     suspend fun clearAll()
+
+    @Query("DELETE FROM transactions WHERE dirty = 0 AND pendingOp IS NULL AND clientId = ''")
+    suspend fun clearLegacyServerCache()
 }
 
 @Dao

@@ -121,22 +121,29 @@ pub async fn save_email_config_handler(
     let mut tx = state.db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
-    let existing: Option<(bool,)> = sqlx::query_as(
-        "SELECT (encrypted_app_password IS NOT NULL AND encrypted_app_password <> '') \
+    let existing: Option<(bool, String, String, String, bool)> = sqlx::query_as(
+        "SELECT (encrypted_app_password IS NOT NULL AND encrypted_app_password <> ''), \
+         email_address, imap_server, imap_folder, parse_txn_emails \
          FROM user_email_configs WHERE user_id = $1",
     )
     .bind(user_id)
     .fetch_optional(&mut *tx)
     .await?;
-    let had_app_password = existing.map(|(a,)| a).unwrap_or(false);
+    let had_app_password = existing.as_ref().map(|row| row.0).unwrap_or(false);
 
     if new_app_pass.is_none() && !had_app_password {
         tx.rollback().await?;
         return Err(AppError::BadRequest("A Google App Password is required to connect Gmail.".into()));
     }
 
-    // Rotating the app password ⇒ reset the watermark for a full rescan.
-    let full_rescan_queued = new_app_pass.is_some();
+    // A new PDF password or mailbox selection must retry older messages too;
+    // their UIDs may already have passed the old watermark.
+    let full_rescan_queued = new_app_pass.is_some() || new_pdf_pass.is_some()
+        || req.sender_allowlist.is_some() || req.subject_patterns.is_some()
+        || existing.as_ref().is_some_and(|row| {
+            row.1 != req.email_address || row.2 != imap || row.3 != folder
+                || req.parse_txn_emails.is_some_and(|parse| parse != row.4)
+        });
 
     sqlx::query(
         "INSERT INTO user_email_configs \
