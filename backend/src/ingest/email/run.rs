@@ -437,6 +437,14 @@ async fn process_body_txn(
         return Ok(());
     };
 
+    // Classify using the original alert before the payee extractor discards its context.
+    let repayment: bool = sqlx::query_scalar("SELECT is_card_repayment($1, $2, false)")
+        .bind(format!("{} {}", meta.subject, meta.body))
+        .bind(&bt.direction)
+        .fetch_one(&state.db).await?;
+    let description = if repayment {
+        if bt.direction == "credit" { "Credit card payment received" } else { "Credit card bill payment" }.to_string()
+    } else { bt.description.clone() };
     let txn = NormalizedTxn {
         user_id,
         statement_id: stmt_id,
@@ -444,7 +452,7 @@ async fn process_body_txn(
         account_label,
         txn_date: date,
         value_date: date,
-        description: bt.description.clone(),
+        description,
         raw_description: bt.description.clone(),
         amount: bt.amount,
         direction: bt.direction.clone(),

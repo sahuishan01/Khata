@@ -88,7 +88,7 @@ pub async fn get_dashboard(
         r#"SELECT
              COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')),  0)::float8,
              COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8,
-             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND category IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8
+             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8
            FROM transactions WHERE user_id = $1"#,
     )
     .bind(user_id)
@@ -141,8 +141,8 @@ pub async fn get_analysis(
         r#"SELECT
              COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')),  0)::float8,
              COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8,
-             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND category IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8,
-             COUNT(*)::bigint
+             COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8,
+             COUNT(*) FILTER (WHERE NOT is_transfer)::bigint
            FROM transactions WHERE user_id = $1"#,
     )
     .bind(user_id)
@@ -260,8 +260,8 @@ pub async fn get_analytics_explore(
     };
 
     let dim_where = match params.dimension.as_deref() {
-        Some("earned") => "AND direction = 'credit'".to_string(),
-        Some("net") => String::new(),
+        Some("earned") => "AND direction = 'credit' AND NOT is_transfer".to_string(),
+        Some("net") => "AND NOT is_transfer".to_string(),
         _ => "AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')".to_string(),
     };
 
@@ -375,7 +375,7 @@ pub async fn get_analytics_detail(
     }
     let w = wheres.join(" AND ");
 
-    let sql = format!("SELECT COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8, COUNT(*)::bigint FROM transactions WHERE {}", w);
+    let sql = format!("SELECT COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0)::float8, COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer),0)::float8, COUNT(*) FILTER (WHERE NOT is_transfer)::bigint FROM transactions WHERE {}", w);
     let mut q = sqlx::query_as::<_, (f64, f64, i64)>(&sql).bind(user_id);
     if let Some(ref v) = params.category { q = q.bind(v); }
     if let Some(ref v) = params.month { q = q.bind(v); }
@@ -435,7 +435,7 @@ pub async fn get_analytics_highlights(
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let most_frequent_payee: Option<(String, i64)> = sqlx::query_as(
-        "SELECT description, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' GROUP BY description ORDER BY COUNT(*) DESC LIMIT 1"
+        "SELECT description, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY COUNT(*) DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let top_category: Option<(String, f64, i64)> = sqlx::query_as(
@@ -594,7 +594,7 @@ pub async fn toggle_transfer(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let result = sqlx::query(
-        "UPDATE transactions SET is_transfer = $1 WHERE id = $2 AND user_id = $3"
+        "UPDATE transactions SET is_transfer = $1, version = version + 1, rev = rev + 1, updated_at = NOW() WHERE id = $2 AND user_id = $3"
     )
     .bind(req.is_transfer)
     .bind(txn_id)
@@ -731,7 +731,7 @@ pub async fn get_account_balances(
                   COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8 AS total_earned,
                   COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8
                     - COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8 AS balance,
-                  COUNT(*)::bigint AS txn_count
+                  COUNT(*) FILTER (WHERE NOT is_transfer)::bigint AS txn_count
            FROM transactions WHERE user_id = $1
            GROUP BY bank, account_label ORDER BY bank"#,
     )
@@ -912,6 +912,9 @@ pub async fn sync_push(
         match server_row {
             None => {
                 let description = op.description.unwrap_or_default();
+                let fallback_date = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(19800).unwrap()).date_naive();
+                let txn_date = op.txn_date.or(op.value_date).unwrap_or(fallback_date);
+                let value_date = op.value_date.unwrap_or(txn_date);
                 let fingerprint = format!("device:{}:{}", user_id, op.client_id);
                 let new_rev: i64 = sqlx::query_scalar(
                     "INSERT INTO transactions (user_id, client_id, description, amount, direction, category, \
@@ -925,8 +928,8 @@ pub async fn sync_push(
                 .bind(op.amount.unwrap_or(0.0))
                 .bind(op.direction.unwrap_or("debit".into()))
                 .bind(op.category.unwrap_or("Miscellaneous".into()))
-                .bind(op.txn_date.unwrap_or(chrono::Utc::now().date_naive()))
-                .bind(op.value_date.unwrap_or(chrono::Utc::now().date_naive()))
+                .bind(txn_date)
+                .bind(value_date)
                 .bind(op.notes)
                 .bind(op.is_transfer.unwrap_or(false))
                 .bind(op.deleted.unwrap_or(false))
@@ -943,14 +946,15 @@ pub async fn sync_push(
                      description = COALESCE($3, description), amount = COALESCE($4, amount), \
                      direction = COALESCE($5, direction), category = COALESCE($6, category), \
                      notes = COALESCE($7, notes), is_transfer = COALESCE($8, is_transfer), \
-                     deleted = COALESCE($9, deleted), updated_at = NOW() \
+                     deleted = COALESCE($9, deleted), txn_date = COALESCE($11, txn_date), \
+                     value_date = COALESCE($12, value_date), updated_at = NOW() \
                      WHERE client_id = $2 AND user_id = $10"
                 )
                 .bind(new_rev).bind(op.client_id)
                 .bind(&op.description).bind(op.amount)
                 .bind(&op.direction).bind(&op.category)
                 .bind(&op.notes).bind(op.is_transfer)
-                .bind(op.deleted).bind(user_id)
+                .bind(op.deleted).bind(user_id).bind(op.txn_date).bind(op.value_date)
                 .execute(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
             }
@@ -999,13 +1003,14 @@ pub async fn sync_resolve(
                  amount = COALESCE($4, amount), direction = COALESCE($5, direction), \
                  category = COALESCE($6, category), notes = COALESCE($7, notes), \
                  is_transfer = COALESCE($8, is_transfer), deleted = COALESCE($9, deleted), \
+                 txn_date = COALESCE($11, txn_date), value_date = COALESCE($12, value_date), \
                  updated_at = NOW() WHERE client_id = $2 AND user_id = $10"
             )
             .bind(new_rev).bind(op.client_id)
             .bind(&op.description).bind(op.amount)
             .bind(&op.direction).bind(&op.category)
             .bind(&op.notes).bind(op.is_transfer)
-            .bind(op.deleted).bind(user_id)
+            .bind(op.deleted).bind(user_id).bind(op.txn_date).bind(op.value_date)
             .execute(&mut *tx).await?;
             accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
         }

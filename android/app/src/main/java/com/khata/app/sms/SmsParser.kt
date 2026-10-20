@@ -9,7 +9,8 @@ data class ParsedSmsTxn(
     val direction: String, // "debit" or "credit"
     val bank: String,
     val payee: String,
-    val refNo: String? = null
+    val refNo: String? = null,
+    val isTransfer: Boolean = false,
 )
 
 object SmsParser {
@@ -28,6 +29,7 @@ object SmsParser {
     )
 
     private val CREDIT_PATTERNS = listOf(
+        Pattern.compile("(?i)payment\\s+(?:of\\s+)?(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?).{0,80}?(?:received|credited|acknowledged)"),
         Pattern.compile("(?i)(?:credited|received|deposited|added)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
         Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:credited|received|deposited)"),
     )
@@ -139,7 +141,8 @@ object SmsParser {
             direction = direction,
             bank = bank,
             payee = payee,
-            refNo = refNo
+            refNo = refNo,
+            isTransfer = CardTransfers.isRepayment(cleanBody, direction),
         )
     }
 }

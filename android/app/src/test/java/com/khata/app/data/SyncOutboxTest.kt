@@ -165,12 +165,13 @@ class SyncOutboxTest {
         assertTrue(dao.getOutbox().isEmpty())
     }
 
-    @Test fun absentDatesAreOmittedInsteadOfSerializedAsInvalidEmptyStrings() = runBlocking {
-        val dao = MemoryDao(listOf(queued().copy(txnDate = "", valueDate = "  ")))
+    @Test fun absentDatesUseThePersistedQueueDateInsteadOfTheUploadDate() = runBlocking {
+        val queueTimestamp = java.time.Instant.parse("2026-10-15T19:00:00Z").toEpochMilli()
+        val dao = MemoryDao(listOf(queued().copy(txnDate = "", valueDate = "  ", updatedAt = queueTimestamp)))
         SyncOutbox(dao, api { ops ->
             val json = Gson().toJsonTree(ops.single()).asJsonObject
-            assertFalse(json.has("txn_date"))
-            assertFalse(json.has("value_date"))
+            assertEquals("2026-10-16", json["txn_date"].asString)
+            assertEquals("2026-10-16", json["value_date"].asString)
             SyncPushResult(ops.map { SyncAccepted(it.clientId, 1) }, emptyList())
         }).push()
         assertTrue(dao.getOutbox().isEmpty())

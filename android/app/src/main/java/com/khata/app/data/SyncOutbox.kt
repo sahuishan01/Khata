@@ -4,6 +4,7 @@ import com.khata.app.api.KhataApi
 import com.khata.app.api.SyncPushOp
 import com.khata.app.api.toLocal
 import java.util.UUID
+import com.khata.app.sms.SmsDates
 
 /** Upload persisted work without discarding it when a request fails. */
 internal class SyncOutbox(private val dao: TransactionDao, private val api: KhataApi) {
@@ -22,12 +23,13 @@ internal class SyncOutbox(private val dao: TransactionDao, private val api: Khat
                 // Dates are optional in the API; an empty string is invalid.
                 val txnDate = txn.txnDate.trim().takeIf { it.isNotEmpty() }
                 val valueDate = txn.valueDate.trim().takeIf { it.isNotEmpty() }
+                val queueDate = SmsDates.timestampDate(txn.updatedAt)
                 SyncPushOp(
                     clientId = txn.clientId, baseRev = txn.baseRev,
                     amount = txn.amount, direction = txn.direction,
                     description = txn.description, category = txn.category,
                     bank = txn.bank, bankRef = txn.bankRef.ifBlank { null },
-                    txnDate = txnDate ?: valueDate, valueDate = valueDate ?: txnDate,
+                    txnDate = txnDate ?: valueDate ?: queueDate, valueDate = valueDate ?: txnDate ?: queueDate,
                     notes = txn.notes, isTransfer = txn.isTransfer, deleted = txn.deleted,
                 )
             })

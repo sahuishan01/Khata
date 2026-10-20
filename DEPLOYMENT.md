@@ -46,7 +46,10 @@ sudo systemctl reload caddy
 
 For frontend updates, run `npm run build` in `frontend/`, copy only `dist/` to a
 new release directory, and switch `/srv/khata/current` after verification. For
-backend updates, build `cargo build --release --locked --bin khata`, install the
+backend updates, use the existing `Backend Tests` GitHub Actions workflow. It
+runs tests and Clippy, builds the release binary, and uploads `khata-backend-<commit>`
+with PDFium, the source revision, and checksums. Download the artifact for the
+verified commit with `gh run download`, verify `SHA256SUMS`, install the
 binary into a new `/usr/local/lib/khata/releases/` directory, switch
 `/usr/local/lib/khata/current`, and restart `khata-backend.service` after checking
 the build.

@@ -81,7 +81,7 @@ pub async fn tax_summary_handler(
     let rows: Vec<(String, f64, String, String)> = sqlx::query_as(
         "SELECT txn_date::text, amount::double precision, description, category \
          FROM transactions WHERE user_id = $1 AND deleted = false \
-         AND (LOWER(category) LIKE '%insurance%' OR LOWER(category) LIKE '%investment%' \
+         AND NOT is_transfer AND (LOWER(category) LIKE '%insurance%' OR LOWER(category) LIKE '%investment%' \
               OR LOWER(category) LIKE '%medical%' OR LOWER(category) LIKE '%tax%')"
     )
     .bind(user_id)
