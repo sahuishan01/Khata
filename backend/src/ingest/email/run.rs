@@ -87,7 +87,13 @@ pub async fn sync_user(state: AppState, user_id: Uuid, trigger: Trigger) -> Resu
     let st = state.clone();
     tokio::spawn(async move {
         use futures::FutureExt;
-        let outcome = std::panic::AssertUnwindSafe(execute(&st, user_id, run_id, cfg))
+        let work = async {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(25 * 60),
+                execute(&st, user_id, run_id, cfg),
+            ).await.map_err(|_| anyhow!("Email sync timed out. Retry to continue from the last saved batch."))?
+        };
+        let outcome = std::panic::AssertUnwindSafe(work)
             .catch_unwind()
             .await;
         let err = match outcome {
@@ -157,7 +163,8 @@ async fn drive<M: Mailbox>(
 ) -> Result<Counters> {
     let mut counters = Counters::default();
 
-    let server_validity = mailbox.uid_validity().await.unwrap_or(0) as i64;
+    set_progress(&state.db, user_id, run_id, "searching", None, false).await?;
+    let server_validity = mailbox.uid_validity().await.context("read mailbox identity")? as i64;
     let validity_changed = cfg
         .imap_uid_validity
         .map(|v| v != server_validity)
@@ -172,11 +179,16 @@ async fn drive<M: Mailbox>(
         from_any: cfg.sender_allowlist.clone(),
         subject_any: cfg.subject_patterns.clone(),
     };
-    let max_messages = state.config.email_sync_max_messages;
-    let uids = mailbox
-        .search(since_uid, &criteria, max_messages)
-        .await
+    let max_messages = state.config.email_sync_max_messages.max(1);
+    let mut uids = tokio::time::timeout(
+        std::time::Duration::from_secs(90),
+        mailbox.search(since_uid, &criteria, max_messages.saturating_add(1)),
+    )
+        .await.map_err(|_| anyhow!("Mailbox search timed out. Please retry."))?
         .context("IMAP search")?;
+    let has_more = uids.len() > max_messages;
+    uids.truncate(max_messages);
+    set_progress(&state.db, user_id, run_id, "fetching", Some(uids.len() as i32), has_more).await?;
 
     let secret = &state.config.jwt_secret;
     let uid_str = user_id.to_string();
@@ -188,10 +200,16 @@ async fn drive<M: Mailbox>(
         });
 
     let profiles = registry();
-    let mut max_uid_seen = cfg.last_uid.unwrap_or(0);
+    let mut max_uid_seen = since_uid.unwrap_or(0) as i64;
 
     for chunk in uids.chunks(FETCH_BATCH) {
-        let messages = mailbox.fetch(chunk).await.context("IMAP fetch")?;
+        set_progress(&state.db, user_id, run_id, "fetching", None, has_more).await?;
+        let mut messages = tokio::time::timeout(
+            std::time::Duration::from_secs(90), mailbox.fetch(chunk),
+        ).await.map_err(|_| anyhow!("Fetching email timed out. Retry to continue."))?
+            .context("IMAP fetch")?;
+        messages.sort_by_key(|msg| msg.uid);
+        set_progress(&state.db, user_id, run_id, "processing", None, has_more).await?;
         for msg in messages {
             counters.messages_scanned += 1;
             max_uid_seen = max_uid_seen.max(msg.uid as i64);
@@ -207,6 +225,7 @@ async fn drive<M: Mailbox>(
                         counters.push_error("txn-email", "message body", &format!("{e:#}"));
                     }
                 }
+                flush_counters(&state.db, user_id, run_id, &counters).await?;
                 continue;
             }
 
@@ -232,13 +251,15 @@ async fn drive<M: Mailbox>(
                     counters.push_error("import", &att.filename, &format!("{e:#}"));
                 }
             }
+            flush_counters(&state.db, user_id, run_id, &counters).await?;
         }
         flush_counters(&state.db, user_id, run_id, &counters).await?;
+        persist_watermark(&state.db, user_id, max_uid_seen, server_validity).await?;
     }
 
     // Persist watermark.
     persist_watermark(&state.db, user_id, max_uid_seen, server_validity).await?;
-    let _ = mailbox.logout().await;
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(10), mailbox.logout()).await;
     Ok(counters)
 }
 
@@ -485,12 +506,16 @@ async fn load_config(db: &PgPool, user_id: Uuid) -> Result<Option<EmailConfig>> 
 async fn start_run(db: &PgPool, user_id: Uuid, trigger: Trigger, full_scan: bool) -> Result<Uuid> {
     let mut tx = db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
+    // Serialize starts for this user so double-clicks/background polling cannot
+    // both pass the running-run check.
+    sqlx::query("SELECT id FROM users WHERE id = $1 FOR UPDATE")
+        .bind(user_id).execute(&mut *tx).await?;
 
     // Live run? (allow superseding stale ones)
     let live: Option<(Uuid,)> = sqlx::query_as(
         "SELECT id FROM email_sync_runs \
          WHERE user_id = $1 AND status = 'running' \
-           AND started_at > now() - ($2 || ' minutes')::interval",
+           AND updated_at > now() - ($2 || ' minutes')::interval",
     )
     .bind(user_id)
     .bind(STALE_RUN_MINUTES.to_string())
@@ -502,7 +527,8 @@ async fn start_run(db: &PgPool, user_id: Uuid, trigger: Trigger, full_scan: bool
     }
 
     sqlx::query(
-        "UPDATE email_sync_runs SET status = 'error', error = 'superseded', finished_at = now() \
+        "UPDATE email_sync_runs SET status = 'error', phase = 'failed', \
+         error = 'Previous sync stopped responding. A new run has started.', finished_at = now(), updated_at = now() \
          WHERE user_id = $1 AND status = 'running'",
     )
     .bind(user_id)
@@ -526,7 +552,7 @@ async fn flush_counters(db: &PgPool, user_id: Uuid, run_id: Uuid, c: &Counters) 
     crate::db::set_current_user(&mut *tx, user_id).await?;
     sqlx::query(
         "UPDATE email_sync_runs SET messages_scanned=$1, attachments_seen=$2, \
-             attachments_parsed=$3, txns_imported=$4, txns_skipped=$5, errors=$6 \
+             attachments_parsed=$3, txns_imported=$4, txns_skipped=$5, errors=$6, updated_at=now() \
          WHERE id = $7",
     )
     .bind(c.messages_scanned)
@@ -538,6 +564,21 @@ async fn flush_counters(db: &PgPool, user_id: Uuid, run_id: Uuid, c: &Counters) 
     .bind(run_id)
     .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+async fn set_progress(
+    db: &PgPool, user_id: Uuid, run_id: Uuid, phase: &str,
+    total: Option<i32>, has_more: bool,
+) -> Result<()> {
+    let mut tx = db.begin().await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
+    sqlx::query(
+        "UPDATE email_sync_runs SET phase=$1, messages_total=COALESCE($2,messages_total), \
+         has_more=$3, updated_at=now() WHERE id=$4 AND user_id=$5",
+    ).bind(phase).bind(total).bind(has_more).bind(run_id).bind(user_id)
+        .execute(&mut *tx).await?;
     tx.commit().await?;
     Ok(())
 }
@@ -570,7 +611,7 @@ async fn finish_run_ok(
     let mut tx = db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
     sqlx::query(
-        "UPDATE email_sync_runs SET status='ok', finished_at=now(), \
+        "UPDATE email_sync_runs SET status='ok', phase='complete', finished_at=now(), updated_at=now(), \
              messages_scanned=$1, attachments_seen=$2, attachments_parsed=$3, \
              txns_imported=$4, txns_skipped=$5, errors=$6 WHERE id=$7",
     )
@@ -694,9 +735,7 @@ mod tests {
                 .filter(|u| *u >= lo)
                 .collect();
             uids.sort_unstable();
-            if uids.len() > limit {
-                uids.drain(..uids.len() - limit);
-            }
+            uids.truncate(limit);
             Ok(uids)
         }
         async fn fetch(&mut self, uids: &[u32]) -> Result<Vec<FetchedMessage>> {
@@ -746,6 +785,156 @@ mod tests {
         .await
         .unwrap();
         user_id
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn progress_and_watermark_continue_without_skipping_old_mail(pool: PgPool) {
+        let mut state = app_state(&pool);
+        std::sync::Arc::get_mut(&mut state.config).unwrap().email_sync_max_messages = 2;
+        let user_id = seed_user_and_config(&pool, &state).await;
+        struct ProgressMailbox { inner: FakeMailbox, db: PgPool, user_id: Uuid }
+        #[async_trait]
+        impl Mailbox for ProgressMailbox {
+            async fn uid_validity(&mut self) -> Result<u64> { self.inner.uid_validity().await }
+            async fn search(&mut self, since: Option<u32>, c: &SearchCriteria, limit: usize) -> Result<Vec<u32>> {
+                let phase: String = sqlx::query_scalar("SELECT phase FROM email_sync_runs WHERE user_id=$1 ORDER BY started_at DESC LIMIT 1")
+                    .bind(self.user_id).fetch_one(&self.db).await?;
+                assert_eq!(phase, "searching");
+                self.inner.search(since, c, limit).await
+            }
+            async fn fetch(&mut self, ids: &[u32]) -> Result<Vec<FetchedMessage>> {
+                let progress: (String, Option<i32>) = sqlx::query_as("SELECT phase,messages_total FROM email_sync_runs WHERE user_id=$1 ORDER BY started_at DESC LIMIT 1")
+                    .bind(self.user_id).fetch_one(&self.db).await?;
+                assert_eq!(progress, ("fetching".into(), Some(2)));
+                self.inner.fetch(ids).await
+            }
+            async fn logout(&mut self) -> Result<()> { Ok(()) }
+        }
+        for expected_uid in [2_i64, 4] {
+            let mailbox = ProgressMailbox {
+                inner: FakeMailbox { validity: 1, messages: (1..=5).map(|uid| FetchedMessage { uid, raw: b"From: bank@example.com\r\nSubject: Notice\r\n\r\nNo transaction.".to_vec() }).collect() },
+                db: pool.clone(), user_id,
+            };
+            let (id, _, _) = run_inline(&state, user_id, Trigger::Manual, mailbox).await.unwrap();
+            let progress: (String, String, Option<i32>, i32, bool) = sqlx::query_as(
+                "SELECT status,phase,messages_total,messages_scanned,has_more FROM email_sync_runs WHERE id=$1",
+            ).bind(id).fetch_one(&pool).await.unwrap();
+            assert_eq!(progress, ("ok".into(), "complete".into(), Some(2), 2, true));
+            let uid: i64 = sqlx::query_scalar("SELECT last_uid FROM user_email_configs WHERE user_id=$1")
+                .bind(user_id).fetch_one(&pool).await.unwrap();
+            assert_eq!(uid, expected_uid);
+        }
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn only_one_run_can_start_per_user(pool: PgPool) {
+        let state = app_state(&pool);
+        let user_id = seed_user_and_config(&pool, &state).await;
+        let (a, b) = tokio::join!(start_run(&pool, user_id, Trigger::Manual, true), start_run(&pool, user_id, Trigger::Poll, true));
+        assert_ne!(a.is_ok(), b.is_ok());
+        let id = a.or(b).unwrap();
+        finish_run_error(&pool, user_id, id, "Test connection failure").await.unwrap();
+        let row: (String, String, bool) = sqlx::query_as("SELECT status,phase,finished_at IS NOT NULL FROM email_sync_runs WHERE id=$1")
+            .bind(id).fetch_one(&pool).await.unwrap();
+        assert_eq!(row, ("error".into(), "failed".into(), true));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn device_import_is_idempotent_and_scoped_to_its_user(pool: PgPool) {
+        use crate::auth::middleware::CurrentUser;
+        use crate::txns::{handlers::sync_push, models::SyncPushOp};
+        use axum::{extract::State, Json};
+        let state = app_state(&pool);
+        let user_id = seed_user_and_config(&pool, &state).await;
+        let client_id = Uuid::new_v4();
+        let operation = || SyncPushOp {
+            client_id, base_rev: 0, amount: Some(250.0), direction: Some("debit".into()), description: Some("SMS test".into()),
+            category: None, bank: Some("HDFC".into()), bank_ref: Some("1234567890".into()), txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None,
+        };
+        let first = sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![operation()])).await.unwrap().0;
+        assert_eq!(first.accepted.len(), 1);
+        let retry = sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![operation()])).await.unwrap().0;
+        assert_eq!(retry.conflicts.len(), 1);
+        let other: Uuid = sqlx::query_scalar("INSERT INTO users (email,password_hash) VALUES ('other@example.com','x') RETURNING id")
+            .fetch_one(&pool).await.unwrap();
+        let second = sync_push(State(state), CurrentUser(other), Json(vec![operation()])).await.unwrap().0;
+        assert_eq!(second.accepted.len(), 1);
+        let count = scalar_i64(&pool, user_id, "SELECT count(*) FROM transactions").await;
+        assert_eq!(count, 1, "the retry must not duplicate the first user's transaction");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn device_download_pages_all_imports_with_the_same_row_revision(pool: PgPool) {
+        use crate::auth::middleware::CurrentUser;
+        use crate::txns::{handlers::{sync_push, sync_pull}, models::{SyncPushOp, SyncPullQuery}};
+        use axum::{extract::{State, Query}, Json};
+        let state = app_state(&pool);
+        let user_id = seed_user_and_config(&pool, &state).await;
+        let ops = (0..205).map(|_| SyncPushOp {
+            client_id: Uuid::new_v4(), base_rev: 0, amount: Some(250.0), direction: Some("debit".into()),
+            description: Some("SMS backfill".into()), category: None, bank: Some("HDFC".into()), bank_ref: None,
+            txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None,
+        }).collect();
+        assert_eq!(sync_push(State(state.clone()), CurrentUser(user_id), Json(ops)).await.unwrap().0.accepted.len(), 205);
+        let first = sync_pull(State(state.clone()), CurrentUser(user_id), Query(SyncPullQuery {
+            since_rev: Some(0), limit: Some(200), cursor_version: Some(2),
+        })).await.unwrap().0;
+        assert_eq!(first.txns.len(), 200);
+        assert!(first.has_more);
+        assert!(first.txns.iter().all(|row| row.rev == 1 && row.bank == "HDFC"));
+        let next = sync_pull(State(state), CurrentUser(user_id), Query(SyncPullQuery {
+            since_rev: Some(first.new_rev), limit: Some(200), cursor_version: Some(2),
+        })).await.unwrap().0;
+        assert_eq!(next.txns.len(), 5);
+        assert!(!next.has_more);
+        assert!(next.txns.iter().all(|row| !first.txns.iter().any(|old| old.id == row.id)));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn cursor_upgrade_backfills_existing_transactions_under_forced_rls(pool: PgPool) {
+        use crate::auth::middleware::CurrentUser;
+        use crate::txns::{handlers::{sync_push, sync_pull}, models::{SyncPushOp, SyncPullQuery}};
+        use axum::{extract::{State, Query}, Json};
+        let state = app_state(&pool);
+        let user_id = seed_user_and_config(&pool, &state).await;
+        // Reproduce the schema immediately before the cursor migration.
+        sqlx::raw_sql("DROP TRIGGER transaction_sync_cursor_changed ON transactions; DROP FUNCTION assign_transaction_sync_cursor(); ALTER TABLE transactions DROP COLUMN sync_rev; DROP SEQUENCE transaction_sync_cursor;")
+            .execute(&pool).await.unwrap();
+        let op = SyncPushOp {
+            client_id: Uuid::new_v4(), base_rev: 0, amount: Some(100.0), direction: Some("credit".into()),
+            description: Some("Existing transaction".into()), category: None, bank: None, bank_ref: None,
+            txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None,
+        };
+        sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![op])).await.unwrap();
+        sqlx::raw_sql(include_str!("../../../migrations/0033_sync_change_cursor.sql"))
+            .execute(&pool).await.unwrap();
+        let response = sync_pull(State(state), CurrentUser(user_id), Query(SyncPullQuery {
+            since_rev: Some(0), limit: Some(200), cursor_version: Some(2),
+        })).await.unwrap().0;
+        assert_eq!(response.txns.len(), 1, "the upgrade must preserve visibility of existing records");
+        assert!(response.new_rev > 0);
+        let forced: bool = sqlx::query_scalar("SELECT relforcerowsecurity FROM pg_class WHERE oid='transactions'::regclass")
+            .fetch_one(&pool).await.unwrap();
+        assert!(forced, "row-level security must be forced again after backfill");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn setting_pdf_password_retries_previously_scanned_messages(pool: PgPool) {
+        use super::super::config::{SaveEmailConfigReq, save_email_config_handler};
+        use crate::auth::middleware::CurrentUser;
+        use axum::{extract::State, Json};
+        let state = app_state(&pool);
+        let user_id = seed_user_and_config(&pool, &state).await;
+        sqlx::query("UPDATE user_email_configs SET last_uid=50 WHERE user_id=$1").bind(user_id).execute(&pool).await.unwrap();
+        let response = save_email_config_handler(State(state), CurrentUser(user_id), Json(SaveEmailConfigReq {
+            email_address: "u@e.com".into(), app_password: None, pdf_password: Some("statement-password".into()),
+            imap_server: None, imap_folder: None, parse_txn_emails: None, sync_enabled: None,
+            sender_allowlist: None, subject_patterns: None,
+        })).await.unwrap().0;
+        assert!(response.full_rescan_queued);
+        assert!(response.config.has_pdf_password);
+        let uid: Option<i64> = sqlx::query_scalar("SELECT last_uid FROM user_email_configs WHERE user_id=$1").bind(user_id).fetch_one(&pool).await.unwrap();
+        assert!(uid.is_none());
     }
 
     #[sqlx::test(migrations = "./migrations")]
@@ -903,7 +1092,7 @@ async fn finish_run_error(db: &PgPool, user_id: Uuid, run_id: Uuid, msg: &str) -
     let mut tx = db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
     sqlx::query(
-        "UPDATE email_sync_runs SET status='error', error=$1, finished_at=now() WHERE id=$2",
+        "UPDATE email_sync_runs SET status='error', phase='failed', error=$1, finished_at=now(), updated_at=now() WHERE id=$2",
     )
     .bind(msg)
     .bind(run_id)

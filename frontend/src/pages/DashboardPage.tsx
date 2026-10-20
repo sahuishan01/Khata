@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingDown, TrendingUp, Wallet, Percent, Calendar, Hash,
@@ -15,6 +15,7 @@ import { Screen, Card, CardHeader, CardBody, StatCard, Amount, ListRow, ListRowT
 import { StatCardSkeleton, Skeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/States'
 import { formatDate } from '../utils/format'
+import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 
 interface DashboardStats {
   total_spent: number; total_earned: number; total_invested: number; net: number
@@ -39,22 +40,22 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  const fetchAll = () => {
-    setLoading(true)
-    setError(null)
-    Promise.all([
+  const fetchAll = useCallback(() => {
+    return Promise.all([
       api.get<DashboardStats>('/txns/dashboard'),
       api.get<AnalysisStats>('/txns/analysis').catch(() => ({ data: null })),
     ])
       .then(([statsRes, analysisRes]) => {
         setStats(statsRes.data)
         setAnalysis(analysisRes.data)
+        setError(null)
       })
       .catch(() => setError('Failed to load dashboard data'))
       .finally(() => setLoading(false))
-  }
+  }, [])
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { void fetchAll() }, [fetchAll])
+  useVisibleRefresh(fetchAll)
 
   const { blurMode, toggleBlur } = usePrivacy()
   const hasData = stats && (stats.total_spent > 0 || stats.total_earned > 0)
@@ -69,7 +70,7 @@ export function DashboardPage() {
   if (loading) {
     return (
       <Screen title="Dashboard" subtitle="Your financial overview" actions={blurToggle}>
-        <FileUpload onSuccess={fetchAll} />
+        <FileUpload onSuccess={() => fetchAll()} />
         <div className="grid grid-stats" style={{ marginTop: 20 }}>
           {[1,2,3,4].map(i => <StatCardSkeleton key={i} />)}
         </div>
@@ -81,18 +82,19 @@ export function DashboardPage() {
     )
   }
 
-  if (error) {
+  if (error && !stats) {
     return (
       <Screen title="Dashboard" subtitle="Your financial overview" actions={blurToggle}>
-        <FileUpload onSuccess={fetchAll} />
-        <ErrorState message={error} onRetry={fetchAll} />
+        <FileUpload onSuccess={() => fetchAll()} />
+        <ErrorState message={error} onRetry={() => fetchAll()} />
       </Screen>
     )
   }
 
   return (
     <Screen title="Dashboard" subtitle="Your financial overview" actions={blurToggle}>
-      <FileUpload onSuccess={fetchAll} />
+      <FileUpload onSuccess={() => fetchAll()} />
+      {error && <p role="status" style={{ color: 'var(--warn)' }}>Dashboard updates delayed. Retrying automatically…</p>}
 
       {!hasData ? (
         <div style={{ marginTop: 20 }}>

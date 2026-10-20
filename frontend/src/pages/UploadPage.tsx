@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { api } from '../api/client'
+import { isAxiosError } from 'axios'
 import { Upload, CheckCircle, AlertTriangle, Plus } from 'lucide-react'
 import { CopyButton } from '../components/shared/CopyButton'
 
@@ -10,6 +11,10 @@ interface EmailSyncRun {
   status: string
   trigger: string
   full_scan: boolean
+  phase?: string
+  messages_total?: number | null
+  has_more?: boolean
+  updated_at?: string
   messages_scanned: number
   attachments_seen: number
   attachments_parsed: number
@@ -19,10 +24,22 @@ interface EmailSyncRun {
   error?: string
 }
 
+interface ImportResult {
+  type?: 'email' | 'manual'
+  message?: string
+  bank_detected?: string
+  inserted?: number
+  skipped_duplicates?: number
+  normalized?: number
+  rows_parsed?: number
+  warnings?: string[]
+}
+
 const runSummary = (r: EmailSyncRun) =>
   [
     `Khata email sync run ${r.id}`,
     `status: ${r.status}  trigger: ${r.trigger}  full_scan: ${r.full_scan}`,
+    `phase: ${r.phase ?? r.status}  messages_total: ${r.messages_total ?? 'unknown'}  more_mail: ${r.has_more ?? false}`,
     `started: ${r.started_at}  finished: ${r.finished_at ?? '—'}`,
     `messages_scanned: ${r.messages_scanned}  attachments_seen: ${r.attachments_seen}  attachments_parsed: ${r.attachments_parsed}`,
     `txns_imported: ${r.txns_imported}  txns_skipped: ${r.txns_skipped}`,
@@ -34,7 +51,7 @@ const runSummary = (r: EmailSyncRun) =>
 
 export function UploadPage() {
   const [tab, setTab] = useState<'upload' | 'email' | 'manual'>('email')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -98,24 +115,53 @@ export function UploadPage() {
   const [emailMsg, setEmailMsg] = useState('')
   const [editingCreds, setEditingCreds] = useState(false)
   const [latestRun, setLatestRun] = useState<EmailSyncRun | null>(null)
+  const [emailConfigLoading, setEmailConfigLoading] = useState(true)
+  const [emailConfigError, setEmailConfigError] = useState('')
+  const [emailProgressError, setEmailProgressError] = useState('')
+  const [emailStarting, setEmailStarting] = useState(false)
+  const emailRunning = latestRun?.status === 'running'
 
   const fetchLatestRun = async () => {
     try {
       const { data } = await api.get('/ingest/email/runs/latest')
       setLatestRun(data)
-    } catch { /* ignored */ }
+      setEmailProgressError('')
+    } catch { setEmailProgressError('Could not refresh sync progress. Retrying automatically…') }
   }
 
-  const fetchEmailConfig = async () => {
-    try {
-      const { data } = await api.get('/ingest/email/config')
+  const fetchEmailConfig = useCallback(() =>
+    api.get('/ingest/email/config').then(({ data }) => {
       setEmailConfig(data)
       if (data?.email_address) setEmailInput(data.email_address)
       setFolderInput(data?.imap_folder ?? '[Gmail]/All Mail')
       setParseTxnEmails(data?.parse_txn_emails ?? true)
-    } catch { /* ignored */ }
-    fetchLatestRun()
-  }
+      setEmailConfigError('')
+    }).catch(() => { setEmailConfigError('Could not load your email connection. Please retry.') })
+      .finally(() => { setEmailConfigLoading(false) }), [])
+
+  useEffect(() => { void fetchEmailConfig() }, [fetchEmailConfig])
+
+  useEffect(() => {
+    if (tab !== 'email') return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout>
+    const poll = async () => {
+      let running = false
+      try {
+        const { data } = await api.get<EmailSyncRun | null>('/ingest/email/runs/latest')
+        if (stopped) return
+        setLatestRun(data)
+        setEmailProgressError('')
+        running = data?.status === 'running'
+      } catch {
+        if (stopped) return
+        setEmailProgressError('Could not refresh sync progress. Retrying automatically…')
+      }
+      timer = setTimeout(poll, running ? 1500 : 10000)
+    }
+    void poll()
+    return () => { stopped = true; clearTimeout(timer) }
+  }, [tab, emailRunning])
 
   const hasExistingKey = !!emailConfig?.has_app_password
 
@@ -135,28 +181,28 @@ export function UploadPage() {
       setPdfPasswordInput('')
       setEditingCreds(false)
       if (data?.full_rescan_queued) {
-        setEmailMsg('New key saved (AES-256-GCM). Scanning your full mailbox history for transactions…')
+        setEmailMsg('Connection saved. Starting email sync…')
         await syncEmailNow()
       } else {
         setEmailMsg('Gmail configuration updated securely with AES-256-GCM encryption!')
         setTimeout(() => setEmailMsg(''), 4000)
       }
       fetchEmailConfig()
-    } catch (e: any) {
-      setError(e.response?.data?.error ?? 'Failed to save email config')
+    } catch (e: unknown) {
+      setError(isAxiosError<{ error?: string }>(e) ? e.response?.data?.error ?? 'Failed to save email config' : 'Failed to save email config')
     } finally { setLoading(false) }
   }
 
   const syncEmailNow = async () => {
-    setLoading(true); setError(''); setResult(null)
+    setEmailStarting(true); setError(''); setResult(null)
     try {
       const { data } = await api.post('/ingest/email/sync')
       setResult({ type: 'email', message: data.message })
-      // The run is detached; give it a moment then pull the result in.
-      setTimeout(fetchLatestRun, 4000)
-    } catch (e: any) {
-      setError(e.response?.data?.error ?? 'Sync failed')
-    } finally { setLoading(false) }
+      await fetchLatestRun()
+    } catch (e: unknown) {
+      if (!isAxiosError(e) || e.response?.status !== 409) setError(isAxiosError<{ error?: string }>(e) ? e.response?.data?.error ?? 'Could not start email sync' : 'Could not start email sync')
+      await fetchLatestRun()
+    } finally { setEmailStarting(false) }
   }
 
   const deleteEmailConfig = async () => {
@@ -169,7 +215,7 @@ export function UploadPage() {
     } catch { setError('Failed to disconnect') }
   }
 
-  const parseFailed = result && result.normalized === 0 && result.rows_parsed > 0
+  const parseFailed = result && result.normalized === 0 && (result.rows_parsed ?? 0) > 0
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100svh - 200px)' }}>
@@ -250,15 +296,21 @@ export function UploadPage() {
                 <CopyButton text={error} label="Copy" />
               </div>
             )}
-            {result?.type === 'email' && <p className="text-success mb-3" style={{ fontSize: 13 }}>{result.message}</p>}
+            {emailConfigLoading && <p role="status">Loading email connection…</p>}
+            {emailConfigError && <div role="alert">{emailConfigError} <button className="btn btn-secondary" onClick={() => { setEmailConfigLoading(true); void fetchEmailConfig() }}>Retry</button></div>}
+            {emailProgressError && <p role="alert" style={{ color: 'var(--warn)' }}>{emailProgressError}</p>}
+            {result?.type === 'email' && <p role="status" style={{ fontSize: 13 }}>{result.message}. Live progress appears below.</p>}
+            {emailStarting && !emailRunning && <div role="status"><p>Starting email sync…</p><progress aria-label="Starting email sync" style={{ width: '100%', accentColor: 'var(--brand)' }} /></div>}
 
             {latestRun && (
-              <div style={{ background: 'var(--surface-2)', padding: 14, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+              <div role="status" aria-live="polite" style={{ background: 'var(--surface-2)', padding: 16, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
                 <div className="flex items-center gap-2" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
                   <strong style={{ fontSize: 13 }}>
-                    Last sync:{' '}
+                    Email sync:{' '}
                     <span style={{ color: latestRun.status === 'ok' ? 'var(--income)' : latestRun.status === 'error' ? 'var(--expense)' : 'var(--warn)' }}>
-                      {latestRun.status}
+                      {latestRun.status === 'running'
+                        ? ({ connecting: 'Connecting to mailbox…', searching: 'Finding emails…', fetching: 'Downloading emails…', processing: 'Importing transactions…' }[latestRun.phase ?? 'connecting'] ?? 'Syncing…')
+                        : latestRun.status === 'ok' ? (latestRun.errors?.length ? 'Finished with issues' : 'Complete') : 'Failed'}
                     </span>
                   </strong>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -266,14 +318,25 @@ export function UploadPage() {
                     <button className="btn btn-secondary btn-sm" onClick={fetchLatestRun}>Refresh</button>
                   </div>
                 </div>
+                <progress
+                  aria-label="Email scan progress"
+                  max={100}
+                  value={latestRun.status === 'ok' ? 100 : latestRun.messages_total ? Math.min(latestRun.status === 'running' ? 99 : 100, latestRun.messages_scanned / latestRun.messages_total * 100) : undefined}
+                  style={{ width: '100%', height: 12, marginTop: 12, accentColor: 'var(--brand)' }}
+                />
+                <div style={{ marginTop: 8 }}>
+                  {latestRun.messages_scanned}{latestRun.messages_total != null ? ` of ${latestRun.messages_total}` : ''} emails scanned
+                  {latestRun.updated_at && ` · Updated ${new Date(latestRun.updated_at).toLocaleTimeString()}`}
+                </div>
                 <div style={{ color: 'var(--text-2)', marginTop: 6 }}>
                   {latestRun.messages_scanned} emails scanned · {latestRun.attachments_seen} attachments · {latestRun.txns_imported} imported · {latestRun.txns_skipped} skipped
                 </div>
                 {latestRun.messages_scanned === 0 && latestRun.status === 'ok' && (
                   <div style={{ color: 'var(--warn)', marginTop: 6 }}>
-                    No matching emails found. Bank statement mails are often archived out of the inbox — the scan now covers all mail, so re-check your sender/subject filters if this persists.
+                    No new emails matched this scan. If you expected transactions, check the mailbox folder and filters.
                   </div>
                 )}
+                {latestRun.has_more && latestRun.status !== 'running' && <p style={{ color: 'var(--warn)', marginTop: 8 }}>More emails remain. Sync again to continue; automatic sync will also continue while enabled.</p>}
                 {latestRun.error && <div style={{ color: 'var(--expense)', marginTop: 6 }}>{latestRun.error}</div>}
                 {latestRun.errors?.length > 0 && (
                   <ul style={{ margin: '6px 0 0', paddingLeft: 16, color: 'var(--text-2)' }}>
@@ -301,9 +364,9 @@ export function UploadPage() {
                   : <div style={{ fontSize: 11, color: 'var(--warn)', marginTop: 4 }}>Not yet synced — a full mailbox scan will run on next sync</div>}
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary" onClick={syncEmailNow} disabled={loading}>Sync Email Now</button>
-                  <button className="btn btn-secondary" onClick={() => { setEditingCreds(true); setEmailInput(emailConfig.email_address); setAppPasswordInput(''); setPdfPasswordInput(''); setError(''); setEmailMsg('') }}>Update Key</button>
-                  <button className="btn btn-danger" onClick={deleteEmailConfig}>Disconnect</button>
+                  <button className="btn btn-primary" onClick={syncEmailNow} disabled={loading || emailStarting || emailRunning}>{emailRunning ? 'Sync in progress…' : emailStarting ? 'Starting…' : 'Sync Email Now'}</button>
+                  <button className="btn btn-secondary" disabled={emailRunning || emailStarting} onClick={() => { setEditingCreds(true); setEmailInput(emailConfig.email_address); setAppPasswordInput(''); setPdfPasswordInput(''); setError(''); setEmailMsg('') }}>Update Key</button>
+                  <button className="btn btn-danger" disabled={emailRunning || emailStarting} onClick={deleteEmailConfig}>Disconnect</button>
                 </div>
               </div>
             ) : (
@@ -335,7 +398,7 @@ export function UploadPage() {
                   <input type="checkbox" checked={parseTxnEmails} onChange={e => setParseTxnEmails(e.target.checked)} style={{ marginTop: 2 }} />
                   <span>Also import <strong>transaction alert emails</strong> (e.g. "₹450 debited at SWIGGY") — not just attached statements.</span>
                 </label>
-                <button className="btn btn-primary btn-full btn-lg" disabled={loading}>{loading ? 'Encrypting & Saving…' : hasExistingKey ? 'Save New Key & Rescan' : 'Save Encrypted Config'}</button>
+                <button className="btn btn-primary btn-full btn-lg" disabled={loading || emailConfigLoading}>{loading ? 'Encrypting & Saving…' : hasExistingKey ? 'Save New Key & Rescan' : 'Save Encrypted Config'}</button>
                 {editingCreds && (
                   <button type="button" className="btn btn-secondary btn-full" style={{ marginTop: 8 }} onClick={() => { setEditingCreds(false); setAppPasswordInput(''); setPdfPasswordInput(''); setError('') }}>Cancel</button>
                 )}

@@ -1,6 +1,7 @@
 package com.khata.app.sms
 
 import java.util.Locale
+import java.util.UUID
 import java.util.regex.Pattern
 
 data class ParsedSmsTxn(
@@ -12,15 +13,23 @@ data class ParsedSmsTxn(
 )
 
 object SmsParser {
+    /** Shared by live capture and inbox backfill; accepted by the UUID API. */
+    fun clientId(parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long): String {
+        val identity = parsed.refNo?.let {
+            "${parsed.bank.uppercase(Locale.ROOT)}|${parsed.direction}|${parsed.amount}|${it.uppercase(Locale.ROOT)}"
+        } ?: "${sender.uppercase(Locale.ROOT)}|$timestamp|${body.trim()}"
+        return UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
+    }
+
     // Regex patterns for Indian Bank SMSes (HDFC, ICICI, SBI, Axis, PNB, Kotak, UPI, Paytm, PhonePe, Cred)
     private val DEBIT_PATTERNS = listOf(
-        Pattern.compile("(?i)(?:debited|sent|paid|spent|txn of|withdrawn|vpa)\\s*(?:by|for|of)?\\s*(?:rs\\.?|inr)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
-        Pattern.compile("(?i)(?:rs\\.?|inr)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:debited|spent|paid|withdrawn|transferred)"),
+        Pattern.compile("(?i)(?:debited|sent|paid|spent|txn of|withdrawn|vpa)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
+        Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:debited|spent|paid|withdrawn|transferred)"),
     )
 
     private val CREDIT_PATTERNS = listOf(
-        Pattern.compile("(?i)(?:credited|received|deposited|added)\\s*(?:by|for|of)?\\s*(?:rs\\.?|inr)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
-        Pattern.compile("(?i)(?:rs\\.?|inr)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:credited|received|deposited)"),
+        Pattern.compile("(?i)(?:credited|received|deposited|added)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
+        Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:credited|received|deposited)"),
     )
 
     private val BANK_PATTERN = Pattern.compile("(?i)\\b(HDFC|ICICI|SBI|AXIS|KOTAK|PNB|BOB|CANARA|PAYTM|IDFC|YES|INDUSIND)\\b")
@@ -46,7 +55,7 @@ object SmsParser {
             .lowercase(Locale.ROOT)
         return first in PAYEE_STOP_WORDS
     }
-    private val REF_PATTERN = Pattern.compile("(?i)(?:ref|upi ref|txn id|rrn)\\s*:?\\s*([A-Za-z0-9]+)")
+    private val REF_PATTERN = Pattern.compile("(?i)\\b(?:upi\\s*ref(?:erence)?|ref(?:erence)?|rrn|txn\\s*(?:id|no|number)|transaction\\s*(?:id|no|number))\\s*\\.?\\s*(?:(?:no|number|id)\\.?\\s*)?[:#-]?\\s*([A-Za-z0-9][A-Za-z0-9/-]{5,})")
 
     fun parse(body: String, sender: String = ""): ParsedSmsTxn? {
         val cleanBody = body.replace("\n", " ").trim()
@@ -100,7 +109,9 @@ object SmsParser {
         } else if (lowerSender.contains("hdfc")) bank = "HDFC"
         else if (lowerSender.contains("icici")) bank = "ICICI"
         else if (lowerSender.contains("sbi")) bank = "SBI"
-        else if (lowerSender.contains("axis")) bank = "Axis"
+        else if (lowerSender.contains("axis")) bank = "AXIS"
+        else if (lowerSender.contains("kotak")) bank = "KOTAK"
+        else if (lowerSender.contains("canara") || lowerSender.contains("canbnk")) bank = "CANARA"
 
         // Detect Payee
         var payee = "Transaction"
@@ -120,7 +131,7 @@ object SmsParser {
         var refNo: String? = null
         val refMatcher = REF_PATTERN.matcher(cleanBody)
         if (refMatcher.find()) {
-            refNo = refMatcher.group(1)
+            refNo = refMatcher.group(1)?.takeIf { value -> value.any { it.isDigit() } }
         }
 
         return ParsedSmsTxn(

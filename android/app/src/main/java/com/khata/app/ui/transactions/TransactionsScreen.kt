@@ -74,7 +74,8 @@ fun TransactionsScreen(
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?, preset: Int) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
-    onUpdateCategory: ((String, String) -> Unit)? = null
+    onUpdateCategory: ((String, String) -> Unit)? = null,
+    deviceSyncStatus: @Composable () -> Unit = {},
 ) {
     var sortBy by remember(filter) { mutableStateOf(filter.sortBy) }
     var sortDir by remember(filter) { mutableStateOf(filter.sortDir) }
@@ -171,6 +172,7 @@ fun TransactionsScreen(
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).imePadding()) {
         Text("Transactions", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        deviceSyncStatus()
         Spacer(Modifier.height(6.dp))
 
         // Local search

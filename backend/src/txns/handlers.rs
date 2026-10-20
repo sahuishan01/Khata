@@ -870,19 +870,21 @@ pub async fn sync_pull(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let since = params.since_rev.unwrap_or(0);
-    let limit = params.limit.unwrap_or(200).min(1000);
+    let limit = params.limit.unwrap_or(200).clamp(1, 1000);
+    let change_cursor = params.cursor_version.unwrap_or(1) >= 2;
+    let cursor_column = if change_cursor { "sync_rev" } else { "rev" };
 
-    let rows = sqlx::query_as::<_, TxnRow>(
+    let rows = sqlx::query_as::<_, TxnRow>(&format!(
         "SELECT id, txn_date, value_date, description, amount::float8, direction, \
          balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
-         rev, base_rev, deleted, updated_at, client_id \
-         FROM transactions WHERE user_id = $1 AND rev > $2 \
-         ORDER BY rev ASC LIMIT $3"
-    )
+         rev, base_rev, deleted, updated_at, client_id, sync_rev \
+         FROM transactions WHERE user_id = $1 AND {cursor_column} > $2 \
+         ORDER BY {cursor_column} ASC LIMIT $3"
+    ))
     .bind(user_id).bind(since).bind(limit)
     .fetch_all(&mut *tx).await?;
 
-    let new_rev = rows.last().map(|r| r.rev).unwrap_or(since);
+    let new_rev = rows.last().map(|r| if change_cursor { r.sync_rev } else { r.rev }).unwrap_or(since);
     let has_more = rows.len() as i64 >= limit;
 
     tx.commit().await?;
@@ -909,15 +911,17 @@ pub async fn sync_push(
 
         match server_row {
             None => {
+                let description = op.description.unwrap_or_default();
+                let fingerprint = format!("device:{}:{}", user_id, op.client_id);
                 let new_rev: i64 = sqlx::query_scalar(
                     "INSERT INTO transactions (user_id, client_id, description, amount, direction, category, \
-                     txn_date, value_date, notes, is_transfer, deleted, rev, base_rev) \
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, 1) \
+                     txn_date, value_date, notes, is_transfer, deleted, bank, bank_ref, raw_description, fingerprint, rev, base_rev) \
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9,''), $10, $11, $12, $13, $3, $14, 1, 1) \
                      ON CONFLICT (client_id, user_id) DO UPDATE SET rev = transactions.rev + 1 \
                      RETURNING rev"
                 )
                 .bind(user_id).bind(op.client_id)
-                .bind(op.description.unwrap_or_default())
+                .bind(description)
                 .bind(op.amount.unwrap_or(0.0))
                 .bind(op.direction.unwrap_or("debit".into()))
                 .bind(op.category.unwrap_or("Miscellaneous".into()))
@@ -926,6 +930,9 @@ pub async fn sync_push(
                 .bind(op.notes)
                 .bind(op.is_transfer.unwrap_or(false))
                 .bind(op.deleted.unwrap_or(false))
+                .bind(op.bank.unwrap_or_else(|| "Manual".into()))
+                .bind(op.bank_ref)
+                .bind(fingerprint)
                 .fetch_one(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
             }

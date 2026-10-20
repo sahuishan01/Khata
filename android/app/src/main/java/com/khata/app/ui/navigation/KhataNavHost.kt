@@ -48,6 +48,13 @@ import com.khata.app.ui.upload.CombinedUploadScreen
 import com.khata.app.viewmodel.MainViewModel
 import com.khata.app.viewmodel.TxnFilter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.khata.app.ui.components.shared.DeviceSyncStatus
+import com.khata.app.data.SyncUiState
 
 sealed class Screen(val route: String, val label: String = "", val icon: @Composable () -> Unit = {}) {
     data object Setup : Screen("setup")
@@ -87,6 +94,15 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val categoriesState by viewModel.categoriesState.collectAsState()
     val cachedTxnsState by viewModel.cachedTxns.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val deviceSyncState by viewModel.deviceSyncState.collectAsState()
+    val pendingSyncCount by viewModel.pendingSyncCount.collectAsState()
+    val lastDeviceSync by viewModel.lastDeviceSync.collectAsState()
+    val smsProgress by viewModel.smsProgress.collectAsState()
+    val serverUrl by viewModel.serverUrl.collectAsState()
+    val deviceSyncStatus: @Composable () -> Unit = {
+        DeviceSyncStatus(pendingSyncCount, deviceSyncState, serverUrl, lastDeviceSync, smsProgress.running) { viewModel.retryDeviceSync() }
+    }
 
     val isDark by themeManager.isDarkFlow.collectAsState(initial = false)
     var blurMode by remember { mutableStateOf(true) }
@@ -152,6 +168,19 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
     LaunchedEffect(Unit) { viewModel.checkAuth() }
 
+    LaunchedEffect(lifecycleOwner, authState.isLoggedIn, authState.mustResetPassword, serverUrl) {
+        if (authState.isLoggedIn && !authState.mustResetPassword) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var first = true
+                while (isActive) {
+                    viewModel.syncPendingTransactions(force = first)
+                    first = false
+                    delay(30_000)
+                }
+            }
+        }
+    }
+
     if (authState.isChecking) { SplashScreen(); return }
 
     LaunchedEffect(authState.isLoggedIn, authState.setupRequired, authState.mustResetPassword) {
@@ -198,12 +227,15 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 navController.navigate(Screen.Transactions.route)
             }) }
 
-            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult?.takeUnless { it.startsWith("PASSWORD_") }, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }, onScanSms = { cb -> viewModel.scanSmsInbox(context, cb) }) }
+            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult?.takeUnless { it.startsWith("PASSWORD_") }, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }, onScanSms = { cb -> viewModel.scanSmsInbox(context, cb) }, smsProgress = smsProgress, deviceSyncStatus = deviceSyncStatus) }
 
             composable(Screen.Transactions.route) {
                 val filterState by viewModel.txnFilterState.collectAsState()
                 TransactionsScreen(
                     txnState = txnState.txns ?: cachedTxnsState,
+                    deviceSyncStatus = {
+                        if (pendingSyncCount > 0 || deviceSyncState is SyncUiState.Error || deviceSyncState is SyncUiState.Conflicts) deviceSyncStatus()
+                    },
                     categories = txnState.categories,
                     isLoading = txnState.isLoading,
                     error = txnState.error,

@@ -33,7 +33,9 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = System.getenv("GITHUB_REF_NAME")?.removePrefix("v") ?: "1.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"https://khata.algosculptor.com\"")
+        val apiBaseUrl = providers.environmentVariable("KHATA_API_BASE_URL")
+            .orElse("https://khaata2.algosculptor.com").get()
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     signingConfigs {
@@ -89,6 +91,7 @@ gradle.taskGraph.whenReady {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)

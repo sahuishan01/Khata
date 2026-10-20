@@ -47,6 +47,9 @@ data class TxnRow(
     val rev: Long = 0,
     @SerializedName("base_rev") val baseRev: Long = 0,
     val deleted: Boolean = false,
+    @SerializedName("txn_date") val txnDate: String = valueDate,
+    @SerializedName("bank_ref") val bankRef: String? = null,
+    val balance: Double? = null,
 )
 
 data class ChatHistoryResponse(val id: String, val role: String, val content: String, @SerializedName("sql_used") val sqlUsed: String?)
@@ -109,6 +112,8 @@ data class SyncPushOp(
     val direction: String? = null,
     val description: String? = null,
     val category: String? = null,
+    val bank: String? = null,
+    @SerializedName("bank_ref") val bankRef: String? = null,
     @SerializedName("txn_date") val txnDate: String? = null,
     @SerializedName("value_date") val valueDate: String? = null,
     val notes: String? = null,
@@ -135,14 +140,21 @@ data class SyncConflictDetail(
 )
 
 fun TxnRow.toLocal() = com.khata.app.data.LocalTransaction(
-    clientId = this.clientId?.toString() ?: "",
+    id = this.id,
+    clientId = this.clientId ?: this.id,
     description = this.description,
     amount = this.amount,
     direction = this.direction,
     category = this.category,
+    txnDate = this.txnDate,
     valueDate = this.valueDate.toString(),
+    bank = this.bank,
+    bankRef = this.bankRef.orEmpty(),
+    notes = this.notes,
+    balance = this.balance,
+    isTransfer = this.isTransfer,
     rev = this.rev,
-    baseRev = this.baseRev,
+    baseRev = this.rev,
     deleted = this.deleted,
 )
 
@@ -178,6 +190,10 @@ data class EmailSyncRun(
     @SerializedName("finished_at") val finishedAt: String? = null,
     val status: String,
     val trigger: String,
+    val phase: String? = null,
+    @SerializedName("messages_total") val messagesTotal: Int? = null,
+    @SerializedName("has_more") val hasMore: Boolean = false,
+    @SerializedName("updated_at") val updatedAt: String? = null,
     @SerializedName("full_scan") val fullScan: Boolean = false,
     @SerializedName("messages_scanned") val messagesScanned: Int = 0,
     @SerializedName("attachments_seen") val attachmentsSeen: Int = 0,

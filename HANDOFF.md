@@ -1,5 +1,51 @@
 # HANDOFF.md — Khata Project Handoff
 
+**VPS deployment update (2026-10-20):** Khata is hosted at
+`https://khaata2.algosculptor.com` through Cloudflare and Caddy. The web UI uses
+compiled static assets; the API and database remain on loopback. Admin setup
+is complete, and the temporary Caddy Basic Authentication gate has been removed;
+Khata's own login protects application data. See `DEPLOYMENT.md` for services,
+access details, and recovery paths.
+
+**Ingestion update (2026-10-20):** Email runs now expose phase, message totals,
+heartbeat and remaining-batch information; web and Android poll and display live
+progress and errors. Capped IMAP scans process the oldest pending UIDs, preserving
+older history for later batches. Updating a PDF password or folder resets the
+watermark. SMS imports use stable UUIDs, scan the full inbox with progress, retain
+failed uploads for retry, and preserve bank metadata. Device downloads use
+`cursor_version=2` with a separate change sequence; conflict revisions are unchanged.
+Migrations 0031–0033 are required. Android needs a rebuilt APK; see `DEPLOYMENT.md`.
+Web progress was checked in a browser with synthetic responses. Android parser
+and cache mapping are unit-tested, but phone/emulator UI QA remains outstanding
+because no Android device or emulator is available on this VPS.
+Verified build `v0.45.5-ingestion-20261020T090430Z` is deployed on this VPS.
+Validation: 155 backend tests (including the separately run timing and encrypted
+PDF tests), six Android tests, frontend build/lint, and browser progress/error
+checks passed. Public and origin checks confirm the new assets and app-level
+authentication; Caddy Basic Authentication remains disabled for Khata.
+
+**SMS queue follow-up (2026-10-20):** Production contained zero transactions when
+the user reported roughly 150 queued SMS. The previous scanner reported queued
+items despite upload failures and retried only when new messages were found.
+The Android update repairs persisted legacy IDs, retries existing queues directly
+and every 30 seconds while the signed-in app is in the foreground, exposes pending
+counts/server/errors, and refreshes transactions and dashboard after successful
+sync. Unacknowledged uploads remain queued. An acknowledged legacy entry keeps
+its identity when the inbox is rescanned. No device data was cleared.
+Android's default server is now `https://khaata2.algosculptor.com`; explicit saved
+server overrides are preserved. The user's installed build/server and an actual
+phone recovery remain unverified; a release installation needs its original
+signing key for an update that retains the queued database. Use the existing
+tag-triggered GitHub Actions Android workflow and its configured signing secrets
+to produce the installable update. The user explicitly prefers this CI/CD path.
+
+The web transaction list and dashboard refresh every 15 seconds while visible
+and on focus. Poll failures retain previous data and show retry status.
+Browser checks covered imported rows, filters, failures/recovery, hidden tabs and
+mobile layout. Web release `v0.45.5-sms-retry-20261020T110054Z` is deployed and
+verified at the public and origin URLs. Backend release/migrations are unchanged.
+Follow-up deployment evidence: `/root/.local/state/khata-ingest-fix/sms-deployment.json`.
+
 **Current Version:** post-v0.44.7  
 **Last Updated:** 2026-09-09  
 **Status:** PDF table parser on `feat/pdf-table-parser`, pending merge

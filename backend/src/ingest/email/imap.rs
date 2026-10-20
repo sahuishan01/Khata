@@ -156,14 +156,7 @@ impl Mailbox for RustlsImap {
             .uid_search(&query)
             .await
             .with_context(|| format!("UID SEARCH {query}"))?;
-        let mut uids: Vec<u32> = hits.into_iter().collect();
-        uids.sort_unstable();
-        // Keep the newest `limit` UIDs — on a full-mailbox scan the recent
-        // statements are what matter, not the oldest mail in the account.
-        if uids.len() > limit {
-            uids.drain(..uids.len() - limit);
-        }
-        Ok(uids)
+        Ok(select_uids(hits.into_iter().collect(), since_uid, limit))
     }
 
     async fn fetch(&mut self, uids: &[u32]) -> Result<Vec<FetchedMessage>> {
@@ -208,9 +201,25 @@ fn split_host_port(server: &str) -> (String, u16) {
     }
 }
 
+fn select_uids(mut uids: Vec<u32>, since_uid: Option<u32>, limit: usize) -> Vec<u32> {
+    // IMAP ranges can run backwards: UID last+1:* may include the last message
+    // when no new mail exists. Never reprocess it or advance past unseen history.
+    uids.retain(|uid| *uid > since_uid.unwrap_or(0));
+    uids.sort_unstable();
+    uids.truncate(limit);
+    uids
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn capped_search_keeps_oldest_unprocessed_messages() {
+        assert_eq!(select_uids(vec![9, 2, 7, 4], None, 2), vec![2, 4]);
+        assert_eq!(select_uids(vec![4, 7, 9], Some(4), 2), vec![7, 9]);
+        assert!(select_uids(vec![9], Some(9), 200).is_empty());
+    }
 
     #[test]
     fn query_watermark_only() {
