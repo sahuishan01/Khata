@@ -173,6 +173,7 @@ class SyncOutboxTest {
             assertFalse(json.has("value_date"))
             SyncPushResult(ops.map { SyncAccepted(it.clientId, 1) }, emptyList())
         }).push()
+        assertTrue(dao.getOutbox().isEmpty())
     }
 
     @Test fun javaUuidShorthandIsCanonicalizedForTheServer() = runBlocking {

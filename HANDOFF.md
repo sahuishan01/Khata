@@ -5,11 +5,14 @@
 that empty date. A read-only API contract probe on the VPS reproduced HTTP 422
 at `[0].txn_date`; empty-queue push and v2 pull returned 200, with zero transaction
 changes. Evidence: `/root/.local/state/khata-ingest-fix/sms-422-probe.json`.
-The `v0.45.7` uploader uses the known date for its missing counterpart, omits
+The `v0.45.8` uploader uses the known date for its missing counterpart, omits
 absent optional dates, and canonicalizes UUIDs. Validation messages report only
 schema field/queue position. Existing queued rows are retained. The existing
 release pipeline now runs `testReleaseUnitTest` before packaging; backend changes
 only add contract tests. No backend deploy or migration is needed for this fix.
+The `v0.45.7` CI run stopped at test discovery because a coroutine test returned
+a list instead of Unit; it published no APK. The corrected test also checks that
+the acknowledged entry leaves the outbox.
 
 **VPS deployment update (2026-10-20):** Khata is hosted at
 `https://khaata2.algosculptor.com` through Cloudflare and Caddy. The web UI uses
@@ -77,7 +80,7 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.7
+**Current Version:** v0.45.8
 
 **Last Updated:** 2026-10-20
 
