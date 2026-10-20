@@ -5,6 +5,7 @@
 - Use Caddy for public web UI exposure; keep backend and database ports on loopback.
 - See `DEPLOYMENT.md` for this VPS's Cloudflare hostname, service paths, and access setup.
 - Build and distribute Android updates through the existing GitHub Actions workflow in `.github/workflows/build-android.yml`, using its tag-triggered signed release pipeline.
+- Release notifications must include both the direct APK link and the GitHub release-page link. The shared `ntfy-agent-notify` helper adds the page link/button and opens the release page when tapped; keep direct links on `github.com`, not its expiring CDN redirect.
 
 ## Feature Parity
 
