@@ -45,7 +45,7 @@ fun ProfileScreen(
             title = { Text("Clear All Data", color = MaterialTheme.colorScheme.error) },
             text = {
                 Column {
-                    Text("This will permanently delete all transactions, statements, and chat history. This action cannot be undone.", fontSize = 13.sp)
+                    Text("This will permanently delete server transactions, statements, chat history, and this device's saved and queued transactions. Your SMS inbox is kept and can be scanned again.", fontSize = 13.sp)
                     Spacer(Modifier.height(12.dp))
                     Text("Type DELETE to confirm:", fontSize = 13.sp)
                     Spacer(Modifier.height(6.dp))

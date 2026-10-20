@@ -1,6 +1,7 @@
 package com.khata.app.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.khata.app.api.KhataApi
 import com.khata.app.api.SyncPushOp
 import com.khata.app.api.toLocal
@@ -40,6 +41,26 @@ class SyncEngine @Inject constructor(
     val lastSuccess: StateFlow<Long?> = _lastSuccess
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /** A manual inbox scan must see server deletions, including Clear All Data from the web. */
+    suspend fun refreshCacheForSmsScan() = syncMutex.withLock {
+        // A failed or incomplete fetch leaves both the cache and outbox untouched.
+        val snapshot = ServerSnapshot.fetch(api)
+        db.withTransaction { snapshot.replaceCache(db.transactionDao(), db.syncStateDao()) }
+        context.getSharedPreferences("khata_sync", Context.MODE_PRIVATE)
+            .edit().putInt("cursor_format", 2).apply()
+    }
+
+    /** Called only after the user's existing DELETE confirmation. */
+    suspend fun clearAllData() = syncMutex.withLock {
+        api.clearAllData()
+        db.withTransaction {
+            db.transactionDao().clearAll()
+            db.syncStateDao().set(SyncState())
+        }
+        _state.value = SyncUiState.Idle
+        _lastSuccess.value = null
+    }
 
     suspend fun sync(): Boolean = syncMutex.withLock {
         _state.value = SyncUiState.Syncing

@@ -34,6 +34,9 @@ Current release version and last verified signed APK: `v0.45.9`
 certificate matches `v0.45.8`. The release workflow runs regression tests before
 packaging the signed APK.
 
+Next release prepared: `v0.45.10` (SMS rescan after clearing server history).
+Previous signed build `v0.45.9` reverified through GitHub CLI before tagging.
+
 
 ## Design
 - Read DESIGN.md for design related instructions

@@ -38,6 +38,9 @@ interface TransactionDao {
     @Query("DELETE FROM transactions")
     suspend fun clearAll()
 
+    @Query("DELETE FROM transactions WHERE dirty = 0 AND pendingOp IS NULL")
+    suspend fun clearSyncedCache()
+
     @Query("DELETE FROM transactions WHERE dirty = 0 AND pendingOp IS NULL AND clientId = ''")
     suspend fun clearLegacyServerCache()
 }
