@@ -98,3 +98,36 @@ still records the backend release and its encrypted database backup.
 The ingestion rollout's encrypted database backup and prior release paths are in
 `/root/.local/state/khata-ingest-fix/backup/`. The database archive is encrypted
 with this host's `systemd-creds` key; keep that directory restricted to root.
+
+## SMS dates and own-account card repayments
+
+Android `v0.45.9` selects the transaction date from the SMS body, then the SMS
+message timestamp, then the persisted queue timestamp. Bank dates use
+`Asia/Kolkata`; due dates, statement dates and invalid dates are ignored.
+Live capture and inbox scans share this policy. Existing dates remain stable
+when an offline queue is uploaded later.
+
+Credit-card bill payments and received repayment acknowledgements are transfers.
+They remain visible in history but do not count towards spending, income,
+savings or summary transaction counts. Card purchases, merchant refunds,
+cashback and card fees retain their normal treatment. The backend applies the
+same repayment policy to new statement/email/device imports. Migration 0034
+backfills identifiable existing repayments and advances their device sync cursor.
+Later manual transfer overrides are respected.
+
+Install the signed APK as an update, then run **Scan SMS inbox** once to repair
+earlier SMS imports using the original messages. Their existing identities and
+other edits are preserved. The server accepts date corrections through sync.
+The original SMS bodies were not uploaded, so older rows with only an extracted
+payee require this device rescan. Keep app storage and its queue intact.
+
+CI artifact verification, the backend deployment and encrypted backup are
+recorded in `/root/.local/state/khata-ingest-fix/ci-card-repayments-verification.json`
+and `card-repayments-deployment.json` in that same protected directory.
+
+The backend was deployed from successful GitHub Actions run `39443068032`
+(commit `bd31998`); 167 backend tests passed and one was ignored. The signed APK
+was built by run `39441969710` with 26 tests passing and the previous signing
+certificate. Live Caddy API checks passed after migration 0034. All 3,177 existing
+SMS rows were preserved; their stored payee-only descriptions yielded no confident
+repayment backfill matches, so use the inbox rescan for historical corrections.
