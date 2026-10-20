@@ -27,6 +27,8 @@ Format: `## [date] — Summary` → bullet list of changes.
   settings are preserved. Install the signed CI APK as an update to retain the
   device's queued SMS database.
 - APK builds and signing use the existing tag-triggered GitHub Actions workflow.
+- The SDK installer requests `platform-tools` explicitly because Android removed
+  the legacy `tools` package requested by the action's default configuration.
 
 ---
 
