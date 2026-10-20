@@ -18,7 +18,7 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ### Validation
 - The existing signed release workflow now runs release unit tests before
-  packaging. Regression coverage checks mixed legacy/current batches, optional
+  packaging. All 18 passed in CI, covering mixed legacy/current batches, optional
   dates, UUID normalization and private error messages.
 - Backend contract tests cover omitted/null dates, empty-date rejection and
   preservation of transaction/value dates. No server behavior or migration change.
