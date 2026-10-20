@@ -1,6 +1,7 @@
 name: Backend Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [master]
     paths:
@@ -14,11 +15,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","heaven"]') }}
 
     services:
       postgres:
-        image: postgres:16
+        image: ${{ github.event_name == 'pull_request' && 'postgres:16' || '' }}
         env:
           POSTGRES_USER: khata
           POSTGRES_PASSWORD: khata
@@ -37,10 +38,13 @@ jobs:
       # breaks the RLS-isolation tests. See the "Prepare database" step.
       DATABASE_URL: postgresql://khata_app:khata@127.0.0.1:5432/khata
       RO_DATABASE_URL: postgresql://khata_ro:khata_ro@127.0.0.1:5432/khata
+      PGPORT: 5432
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -48,9 +52,27 @@ jobs:
           components: clippy
 
       - name: Cache
+        if: runner.environment != 'self-hosted'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+
+      - name: Start isolated test database on VPS
+        if: runner.environment == 'self-hosted'
+        env:
+          CI_POSTGRES_PASSWORD: khata
+        run: |
+          pg_bin=$(pg_config --bindir)
+          pg_data="$RUNNER_TEMP/khata-postgres"
+          "$pg_bin/initdb" -D "$pg_data" --username=khata \
+            --auth-local=trust --auth-host=scram-sha-256 \
+            --pwfile=<(printf '%s\n' "$CI_POSTGRES_PASSWORD")
+          "$pg_bin/pg_ctl" -D "$pg_data" -l "$RUNNER_TEMP/postgres.log" \
+            -o "-h 127.0.0.1 -p 25432 -k $RUNNER_TEMP" -w start
+          "$pg_bin/createdb" -h "$RUNNER_TEMP" -p 25432 -U khata khata
+          echo 'PGPORT=25432' >> "$GITHUB_ENV"
+          echo 'DATABASE_URL=postgresql://khata_app:khata@127.0.0.1:25432/khata' >> "$GITHUB_ENV"
+          echo 'RO_DATABASE_URL=postgresql://khata_ro:khata_ro@127.0.0.1:25432/khata' >> "$GITHUB_ENV"
 
       - name: Prepare database
         # 1. Migration 0006 (RLS) does `GRANT SELECT ... TO khata_ro` but never
@@ -64,7 +86,7 @@ jobs:
         #    non-superuser role for the tests to connect as. CREATEDB lets
         #    `#[sqlx::test]` provision its ephemeral databases.
         run: |
-          PGPASSWORD=khata psql -h 127.0.0.1 -U khata -d khata \
+          PGPASSWORD=khata psql -h 127.0.0.1 -p "$PGPORT" -U khata -d khata \
             -c "CREATE ROLE khata_ro LOGIN PASSWORD 'khata_ro';" \
             -c "CREATE ROLE khata_app LOGIN PASSWORD 'khata' CREATEDB;" \
             -c "GRANT ALL PRIVILEGES ON DATABASE khata TO khata_app;"
@@ -103,3 +125,12 @@ jobs:
           path: deploy/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Stop isolated test database
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          pg_data="$RUNNER_TEMP/khata-postgres"
+          if [ -f "$pg_data/postmaster.pid" ]; then
+            "$(pg_config --bindir)/pg_ctl" -D "$pg_data" -m fast -w stop
+          fi
+          rm -rf "$pg_data"
