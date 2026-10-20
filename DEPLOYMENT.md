@@ -144,3 +144,10 @@ Clearing data from Android also clears that device's saved/queued transactions
 and resets its sync cursor after the server confirms deletion. The confirmation
 dialog explains this scope. A scan displays separate new, updated and already
 saved counts, followed by its upload result. No database migration is needed.
+
+Released as Android `v0.45.10`, signed by the existing key (versionCode 193).
+GitHub Actions run `39450723305` passed 30 release unit tests, including the
+2,961-message clear-and-reimport regression, queued-work preservation and failed
+snapshot handling. Security Scan run `39450713088` passed. Install as an update
+and scan the inbox once. Verification is recorded in
+`/root/.local/state/khata-ingest-fix/ci-sms-clear-verification.json`.
