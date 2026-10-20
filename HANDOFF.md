@@ -13,6 +13,13 @@ only add contract tests. No backend deploy or migration is needed for this fix.
 The `v0.45.7` CI run stopped at test discovery because a coroutine test returned
 a list instead of Unit; it published no APK. The corrected test also checks that
 the acknowledged entry leaves the outbox.
+Verified release `v0.45.8` is commit `97ead0a`, Android run `39426528665`:
+18 release unit tests passed; APK package `com.khata.app`, version code 191,
+and signing certificate match the expected update path from `v0.45.6` (189).
+Backend contract tests passed in `39425745878`; security passed in `39426517797`.
+APK: `https://github.com/sahuishan01/Khata/releases/download/v0.45.8/khata_0.45.8-release.apk`.
+Verification: `/root/.local/state/khata-ingest-fix/ci-sms-422-verification.json`.
+Actual phone queue recovery remains pending installation and retry on the device.
 
 **VPS deployment update (2026-10-20):** Khata is hosted at
 `https://khaata2.algosculptor.com` through Cloudflare and Caddy. The web UI uses
