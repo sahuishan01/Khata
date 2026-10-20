@@ -79,8 +79,8 @@ the device sync panel. Keep the existing version tag in `GITHUB_REF_NAME`.
 Use the original release signing key for an update to a release installation;
 a debug APK is a test artifact and may not update an existing signed app.
 Use `.github/workflows/build-android.yml` for the installable signed APK: push
-the source changes, then use the existing `v*` tag trigger after confirming the
-previous build as required by `AGENTS.md`. Signing secrets are already configured
+the source changes, then use the existing `v*` tag trigger after verifying the
+previous build with GitHub CLI as required by `AGENTS.md`. Signing secrets are already configured
 in GitHub; inspect their names with `gh secret list`, without printing values.
 Do not uninstall or clear app storage to work around an update failure: queued
 SMS transactions are stored in that installation's database. The updated app

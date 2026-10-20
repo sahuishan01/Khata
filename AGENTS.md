@@ -24,13 +24,12 @@ Changes made to the web frontend should also be applied to the Android app, and 
 
 Keep the app version below 1.0 (pre-release, e.g. 0.x.y) until the user explicitly says it's production-ready.
 
-Always ask if the previous build was successful before changing the version number. The last successful build tag is the reference point.
+Before changing the version number, verify the previous build through GitHub CLI. Use the last successful build tag as the reference point. Ask the user only if GitHub cannot establish the build status.
 
-After the user confirms a build was successful, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
+After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.6`. GitHub CLI verified the previous successful
-signed APK build at `v0.45.3`; `v0.45.5` skipped APK creation because it had no
-Android changes.
+Current release version and last verified signed APK build: `v0.45.6`.
+GitHub Actions run `39419480906` succeeded; its APK signature matches `v0.45.3`.
 
 
 ## Design
