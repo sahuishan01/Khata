@@ -28,9 +28,9 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version and last verified signed APK: `v0.45.8`
-(GitHub Actions run `39426528665`, 18 release unit tests passed). Its signing
-certificate matches `v0.45.6`. The release workflow runs regression tests before
+Current release version and last verified signed APK: `v0.45.9`
+(GitHub Actions run `39441969710`, 26 release unit tests passed). Its signing
+certificate matches `v0.45.8`. The release workflow runs regression tests before
 packaging the signed APK.
 
 
@@ -56,6 +56,3 @@ packaging the signed APK.
 - Deploy: the root `Dockerfile` pulls pinned `libpdfium` (`chromium/8044`); no DB migration.
 - Spec: `docs/superpowers/specs/2026-09-09-pdf-table-parser-design.md`
 - See `backend/README.md` for how to add a bank's `pdf_columns` and fixtures.
-
-Next release prepared: `v0.45.9` (SMS date precedence and card repayments).
-Previous signed build `v0.45.8` reverified with GitHub CLI before preparing it.
