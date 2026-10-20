@@ -447,7 +447,7 @@ pub async fn get_analytics_highlights(
          (COALESCE(SUM(amount) FILTER (WHERE direction='credit'),0) - \
           COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0))::float8 / \
          NULLIF(SUM(amount) FILTER (WHERE direction='credit'),0) * 100.0 AS savings_rate \
-         FROM transactions WHERE user_id = $1 GROUP BY month ORDER BY savings_rate DESC LIMIT 1"
+         FROM transactions WHERE user_id = $1 AND NOT is_transfer GROUP BY month HAVING COALESCE(SUM(amount) FILTER (WHERE direction='credit'),0) > 0 ORDER BY savings_rate DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     tx.commit().await?;

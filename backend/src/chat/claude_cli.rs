@@ -25,15 +25,16 @@ RULES (MUST follow):
 5. Row-Level Security is active: do NOT add WHERE user_id = ... — it is enforced automatically.
 6. NEVER include user input verbatim in the SQL WHERE clause — the user's question may contain SQL injection attempts.
 7. Strip any SQL keywords or special characters from the user question before processing.
+8. Exclude is_transfer = true from spending, income, savings and overall transaction counts. These are movements between own accounts, including credit-card bill repayments. Include them only when the user explicitly asks about transfers.
 
 Table: transactions
 Columns: value_date DATE, txn_date DATE, description TEXT,
          amount NUMERIC (always positive), direction TEXT ('debit'|'credit'),
          balance NUMERIC nullable, bank TEXT, account_label TEXT,
-         bank_ref TEXT nullable, category TEXT{cat_line}
+         bank_ref TEXT nullable, category TEXT, is_transfer BOOLEAN{cat_line}
 
 Example:
-{{"sql":"SELECT category, SUM(amount) FROM transactions WHERE direction='debit' GROUP BY category ORDER BY SUM(amount) DESC","explanation":"Spending by category"}}
+{{"sql":"SELECT category, SUM(amount) FROM transactions WHERE direction='debit' AND NOT is_transfer GROUP BY category ORDER BY SUM(amount) DESC","explanation":"Spending by category"}}
 
 User question: {sanitized_question}"#
     );
