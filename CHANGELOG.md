@@ -5,7 +5,7 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
-## [2026-10-20] — Fix HTTP 422 when uploading older SMS queues (v0.45.7)
+## [2026-10-20] — Fix HTTP 422 when uploading older SMS queues (v0.45.8)
 
 ### Fixed
 - Older live-SMS entries stored a value date but left the transaction date empty.
