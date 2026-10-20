@@ -97,9 +97,9 @@ async fn repayments_stay_visible_but_leave_totals_and_date_repairs_sync(pool: Pg
     let highlights = handlers::get_analytics_highlights(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
     let expected_rate = (2040.0 - 110.0) / 2040.0 * 100.0;
     assert!((highlights.best_savings_month.unwrap().1 - expected_rate).abs() < 0.0001);
-    for (question, field, expected) in [("How much did I spend?", "amount", 110.0),
+    for (question, field, expected) in [("What is my total spending?", "amount", 110.0),
         ("What is my total income?", "amount", 2040.0), ("How many transactions?", "total_count", 4.0)] {
-        let matched = khata::chat::predefined::match_question(question, &[]).unwrap();
+        let matched = khata::chat::predefined::match_question(question, &[]).unwrap_or_else(|| panic!("Unsupported question fixture: {question}"));
         let mut tx = pool.begin().await.unwrap();
         khata::db::set_current_user(&mut *tx, owner).await.unwrap();
         let query = format!("SELECT ({})::float8 FROM ({}) AS result", field, matched.sql);
