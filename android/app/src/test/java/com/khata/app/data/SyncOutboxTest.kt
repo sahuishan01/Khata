@@ -17,7 +17,7 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 
 class SyncOutboxTest {
-    private class MemoryDao(initial: List<LocalTransaction>) : TransactionDao {
+    internal class MemoryDao(initial: List<LocalTransaction>) : TransactionDao {
         val rows = initial.associateBy { it.id }.toMutableMap()
         override fun getAllFlow(): Flow<List<LocalTransaction>> = MutableStateFlow(rows.values.toList())
         override suspend fun getAll() = rows.values.filterNot { it.deleted }
@@ -30,6 +30,7 @@ class SyncOutboxTest {
         override fun pendingCountFlow(): Flow<Int> = MutableStateFlow(rows.values.count { it.dirty && it.pendingOp != null })
         override suspend fun maxRev() = rows.values.maxOfOrNull { it.rev }
         override suspend fun clearAll() { rows.clear() }
+        override suspend fun clearSyncedCache() { rows.entries.removeAll { !it.value.dirty && it.value.pendingOp == null } }
         override suspend fun clearLegacyServerCache() { rows.entries.removeAll { !it.value.dirty && it.value.pendingOp == null && it.value.clientId.isEmpty() } }
     }
 

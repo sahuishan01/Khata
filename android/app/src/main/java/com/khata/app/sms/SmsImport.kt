@@ -1,9 +1,33 @@
 package com.khata.app.sms
 
 import com.khata.app.data.LocalTransaction
+import com.khata.app.data.TransactionDao
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
+
+enum class SmsSaveResult { CREATED, UPDATED, UNCHANGED }
 
 /** Live capture and historical rescans use exactly the same date/transfer policy. */
 object SmsImport {
+    suspend fun queue(dao: TransactionDao, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): SmsSaveResult {
+        val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
+        // Legacy identity used the device timezone and message date; keep that lookup stable.
+        val legacyDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timestamp))
+        val legacyId = "sms_" + UUID.nameUUIDFromBytes(
+            (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + legacyDate + "|" + (parsed.refNo ?: body.take(24))).toByteArray()
+        ).toString().take(16)
+        val repairedId = UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
+        val old = dao.getByClientId(clientId) ?: dao.getByClientId(legacyId) ?: dao.getByClientId(repairedId)
+        val row = old?.let {
+            repair(if (it.rev > 0 || it.baseRev > 0) it else it.copy(clientId = clientId), parsed, body, timestamp)
+        } ?: transaction(parsed, body, sender, timestamp, queuedAt)
+        if (row == old) return SmsSaveResult.UNCHANGED
+        dao.upsert(row)
+        return if (old == null) SmsSaveResult.CREATED else SmsSaveResult.UPDATED
+    }
+
     fun transaction(parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): LocalTransaction {
         val date = SmsDates.resolve(body, timestamp, queuedAt)
         return LocalTransaction(

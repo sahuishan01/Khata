@@ -16,6 +16,7 @@ import kotlinx.coroutines.ensureActive
 import com.khata.app.sms.SmsImportProgress
 import com.khata.app.sms.SmsParser
 import com.khata.app.sms.SmsImport
+import com.khata.app.sms.SmsSaveResult
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -106,13 +107,13 @@ class MainViewModel @Inject constructor(
         val queued = db.transactionDao().getOutbox().size
         _smsProgress.value = progress.copy(phase = "Uploading $queued queued transactions…")
         val synced = syncEngine.sync()
-        val message = if (synced) {
+        val message = (if (synced) {
             "$queued queued transactions uploaded. Server sync complete."
         } else {
             val detail = (syncEngine.state.value as? com.khata.app.data.SyncUiState.Error)?.message
                 ?: "Resolve sync conflicts and retry."
             "Server sync failed: $detail Saved transactions remain queued on this device."
-        }
+        }) + if (progress.serverCheckFailed) " Server history could not be checked before scanning. Scan again when connected to check previously imported SMS." else ""
         _smsProgress.value = progress.copy(running = false, phase = if (synced) "Complete" else "Upload needs attention", message = message, failed = !synced)
         return message
     }
@@ -297,12 +298,21 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             var progress = _smsProgress.value
             try {
+                progress = progress.copy(phase = "Checking server history…")
+                _smsProgress.value = progress
+                try {
+                    syncEngine.refreshCacheForSmsScan()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Offline import remains available; never discard queued work.
+                    progress = progress.copy(serverCheckFailed = true)
+                }
                 val cursor = context.contentResolver.query(
                     android.provider.Telephony.Sms.Inbox.CONTENT_URI,
                     arrayOf(android.provider.Telephony.Sms.ADDRESS, android.provider.Telephony.Sms.BODY, android.provider.Telephony.Sms.DATE),
                     null, null, "${android.provider.Telephony.Sms.DATE} DESC",
                 ) ?: error("Cannot read SMS inbox")
-                val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
                 cursor.use {
                     progress = progress.copy(total = it.count, phase = "Scanning SMS inbox…")
                     _smsProgress.value = progress
@@ -318,21 +328,10 @@ class MainViewModel @Inject constructor(
                         val parsed = SmsParser.parse(body, sender)
                         if (parsed != null) {
                             progress = progress.copy(matched = progress.matched + 1)
-                            val date = fmt.format(java.util.Date(timestamp))
-                            val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
-                            val canonical = db.transactionDao().getByClientId(clientId)
-                            val legacyId = "sms_" + java.util.UUID.nameUUIDFromBytes(
-                                    (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + date + "|" + (parsed.refNo ?: body.take(24))).toByteArray()
-                                ).toString().take(16)
-                            val repairedId = java.util.UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
-                            val old = canonical ?: db.transactionDao().getByClientId(legacyId) ?: db.transactionDao().getByClientId(repairedId)
-                            // An acknowledged legacy entry must retain its server identity.
-                            val txn = old?.let {
-                                SmsImport.repair(if (it.rev > 0 || it.baseRev > 0) it else it.copy(clientId = clientId), parsed, body, timestamp)
-                            } ?: SmsImport.transaction(parsed, body, sender, timestamp, System.currentTimeMillis())
-                            if (txn != old) {
-                                db.transactionDao().upsert(txn)
-                                progress = progress.copy(saved = progress.saved + 1)
+                            progress = when (SmsImport.queue(db.transactionDao(), parsed, body, sender, timestamp, System.currentTimeMillis())) {
+                                SmsSaveResult.CREATED -> progress.copy(saved = progress.saved + 1)
+                                SmsSaveResult.UPDATED -> progress.copy(saved = progress.saved + 1, updated = progress.updated + 1)
+                                SmsSaveResult.UNCHANGED -> progress.copy(alreadySaved = progress.alreadySaved + 1)
                             }
                         }
                         if (progress.scanned % 25 == 0 || progress.scanned == progress.total) _smsProgress.value = progress
@@ -357,7 +356,19 @@ class MainViewModel @Inject constructor(
         c?.use { if (it.moveToFirst()) { val i = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME); if (i >= 0) return it.getString(i) } }; return null
     }
 
-    fun clearAllData(r: (String) -> Unit) { viewModelScope.launch { try { repository.clearAllData(); r("Cleared!") } catch (e: Exception) { r("Error: ${e.message}") } } }
+    fun clearAllData(r: (String) -> Unit) {
+        if (_smsProgress.value.running) { r("Wait for the SMS import to finish before clearing data."); return }
+        viewModelScope.launch {
+            try {
+                syncEngine.clearAllData()
+                _smsProgress.value = SmsImportProgress()
+                loadTransactions()
+                refreshDashboard()
+                r("Server history and this device's saved and queued transactions cleared. You can scan your SMS inbox again.")
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { r("Error: ${e.message}") }
+        }
+    }
 
     /** Load the current Gmail config so the UI can show whether a key is already stored. */
     fun loadEmailConfig(r: (UserEmailConfigResponse?, String?) -> Unit) { viewModelScope.launch {

@@ -131,3 +131,16 @@ was built by run `39441969710` with 26 tests passing and the previous signing
 certificate. Live Caddy API checks passed after migration 0034. All 3,177 existing
 SMS rows were preserved; their stored payee-only descriptions yielded no confident
 repayment backfill matches, so use the inbox rescan for historical corrections.
+
+## Rescanning after Clear All Data
+
+The Android rescan refreshes its reproducible server cache before checking SMS
+identities. This lets SMS be imported again after server history was cleared,
+including when it was cleared from the web. Unsent local work is preserved, and
+an incomplete server-history fetch leaves the existing cache untouched. Offline
+scanning remains available with an explanation when the server check fails.
+
+Clearing data from Android also clears that device's saved/queued transactions
+and resets its sync cursor after the server confirms deletion. The confirmation
+dialog explains this scope. A scan displays separate new, updated and already
+saved counts, followed by its upload result. No database migration is needed.
