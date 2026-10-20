@@ -1,24 +1,42 @@
 name: Build Android APK
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, heaven]
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Determine build version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" == v* ]]; then
+            version=${GITHUB_REF_NAME#v}
+          else
+            version=$(git describe --tags --match 'v[0-9]*' --abbrev=0)
+            version=${version#v}
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Check for app changes since the previous tag
         id: diff
         run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           prev_tag=$(git tag --sort=-v:refname --merged "$GITHUB_REF_NAME" | grep -v "^${GITHUB_REF_NAME}$" | head -1)
           if [ -z "$prev_tag" ]; then
             echo "no previous tag found; building unconditionally"
@@ -35,13 +53,15 @@ jobs:
   build:
     needs: check
     if: needs.check.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, heaven]
     permissions:
       contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -70,24 +90,28 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ vars.KEY_ALIAS }}
         run: |
+          umask 077
           if [ -z "$UPLOAD_KEYSTORE_B64" ]; then
             echo "::error::UPLOAD_KEYSTORE_B64 secret is not set; a signed release cannot be built." >&2
             exit 1
           fi
-          echo "$UPLOAD_KEYSTORE_B64" | base64 -d > app/upload.keystore
-          cat > keystore.properties <<EOF
-          storeFile=upload.keystore
+          signing_dir=$(mktemp -d "${RUNNER_RUNTIME_DIR:-$RUNNER_TEMP}/khata-signing.XXXXXX")
+          echo "KHATA_SIGNING_DIR=$signing_dir" >> "$GITHUB_ENV"
+          printf '%s' "$UPLOAD_KEYSTORE_B64" | base64 -d > "$signing_dir/upload.keystore"
+          cat > "$signing_dir/keystore.properties" <<EOF
+          storeFile=$signing_dir/upload.keystore
           storePassword=$KEYSTORE_PASSWORD
           keyAlias=${KEY_ALIAS:-khata-upload}
           keyPassword=$KEY_PASSWORD
           EOF
+          ln -s "$signing_dir/keystore.properties" keystore.properties
 
       - name: Build release APK
-        run: ./gradlew clean testReleaseUnitTest assembleRelease --no-daemon
+        run: GITHUB_REF_NAME="v$CI_VERSION" ./gradlew clean testReleaseUnitTest assembleRelease --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx4g
         working-directory: android
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          CI_VERSION: ${{ needs.check.outputs.version }}
 
       - name: Report release unit tests
         working-directory: android
@@ -109,7 +133,9 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Rename APK
         working-directory: android
@@ -119,6 +145,7 @@ jobs:
           mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/khata_${VERSION}-release.apk"
 
       - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           name: Khata ${{ steps.version.outputs.version }}
@@ -134,3 +161,21 @@ jobs:
             See the commits in this release for details.
           files: |
             android/app/build/outputs/apk/release/khata_${{ steps.version.outputs.version }}-release.apk
+
+      - name: Upload verified APK for manual runner checks
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: khata-runner-check-${{ github.sha }}
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove signing credentials
+        if: always()
+        working-directory: android
+        run: |
+          rm -f keystore.properties app/upload.keystore
+          if [ -n "${KHATA_SIGNING_DIR:-}" ]; then
+            rm -rf -- "$KHATA_SIGNING_DIR"
+          fi
