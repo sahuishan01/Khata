@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import com.khata.app.sms.SmsImportProgress
 import com.khata.app.sms.SmsParser
+import com.khata.app.sms.SmsImport
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -319,23 +320,19 @@ class MainViewModel @Inject constructor(
                             progress = progress.copy(matched = progress.matched + 1)
                             val date = fmt.format(java.util.Date(timestamp))
                             val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
-                            if (db.transactionDao().getByClientId(clientId) == null) {
-                                val legacyId = "sms_" + java.util.UUID.nameUUIDFromBytes(
+                            val canonical = db.transactionDao().getByClientId(clientId)
+                            val legacyId = "sms_" + java.util.UUID.nameUUIDFromBytes(
                                     (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + date + "|" + (parsed.refNo ?: body.take(24))).toByteArray()
                                 ).toString().take(16)
-                                val repairedId = java.util.UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
-                                val old = db.transactionDao().getByClientId(legacyId) ?: db.transactionDao().getByClientId(repairedId)
-                                // An acknowledged legacy entry must retain its server identity.
-                                val txn = old?.let { if (it.rev > 0 || it.baseRev > 0) it else it.copy(clientId = clientId) } ?: com.khata.app.data.LocalTransaction(
-                                    clientId = clientId, description = parsed.payee, amount = parsed.amount,
-                                    direction = parsed.direction, category = "Uncategorized", bank = parsed.bank,
-                                    bankRef = parsed.refNo.orEmpty(), valueDate = date, txnDate = date,
-                                    notes = "Auto-captured from SMS inbox (${parsed.bank})", dirty = true, pendingOp = "CREATE",
-                                )
-                                if (txn != old) {
-                                    db.transactionDao().upsert(txn)
-                                    progress = progress.copy(saved = progress.saved + 1)
-                                }
+                            val repairedId = java.util.UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
+                            val old = canonical ?: db.transactionDao().getByClientId(legacyId) ?: db.transactionDao().getByClientId(repairedId)
+                            // An acknowledged legacy entry must retain its server identity.
+                            val txn = old?.let {
+                                SmsImport.repair(if (it.rev > 0 || it.baseRev > 0) it else it.copy(clientId = clientId), parsed, body, timestamp)
+                            } ?: SmsImport.transaction(parsed, body, sender, timestamp, System.currentTimeMillis())
+                            if (txn != old) {
+                                db.transactionDao().upsert(txn)
+                                progress = progress.copy(saved = progress.saved + 1)
                             }
                         }
                         if (progress.scanned % 25 == 0 || progress.scanned == progress.total) _smsProgress.value = progress

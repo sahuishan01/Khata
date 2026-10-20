@@ -6,16 +6,12 @@ import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
 import com.khata.app.data.KhataDatabase
-import com.khata.app.data.LocalTransaction
 import com.khata.app.data.SyncEngine
 import com.khata.app.api.TokenManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -42,29 +38,13 @@ class SmsReceiver : BroadcastReceiver() {
             val sender = sms.originatingAddress ?: ""
 
             val parsed = SmsParser.parse(body, sender) ?: continue
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(sms.timestampMillis))
-            val clientId = SmsParser.clientId(parsed, body, sender, sms.timestampMillis)
-
-            val txn = LocalTransaction(
-                clientId = clientId,
-                description = parsed.payee,
-                amount = parsed.amount,
-                direction = parsed.direction,
-                category = "Uncategorized",
-                bank = parsed.bank,
-                bankRef = parsed.refNo.orEmpty(),
-                txnDate = today,
-                valueDate = today,
-                notes = "Auto-captured via SMS (${parsed.bank})",
-                dirty = true,
-                pendingOp = "CREATE"
-            )
+            val txn = SmsImport.transaction(parsed, body, sender, sms.timestampMillis, System.currentTimeMillis())
 
             // Save locally and trigger background sync to server
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    if (db.transactionDao().getByClientId(clientId) != null) return@launch
+                    if (db.transactionDao().getByClientId(txn.clientId) != null) return@launch
                     db.transactionDao().upsert(txn)
                     syncEngine.sync()
                 } catch (e: Exception) {

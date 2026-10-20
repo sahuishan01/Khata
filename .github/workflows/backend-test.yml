@@ -83,3 +83,23 @@ jobs:
         # clippy warnings unrelated to this workflow. Tighten once that
         # debt is cleared.
         run: cargo clippy --manifest-path backend/Cargo.toml --all-targets
+
+      - name: Build verified backend deployment artifact
+        if: github.event_name == 'push'
+        run: |
+          cargo build --release --locked --manifest-path backend/Cargo.toml
+          mkdir -p deploy
+          install -m 755 backend/target/release/khata deploy/khata
+          install -m 644 backend/.pdfium/lib/libpdfium.so deploy/libpdfium.so
+          git rev-parse HEAD > deploy/REVISION
+          cd deploy
+          sha256sum khata libpdfium.so > SHA256SUMS
+
+      - name: Upload verified backend
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: khata-backend-${{ github.sha }}
+          path: deploy/
+          if-no-files-found: error
+          retention-days: 14
