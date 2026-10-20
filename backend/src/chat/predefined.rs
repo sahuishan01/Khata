@@ -89,7 +89,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
                 sql: format!(
                     r#"SELECT COALESCE(SUM(amount), 0)::float8 AS amount, COUNT(*)::bigint AS txn_count
                        FROM transactions
-                       WHERE direction = 'debit' AND LOWER(category) = LOWER('{}') {}"#,
+                       WHERE NOT is_transfer AND direction = 'debit' AND LOWER(category) = LOWER('{}') {}"#,
                     safe, date_clause
                 ),
                 label,
@@ -116,7 +116,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
                        SUM(amount)::float8              AS spent,
                        COUNT(*)::bigint                 AS txn_count
                      FROM transactions
-                     WHERE direction = 'debit'
+                     WHERE NOT is_transfer AND direction = 'debit'
                        AND EXTRACT(month FROM value_date) = EXTRACT(month FROM CURRENT_DATE)
                      GROUP BY to_char(value_date, 'Mon YYYY'), date_trunc('month', value_date)
                      ORDER BY sort_key DESC
@@ -133,7 +133,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
             sql:  r#"SELECT
                        COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8 AS spent,
                        COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8 AS earned
-                     FROM transactions"#
+                     FROM transactions WHERE NOT is_transfer"#
                 .to_string(),
             label: String::new(),
         });
@@ -148,7 +148,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
             sql:  r#"SELECT
                        COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8 AS spent,
                        COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8 AS earned
-                     FROM transactions"#
+                     FROM transactions WHERE NOT is_transfer"#
                 .to_string(),
             label: String::new(),
         });
@@ -161,7 +161,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
             sql:  r#"SELECT to_char(value_date, 'Mon YYYY') AS month,
                             COALESCE(SUM(amount) FILTER (WHERE direction='debit'),  0)::float8 AS spent,
                             COALESCE(SUM(amount) FILTER (WHERE direction='credit'), 0)::float8 AS earned
-                     FROM transactions
+                     FROM transactions WHERE NOT is_transfer
                      GROUP BY to_char(value_date, 'Mon YYYY'), date_trunc('month', value_date)
                      ORDER BY date_trunc('month', value_date) DESC
                      LIMIT 12"#
@@ -177,7 +177,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
         return Some(Predefined {
             kind: QueryKind::TopExpenses,
             sql:  r#"SELECT description, SUM(amount)::float8 AS total, COUNT(*)::bigint AS txn_count
-                     FROM transactions WHERE direction = 'debit'
+                     FROM transactions WHERE NOT is_transfer AND direction = 'debit'
                      GROUP BY description ORDER BY total DESC LIMIT 10"#
                 .to_string(),
             label: String::new(),
@@ -192,7 +192,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
         return Some(Predefined {
             kind: QueryKind::LargestExpense,
             sql:  r#"SELECT value_date::text, description, amount::float8
-                     FROM transactions WHERE direction = 'debit'
+                     FROM transactions WHERE NOT is_transfer AND direction = 'debit'
                      ORDER BY amount DESC LIMIT 1"#
                 .to_string(),
             label: String::new(),
@@ -205,7 +205,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
     {
         return Some(Predefined {
             kind: QueryKind::TransactionCount,
-            sql:  "SELECT COUNT(*)::bigint AS total_count FROM transactions".to_string(),
+            sql:  "SELECT COUNT(*)::bigint AS total_count FROM transactions WHERE NOT is_transfer".to_string(),
             label: String::new(),
         });
     }
@@ -224,7 +224,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
             kind: QueryKind::SpendPeriod,
             sql:  format!(
                 r#"SELECT COALESCE(SUM(amount), 0)::float8 AS amount, COUNT(*)::bigint AS txn_count
-                   FROM transactions WHERE direction = 'debit' {}"#,
+                   FROM transactions WHERE NOT is_transfer AND direction = 'debit' {}"#,
                 date_clause
             ),
             label,
@@ -242,7 +242,7 @@ pub fn match_question(q: &str, categories: &[String]) -> Option<Predefined> {
             kind: QueryKind::EarnPeriod,
             sql:  format!(
                 r#"SELECT COALESCE(SUM(amount), 0)::float8 AS amount, COUNT(*)::bigint AS txn_count
-                   FROM transactions WHERE direction = 'credit' {}"#,
+                   FROM transactions WHERE NOT is_transfer AND direction = 'credit' {}"#,
                 date_clause
             ),
             label,

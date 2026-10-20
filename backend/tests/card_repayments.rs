@@ -1,4 +1,4 @@
-use axum::{extract::State, Json};
+use axum::{extract::{Query, State}, Json};
 use chrono::NaiveDate;
 use khata::{
     auth::middleware::CurrentUser,
@@ -88,6 +88,25 @@ async fn repayments_stay_visible_but_leave_totals_and_date_repairs_sync(pool: Pg
     assert_eq!(dashboard.total_earned, 2040.0);
     let analysis = handlers::get_analysis(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
     assert_eq!(analysis.total_transactions, 4);
+    let detail = handlers::get_analytics_detail(State(app.clone()), CurrentUser(owner), Query(
+        khata::txns::models::DetailQuery { category: None, month: None, payee: None }
+    )).await.unwrap().0;
+    assert_eq!(detail.txn_count, 4);
+    assert_eq!(detail.total_spent, 110.0);
+    assert_eq!(detail.total_earned, 2040.0);
+    let highlights = handlers::get_analytics_highlights(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    let expected_rate = (2040.0 - 110.0) / 2040.0 * 100.0;
+    assert!((highlights.best_savings_month.unwrap().1 - expected_rate).abs() < 0.0001);
+    for (question, field, expected) in [("How much did I spend?", "amount", 110.0),
+        ("What is my total income?", "amount", 2040.0), ("How many transactions?", "total_count", 4.0)] {
+        let matched = khata::chat::predefined::match_question(question, &[]).unwrap();
+        let mut tx = pool.begin().await.unwrap();
+        khata::db::set_current_user(&mut *tx, owner).await.unwrap();
+        let query = format!("SELECT ({})::float8 FROM ({}) AS result", field, matched.sql);
+        let actual: f64 = sqlx::query_scalar(&query).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(actual, expected, "{question}");
+        tx.commit().await.unwrap();
+    }
     let mut tx = pool.begin().await.unwrap();
     khata::db::set_current_user(&mut *tx, owner).await.unwrap();
     let counts: (i64, i64) = sqlx::query_as("SELECT count(*),count(*) FILTER (WHERE is_transfer) FROM transactions")
