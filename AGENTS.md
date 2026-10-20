@@ -28,6 +28,10 @@ Always ask if the previous build was successful before changing the version numb
 
 After the user confirms a build was successful, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
+Current release version: `v0.45.6`. GitHub CLI verified the previous successful
+signed APK build at `v0.45.3`; `v0.45.5` skipped APK creation because it had no
+Android changes.
+
 
 ## Design
 - Read DESIGN.md for design related instructions

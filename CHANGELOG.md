@@ -5,6 +5,31 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-20] — Recover queued SMS and report ingestion progress (v0.45.6)
+
+### Fixed
+- Repair legacy SMS identifiers before upload, retain unconfirmed transactions,
+  and retry the existing queue even when an inbox scan finds no new messages.
+- Show SMS scan progress, pending upload counts, the selected server and upload
+  failures. Retry while the signed-in Android app is in the foreground and
+  refresh its transaction list and dashboard after successful sync.
+- Preserve bank metadata and transaction dates, improve parsing for HDFC, Kotak,
+  Axis and Canara, and use a paginated change cursor for device downloads.
+- Report email sync stages, counts, timestamps and failures. Continue bounded
+  mailbox batches without permanently skipping older messages.
+- Refresh visible web transactions and dashboard after imports from other
+  devices, retaining previous data during temporary connection failures.
+- Update dependencies identified by the existing security scan.
+
+### Ops
+- Backend migrations 0031–0033 are required; they are deployed on the VPS.
+- Android defaults to `https://khaata2.algosculptor.com`. Existing explicit server
+  settings are preserved. Install the signed CI APK as an update to retain the
+  device's queued SMS database.
+- APK builds and signing use the existing tag-triggered GitHub Actions workflow.
+
+---
+
 ## [2026-09-26] — Fix credit-card statements with a merchant-category column (v0.45.5)
 
 ### Fixed

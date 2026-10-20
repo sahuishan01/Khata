@@ -46,9 +46,11 @@ mobile layout. Web release `v0.45.5-sms-retry-20261020T110054Z` is deployed and
 verified at the public and origin URLs. Backend release/migrations are unchanged.
 Follow-up deployment evidence: `/root/.local/state/khata-ingest-fix/sms-deployment.json`.
 
-**Current Version:** post-v0.44.7  
-**Last Updated:** 2026-09-09  
-**Status:** PDF table parser on `feat/pdf-table-parser`, pending merge
+**Current Version:** v0.45.6
+
+**Last Updated:** 2026-10-20
+
+**Status:** SMS/email ingestion recovery; signed APKs use the existing GitHub Actions release workflow
 
 ---
 

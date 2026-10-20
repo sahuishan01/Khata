@@ -30,7 +30,7 @@ dotenvy = "0.15"
 aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
-pdf-extract = "0.7"
+pdf-extract = "0.12.1"
 jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
 async-imap = { version = "0.11.3", default-features = false, features = ["runtime-tokio"] }
 mail-parser = "0.11"
