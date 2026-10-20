@@ -296,3 +296,39 @@ pub struct SyncConflictDetail {
     pub server_txn: TxnRow,
     pub local_txn: serde_json::Value,
 }
+
+#[cfg(test)]
+mod sync_contract_tests {
+    use super::SyncPushOp;
+    use serde_json::json;
+
+    #[test]
+    fn missing_or_null_sync_dates_are_accepted() {
+        for dates in [json!({}), json!({"txn_date": null, "value_date": null})] {
+            let mut op = json!({"client_id": "00000000-0000-4000-8000-000000000003", "base_rev": 0});
+            op.as_object_mut().unwrap().extend(dates.as_object().unwrap().clone());
+            let parsed: SyncPushOp = serde_json::from_value(op).unwrap();
+            assert!(parsed.txn_date.is_none());
+            assert!(parsed.value_date.is_none());
+        }
+    }
+
+    #[test]
+    fn empty_date_in_one_entry_rejects_the_legacy_batch() {
+        let valid = json!({"client_id": "00000000-0000-4000-8000-000000000003", "base_rev": 0,
+            "txn_date": "2026-10-20", "value_date": "2026-10-20"});
+        let mut invalid = valid.clone();
+        invalid["txn_date"] = json!("");
+        assert!(serde_json::from_value::<Vec<SyncPushOp>>(json!([valid, invalid])).is_err());
+    }
+
+    #[test]
+    fn recovered_sync_dates_preserve_existing_history() {
+        let op: SyncPushOp = serde_json::from_value(json!({
+            "client_id": "00000000-0000-4000-8000-000000000003", "base_rev": 0,
+            "txn_date": "2026-10-18", "value_date": "2026-10-20"
+        })).unwrap();
+        assert_eq!(op.txn_date.unwrap().to_string(), "2026-10-18");
+        assert_eq!(op.value_date.unwrap().to_string(), "2026-10-20");
+    }
+}

@@ -1,6 +1,7 @@
 package com.khata.app.data
 
 import com.khata.app.api.*
+import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
@@ -11,6 +12,7 @@ import org.junit.Test
 import java.io.IOException
 import java.lang.reflect.Proxy
 import java.util.UUID
+import java.time.LocalDate
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 
@@ -127,5 +129,59 @@ class SyncOutboxTest {
         val pending = dao.getOutbox().single()
         assertEquals("Edited during upload", pending.notes)
         assertEquals(2L, pending.baseRev)
+    }
+
+    @Test fun legacyLiveSmsWithAnEmptyTransactionDateDoesNotBlockTheBatch() = runBlocking {
+        val legacy = queued("sms_a123b456c789d012").copy(txnDate = "")
+        val normal = queued().copy(txnDate = "2026-10-18", valueDate = "2026-10-20")
+        val dao = MemoryDao(listOf(legacy, normal))
+        var uploaded = 0
+        SyncOutbox(dao, api { ops ->
+            val json = Gson().toJsonTree(ops).asJsonArray
+            assertEquals(2, json.size())
+            json.forEach { item ->
+                val row = item.asJsonObject
+                UUID.fromString(row["client_id"].asString)
+                LocalDate.parse(row["txn_date"].asString)
+                LocalDate.parse(row["value_date"].asString)
+            }
+            assertEquals("2026-10-20", json[0].asJsonObject["txn_date"].asString)
+            assertEquals("2026-10-18", json[1].asJsonObject["txn_date"].asString)
+            assertEquals("2026-10-20", json[1].asJsonObject["value_date"].asString)
+            uploaded = ops.size
+            SyncPushResult(ops.map { SyncAccepted(it.clientId, 1) }, emptyList())
+        }).push()
+        assertEquals(2, uploaded)
+        assertTrue(dao.getOutbox().isEmpty())
+        assertEquals(2, dao.rows.size)
+    }
+
+    @Test fun missingValueDateUsesTheKnownTransactionDate() = runBlocking {
+        val dao = MemoryDao(listOf(queued().copy(valueDate = "  ")))
+        SyncOutbox(dao, api { ops ->
+            assertEquals("2026-10-20", ops.single().valueDate)
+            SyncPushResult(ops.map { SyncAccepted(it.clientId, 1) }, emptyList())
+        }).push()
+        assertTrue(dao.getOutbox().isEmpty())
+    }
+
+    @Test fun absentDatesAreOmittedInsteadOfSerializedAsInvalidEmptyStrings() = runBlocking {
+        val dao = MemoryDao(listOf(queued().copy(txnDate = "", valueDate = "  ")))
+        SyncOutbox(dao, api { ops ->
+            val json = Gson().toJsonTree(ops.single()).asJsonObject
+            assertFalse(json.has("txn_date"))
+            assertFalse(json.has("value_date"))
+            SyncPushResult(ops.map { SyncAccepted(it.clientId, 1) }, emptyList())
+        }).push()
+    }
+
+    @Test fun javaUuidShorthandIsCanonicalizedForTheServer() = runBlocking {
+        val dao = MemoryDao(listOf(queued("1-1-1-1-1")))
+        SyncOutbox(dao, api { ops ->
+            assertEquals("00000001-0001-0001-0001-000000000001", ops.single().clientId)
+            SyncPushResult(ops.map { SyncAccepted(it.clientId, 1) }, emptyList())
+        }).push()
+        assertTrue(dao.getOutbox().isEmpty())
+        assertEquals(1, dao.rows.size)
     }
 }

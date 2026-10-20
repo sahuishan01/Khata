@@ -28,8 +28,9 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version and last verified signed APK build: `v0.45.6`.
-GitHub Actions run `39419480906` succeeded; its APK signature matches `v0.45.3`.
+Current release version: `v0.45.7`. Previous verified signed APK: `v0.45.6`
+(GitHub Actions run `39419480906`). The release workflow runs regression tests
+before packaging the signed APK.
 
 
 ## Design
