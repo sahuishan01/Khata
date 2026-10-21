@@ -409,3 +409,19 @@ async fn duplicate_review_requires_confirmation_is_tenant_scoped_and_can_be_undo
     let dashboard = handlers::get_dashboard(State(app), CurrentUser(owner)).await.unwrap().0;
     assert_eq!(dashboard.total_spent, 40000.0);
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn long_imported_text_does_not_break_identity_indexes(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let mut rows = vec![op("Long description", "debit", 100.0), op("Long description", "debit", 100.0)];
+    for row in &mut rows {
+        row.description = Some("Long merchant description ".repeat(1000));
+        row.bank_ref = Some("1234567890".repeat(1000));
+    }
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(rows)).await.unwrap();
+    let list = handlers::list_txns(State(app), CurrentUser(owner), Query(
+        serde_json::from_value(serde_json::json!({"duplicates_only":true})).unwrap()
+    )).await.unwrap().0;
+    assert_eq!(list.total, 2, "Unrecognized references require review, not automatic exclusion");
+}
