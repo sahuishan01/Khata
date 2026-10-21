@@ -45,7 +45,7 @@ pub async fn ask_handler(
         let mut tx = state.db.begin().await?;
         crate::db::set_current_user(&mut *tx, user_id).await?;
         let rows: Vec<(String,)> = sqlx::query_as(
-            "SELECT DISTINCT category FROM transactions WHERE user_id = $1 ORDER BY category",
+            "SELECT DISTINCT category FROM transactions WHERE user_id = $1 AND NOT deleted ORDER BY category",
         )
         .bind(user_id)
         .fetch_all(&mut *tx)
