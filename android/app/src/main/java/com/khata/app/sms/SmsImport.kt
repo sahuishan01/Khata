@@ -50,9 +50,14 @@ object SmsImport {
     fun repair(old: LocalTransaction, parsed: ParsedSmsTxn, body: String, timestamp: Long): LocalTransaction {
         if (old.deleted || !old.notes.startsWith("Auto-captured")) return old
         val oldMessageDate = SmsDates.timestampDate(timestamp)
-        val source = SmsSource.from(body, timestamp, old.updatedAt)
-        val resolved = source.parsedDate
         val previousSource = old.smsSource?.let { runCatching { Gson().fromJson(it, SmsSource::class.java) }.getOrNull() }
+        val incomingSource = SmsSource.from(body, timestamp, old.updatedAt)
+        // Another alert for a referenced payment may omit the transaction date.
+        // Its receipt day must not replace a known valid date from the earlier alert.
+        val source = if (previousSource?.dateSource == "body" && incomingSource.dateSource != "body" &&
+            previousSource.parsedDate <= oldMessageDate) incomingSource.copy(
+                dateSource = "body", parsedDate = previousSource.parsedDate) else incomingSource
+        val resolved = source.parsedDate
         fun repairDate(date: String): String = if (date.isBlank() || date == oldMessageDate ||
             date == previousSource?.parsedDate || date > oldMessageDate) resolved else date
         val newTransfer = parsed.isTransfer && !old.isTransfer && old.category != "Transfer"
