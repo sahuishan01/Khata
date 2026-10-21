@@ -17,6 +17,19 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 
 class SyncOutboxTest {
+    @Test fun invalidLegacySmsMetadataDoesNotBlockTheQueuedTransaction() = runBlocking {
+        for (metadata in listOf("{}", "{\"a\":1}", "broken json")) {
+            val local = LocalTransaction(smsSource = metadata, dirty = true, pendingOp = "CREATE")
+            val dao = MemoryDao(listOf(local))
+            val api = api { ops ->
+                assertNull(ops.single().smsSource)
+                SyncPushResult(listOf(SyncAccepted(local.clientId, 1)), emptyList())
+            }
+            SyncOutbox(dao, api).push()
+            assertTrue(dao.getOutbox().isEmpty())
+        }
+    }
+
     @Test fun smsEvidenceSurvivesUploadAndServerSnapshot() = runBlocking {
         val timestamp = java.time.Instant.parse("2026-10-20T04:00:00Z").toEpochMilli()
         val body = "INR 500 debited from HDFC A/c XX1234. Avl bal INR 7500"

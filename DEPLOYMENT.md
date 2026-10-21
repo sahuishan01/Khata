@@ -151,3 +151,27 @@ GitHub Actions run `39450723305` passed 30 release unit tests, including the
 snapshot handling. Security Scan run `39450713088` passed. Install as an update
 and scan the inbox once. Verification is recorded in
 `/root/.local/state/khata-ingest-fix/ci-sms-clear-verification.json`.
+
+## Future SMS dates and repeat alerts
+
+Backend and web artifacts from successful run `39552892838` (commit `8c4493e`)
+are deployed with migration 0036. The run passed 181 backend tests, one ignored,
+Clippy and the web build. Production checks verified authentication, forced RLS,
+summary totals, public asset hashes, sync exclusions and the absence of future
+SMS dates. Backend and database ports remain bound to loopback behind Caddy.
+
+The encrypted backup and backend deployment record are in
+`/root/.local/state/khata-ingest-fix/sms-provenance-deployment.json` and its
+referenced `backup/*.cred` file. Root-only verification evidence is under
+`/root/.local/state/khata-duplicate-audit/`.
+
+A valid date in an SMS must not be after the original message day. Untouched
+legacy SMS imports with impossible future dates now retain their original dates
+in `sms_source` and use their import day until the original SMS is rescanned.
+Do not guess a day/month swap or restore previously cleared transaction history.
+
+Rescans attach receipt time and hashes without uploading SMS text. Recognized
+UTR/UPI references are saved on existing records without replacing their client
+IDs. No-reference repeat alerts need matching anchored text and receipt within
+two minutes; amount/payee/day alone remain review suggestions. Keep current data
+when updating and rescanning: Clear all data also removes saved exclusions.

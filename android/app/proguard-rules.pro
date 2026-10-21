@@ -34,6 +34,8 @@
 # Gson
 -keep class com.khata.app.api.** { *; }
 -keepclassmembers class com.khata.app.api.** { *; }
+# This Gson DTO lives alongside the SMS parser rather than in the API package.
+-keep class com.khata.app.sms.SmsSource { *; }
 
 # DataStore
 -dontwarn androidx.datastore.**
