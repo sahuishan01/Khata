@@ -10,17 +10,19 @@ rescans cannot restore them. The explicit restore action clears that link.
 Financial summaries, transaction history, budgets and predefined chat queries
 exclude deleted records. Sync downloads include them so devices learn exclusions.
 
-New imports automatically exclude a repeated event only when a named bank,
+Reference matching automatically excludes a repeated event when a named bank,
 10–20 digit numeric reference, amount, direction and date within two days match
-one retained record. No-reference lookalikes are never automatically merged.
+one retained record. Other no-reference lookalikes need anchored SMS evidence or
+a complete unique card repayment chain; equal amounts alone never exclude a row.
 A unique opposite-direction pair with that reference and amount in two different
 named banks is classified as a transfer between own accounts. Both sides remain
 visible while leaving totals. Existing unambiguous pairs are repaired once;
 later manual transfer overrides remain effective.
 
-Web and Android Transactions offer **Possible duplicates**. Suggestions share
-bank, value date, payee, amount, direction and reference (including both missing).
-This is evidence for review, not proof: recurring purchases can look identical.
+Web and Android Transactions offer **Possible duplicates**. Suggestions include
+same-bank/day/payee/amount/direction/reference matches (including missing references)
+and card confirmations whose dates can differ by up to two days. Recurring
+purchases can also look identical, so suggestions require review.
 Expand a web row, or use the Android row menu, and select **Exclude duplicate…**
 only after confirming it represents the same payment. **Undo** restores the last
 excluded entry. The API requires another matching live row and enforces ownership;
@@ -108,21 +110,32 @@ new filter. The API orders tied rows by their unique IDs. Background web refresh
 checks the first page before reloading the accumulated range, preserving scroll
 position without repeatedly downloading an unchanged history.
 
-A CRED Club debit becomes a transfer only when a unique card repayment receipt
-of the same amount arrives within ten minutes. CRED purchases without that
-receipt remain expenses. Card receipts and matching bank debits remain visible
-as the two transfer legs and do not count as spending or income.
+A unique, closely timed funding debit and card receipt establish the two transfer
+legs. Funding can be a CRED payment or an explicit card-bill payment, including
+payment to a card issued by a different bank. Both legs remain visible as
+transfers and do not count as spending or income. CRED purchases without a
+unique receipt remain expenses.
 
-Later generic credits in the same bank/day are review candidates when a CRED
-funding/receipt pair exists. Amount alone never excludes them. Automatic
-confirmation exclusion additionally requires explicit receipt/confirmation
-roles, the same card fingerprint, and one recorded funding debit. Different
-cards, multiple funding debits and multiple received-payment alerts stay
-separate. Deferred reconciliation evaluates the complete sync batch before
-inferring uniqueness. Manual transfer choices override later parser evidence.
-The app sends a card fingerprint rather than a card number; raw SMS text stays
-on the device. Already confirmed examples can be excluded through the review
-API while retaining their client identities and audit trail.
+Reconciliation runs after the complete upload batch and also when a generic
+confirmation arrives in a separate upload. Receipt and confirmation dates can
+differ by up to two days. Explicit receipt/confirmation roles and the same card
+fingerprint identify later acknowledgements even if the funding account is
+missing. An explicit confirmation arriving within seconds of the receipt does
+not count as a second receipt when establishing uniqueness.
+
+Older messages without card fingerprints require a complete unique chain:
+one recorded funding debit, one receipt within ten minutes, one later generic
+credit in the same bank, valid body dates, and a delay of ten minutes to
+48 hours. Different known references/card identifiers, ambiguous funding,
+multiple candidate credits and explicit manual choices block automatic
+exclusion. Cases without enough evidence remain in Possible duplicates,
+including candidates on an adjacent date. Raw SMS stays on the device.
+
+Excluded confirmations retain their source identity, canonical link and an
+internal `card_confirmation` reason. Explicit Undo sets a persistent override;
+subsequent reference/hash updates and card reconciliation preserve that choice.
+The API requires another matching live row for a manual exclusion and retains
+the same ownership checks on both clients.
 
 
 Verified in Android [v0.45.15](https://github.com/sahuishan01/Khata/releases/tag/v0.45.15)
@@ -136,3 +149,16 @@ cover phone/desktop pagination, retry, stale responses, refresh and Undo; live
 checks verify complete history paging, summary totals, preserved source IDs,
 reported confirmation exclusions and device sync tombstones. Evidence paths
 are listed in `DEPLOYMENT.md`. Physical-phone UI verification remains pending.
+
+
+The general reconciliation follow-up is deployed with migration 0038 from the
+successful backend job in
+[run 39587141836](https://github.com/sahuishan01/Khata/actions/runs/39587141836)
+(commit `f4149f0`): backend tests, Clippy and artifact generation passed.
+Regression cases cover multiple banks and amounts, direct bill payments,
+separate upload batches in either order, adjacent dates, immediate explicit
+confirmations, missing funding/card identifiers, conflicting references,
+ambiguous credits and persistent Undo. Live checks preserved every original
+source identity and financial field, verified all history pages and sync
+exclusions, and compared summary totals against the database. The existing
+Android v0.45.15 and web clients consume these shared API results.
