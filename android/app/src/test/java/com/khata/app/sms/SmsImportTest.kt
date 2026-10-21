@@ -110,4 +110,14 @@ class SmsImportTest {
         assertNull(SmsSource.from("INR 500 debited from HDFC A/c XX1234 to SHOP", timestamp, queued).eventKey)
         assertNotNull(SmsSource.from("INR 500 debited from HDFC A/c XX1234 on 20/10/26 09:30:00", timestamp, queued).eventKey)
     }
+
+    @Test fun aSecondAlertWithoutADateDoesNotReplaceAKnownBodyDate() {
+        val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
+        val old = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued).copy(
+            rev = 1, baseRev = 1, dirty = false, pendingOp = null)
+        val reminder = "INR 500 debited from HDFC account. Ref 1234567890"
+        val repaired = SmsImport.repair(old, SmsParser.parse(reminder, "VM-HDFCBK")!!, reminder, timestamp)
+        assertEquals("2026-10-18", repaired.txnDate)
+        assertEquals("2026-10-18", repaired.valueDate)
+    }
 }
