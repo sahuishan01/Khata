@@ -862,7 +862,9 @@ mod tests {
         let first = sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![operation()])).await.unwrap().0;
         assert_eq!(first.accepted.len(), 1);
         let retry = sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![operation()])).await.unwrap().0;
-        assert_eq!(retry.conflicts.len(), 1);
+        assert!(retry.conflicts.is_empty());
+        assert_eq!(retry.accepted.len(), 1);
+        assert_eq!(retry.accepted[0].server_rev, first.accepted[0].server_rev);
         let other: Uuid = sqlx::query_scalar("INSERT INTO users (email,password_hash) VALUES ('other@example.com','x') RETURNING id")
             .fetch_one(&pool).await.unwrap();
         let second = sync_push(State(state), CurrentUser(other), Json(vec![operation()])).await.unwrap().0;

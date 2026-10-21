@@ -938,6 +938,58 @@ pub async fn sync_pull(
     Ok(Json(SyncPullResponse { txns: rows, new_rev, has_more }))
 }
 
+#[derive(sqlx::FromRow)]
+struct SyncStoredTransaction {
+    #[sqlx(flatten)]
+    txn: TxnRow,
+    transfer_override: bool,
+    duplicate_of: Option<Uuid>,
+}
+
+/// A repeated upload is not an edit conflict. Only tolerate flag differences
+/// backed by the identical SMS and an existing server classification.
+fn is_sync_replay(op: &SyncPushOp, stored: &SyncStoredTransaction) -> bool {
+    fn unchanged<T: PartialEq>(requested: &Option<T>, current: &T) -> bool {
+        requested.as_ref().is_none_or(|value| value == current)
+    }
+    let row = &stored.txn;
+    let same_sms = op.sms_source.as_ref().is_some_and(|source|
+        source.body_hash.is_some() && source.received_at.is_some()
+        && row.sms_source.as_ref() == Some(source)
+        && op.notes.as_deref().is_some_and(|notes| notes.starts_with("Auto-captured via SMS"))
+        && row.notes == op.notes.as_deref().unwrap_or_default());
+    unchanged(&op.amount, &row.amount)
+        && unchanged(&op.direction, &row.direction)
+        && unchanged(&op.description, &row.description)
+        && unchanged(&op.category, &row.category)
+        && unchanged(&op.bank, &row.bank)
+        && op.bank_ref.as_ref().is_none_or(|reference| row.bank_ref.as_ref() == Some(reference))
+        && unchanged(&op.txn_date, &row.txn_date)
+        && unchanged(&op.value_date, &row.value_date)
+        && unchanged(&op.notes, &row.notes)
+        && op.sms_source.as_ref().is_none_or(|source| row.sms_source.as_ref() == Some(source))
+        && (unchanged(&op.is_transfer, &row.is_transfer)
+            || (same_sms && op.is_transfer == Some(false) && row.is_transfer && !stored.transfer_override))
+        && (unchanged(&op.deleted, &row.deleted)
+            || (same_sms && op.deleted == Some(false) && row.deleted && stored.duplicate_of.is_some()))
+}
+
+/// Deferred repayment rules can revise earlier rows in this same batch. Return
+/// revisions only after those rules finish, for both upload and resolution.
+async fn finish_sync_revisions(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    user_id: Uuid,
+    accepted: &mut [SyncAccepted],
+) -> Result<(), AppError> {
+    sqlx::query("SET CONSTRAINTS ALL IMMEDIATE").execute(&mut **tx).await?;
+    for acknowledgement in accepted {
+        acknowledgement.server_rev = sqlx::query_scalar(
+            "SELECT rev FROM transactions WHERE user_id=$1 AND client_id=$2"
+        ).bind(user_id).bind(acknowledgement.client_id).fetch_one(&mut **tx).await?;
+    }
+    Ok(())
+}
+
 pub async fn sync_push(
     State(state): State<AppState>,
     CurrentUser(user_id): CurrentUser,
@@ -946,13 +998,21 @@ pub async fn sync_push(
     let mut tx = state.db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
+    // Serialize retries before reading revisions, using the same owner lock as
+    // transaction triggers. Concurrent copies of a create must see its commit.
+    sqlx::query("SELECT id FROM users WHERE id=$1 FOR UPDATE")
+        .bind(user_id).execute(&mut *tx).await?;
+
     let mut accepted = vec![];
     let mut conflicts = vec![];
 
     for op in ops {
         if let Some(source) = &op.sms_source { source.validate()?; }
-        let server_row: Option<(i64, i64, String)> = sqlx::query_as(
-            "SELECT rev, base_rev, description FROM transactions WHERE client_id = $1 AND user_id = $2"
+        let server_row: Option<SyncStoredTransaction> = sqlx::query_as(
+            "SELECT id, txn_date, value_date, description, amount::float8, direction, \
+             balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
+             rev, base_rev, deleted, updated_at, client_id, sms_source, transfer_override, duplicate_of \
+             FROM transactions WHERE client_id = $1 AND user_id = $2"
         )
         .bind(op.client_id).bind(user_id)
         .fetch_optional(&mut *tx).await?;
@@ -987,7 +1047,16 @@ pub async fn sync_push(
                 .fetch_one(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
             }
-            Some((server_rev, _, _)) if server_rev == op.base_rev => {
+            Some(stored) if op.base_rev >= 0 && op.base_rev <= stored.txn.rev && is_sync_replay(&op, &stored) => {
+                // A previous pull may have passed this row while the device was
+                // dirty. Re-enqueue its canonical state without changing rev,
+                // dates, financial fields, exclusions or manual decisions.
+                sqlx::query("UPDATE transactions SET sync_rev=sync_rev WHERE client_id=$1 AND user_id=$2")
+                    .bind(op.client_id).bind(user_id).execute(&mut *tx).await?;
+                accepted.push(SyncAccepted { client_id: op.client_id, server_rev: stored.txn.rev });
+            }
+            Some(stored) if stored.txn.rev == op.base_rev => {
+                let server_rev = stored.txn.rev;
                 let new_rev = server_rev + 1;
                 sqlx::query(
                     "UPDATE transactions SET rev = $1, base_rev = rev, \
@@ -1008,26 +1077,28 @@ pub async fn sync_push(
                 .execute(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
             }
-            Some((server_rev, _, _)) => {
-                let txn: TxnRow = sqlx::query_as(
-                    "SELECT id, txn_date, value_date, description, amount::float8, direction, \
-                     balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
-                     rev, base_rev, deleted, updated_at, client_id, sms_source \
-                     FROM transactions WHERE client_id = $1 AND user_id = $2"
-                )
-                .bind(op.client_id).bind(user_id)
-                .fetch_one(&mut *tx).await?;
+            Some(stored) => {
                 conflicts.push(SyncConflictDetail {
                     client_id: op.client_id,
                     base_rev: op.base_rev,
-                    server_rev,
-                    server_txn: txn,
+                    server_rev: stored.txn.rev,
+                    server_txn: stored.txn,
                     local_txn: serde_json::json!(op),
                 });
             }
         }
     }
 
+    finish_sync_revisions(&mut tx, user_id, &mut accepted).await?;
+    for conflict in &mut conflicts {
+        conflict.server_txn = sqlx::query_as(
+            "SELECT id, txn_date, value_date, description, amount::float8, direction, \
+             balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
+             rev, base_rev, deleted, updated_at, client_id, sms_source \
+             FROM transactions WHERE client_id=$1 AND user_id=$2"
+        ).bind(conflict.client_id).bind(user_id).fetch_one(&mut *tx).await?;
+        conflict.server_rev = conflict.server_txn.rev;
+    }
     tx.commit().await?;
     Ok(Json(SyncPushResult { accepted, conflicts }))
 }
@@ -1039,6 +1110,8 @@ pub async fn sync_resolve(
 ) -> Result<Json<Vec<SyncAccepted>>, AppError> {
     let mut tx = state.db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
+    sqlx::query("SELECT id FROM users WHERE id=$1 FOR UPDATE")
+        .bind(user_id).execute(&mut *tx).await?;
 
     let mut accepted = vec![];
     for op in resolutions {
@@ -1069,6 +1142,7 @@ pub async fn sync_resolve(
         }
     }
 
+    finish_sync_revisions(&mut tx, user_id, &mut accepted).await?;
     tx.commit().await?;
     Ok(Json(accepted))
 }

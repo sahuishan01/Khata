@@ -283,7 +283,7 @@ pub struct SyncPushOp {
 }
 
 /// SMS provenance only. Raw SMS text and account identifiers stay on the device.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SmsSource {
     pub parser_version: i32,
     pub received_at: Option<i64>,
