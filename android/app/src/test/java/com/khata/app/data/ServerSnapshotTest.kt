@@ -73,6 +73,18 @@ class ServerSnapshotTest {
         assertTrue(dao.getOutbox().isEmpty())
     }
 
+    @Test fun excludedDuplicateTombstoneSurvivesSnapshotAndSmsRescan() = runBlocking {
+        val sms = local(0)
+        val dao = SyncOutboxTest.MemoryDao(listOf(sms))
+        val excluded = sms.copy(deleted = true, rev = 2, baseRev = 2)
+        ServerSnapshot(listOf(excluded), 500).replaceCache(dao, StateDao())
+        assertEquals(SmsSaveResult.UNCHANGED, SmsImport.queue(dao,
+            SmsParser.parse(body(0), "VM-HDFCBK")!!, body(0), "VM-HDFCBK", timestamp, timestamp))
+        assertTrue(dao.getByClientId(sms.clientId)!!.deleted)
+        assertTrue(dao.getOutbox().isEmpty())
+        assertEquals(1, dao.rows.size)
+    }
+
     @Test fun refreshKeepsPendingCreatesEditsAndDeletions() = runBlocking {
         val create = local(0).copy(rev = 0, baseRev = 0, dirty = true, pendingOp = "CREATE")
         val edit = local(1).copy(notes = "Unsynced edit", dirty = true, pendingOp = "UPDATE")
