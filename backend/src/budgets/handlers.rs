@@ -70,11 +70,13 @@ pub async fn budget_status(
     State(state): State<AppState>,
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Json<Vec<BudgetStatus>>, AppError> {
+    let mut tx = state.db.begin().await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
     let budgets = sqlx::query_as::<_, Budget>(
         "SELECT id, user_id, category, monthly_limit::float8 FROM budgets WHERE user_id = $1",
     )
     .bind(user_id)
-    .fetch_all(&state.db)
+    .fetch_all(&mut *tx)
     .await
     .map_err(|_| AppError::BadRequest("Failed to fetch budgets".into()))?;
 
@@ -83,13 +85,14 @@ pub async fn budget_status(
         let spent: (f64,) = sqlx::query_as(
             r#"SELECT COALESCE(SUM(amount), 0)::float8 FROM transactions
                WHERE user_id = $1 AND category = $2 AND direction = 'debit'
-                 AND NOT is_transfer AND NOT is_investment
+                 AND NOT deleted AND NOT is_transfer
+               AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
                  AND value_date >= date_trunc('month', CURRENT_DATE)
                  AND value_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'"#,
         )
         .bind(user_id)
         .bind(&b.category)
-        .fetch_one(&state.db)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|_| AppError::BadRequest("Failed to query spend".into()))?;
 
@@ -100,5 +103,6 @@ pub async fn budget_status(
             pct: if b.monthly_limit > 0.0 { (spent.0 / b.monthly_limit) * 100.0 } else { 0.0 },
         });
     }
+    tx.commit().await?;
     Ok(Json(result))
 }

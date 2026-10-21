@@ -29,7 +29,7 @@ pub async fn list_txns(
 
     let (total,): (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM transactions
-           WHERE user_id = $1
+           WHERE user_id = $1 AND NOT deleted
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
@@ -58,7 +58,7 @@ pub async fn list_txns(
                   amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
                   rev, base_rev, deleted, updated_at, client_id
            FROM transactions
-           WHERE user_id = $1
+           WHERE user_id = $1 AND NOT deleted
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
@@ -89,7 +89,7 @@ pub async fn get_dashboard(
              COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')),  0)::float8,
              COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8,
              COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8
-           FROM transactions WHERE user_id = $1"#,
+           FROM transactions WHERE user_id = $1 AND NOT deleted"#,
     )
     .bind(user_id)
     .fetch_one(&mut *tx)
@@ -100,7 +100,7 @@ pub async fn get_dashboard(
              to_char(value_date, 'YYYY-MM') AS month,
              COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')),  0)::float8 AS spent,
              COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8 AS earned
-           FROM transactions WHERE user_id = $1
+           FROM transactions WHERE user_id = $1 AND NOT deleted
            GROUP BY month ORDER BY month DESC LIMIT 12"#,
     )
     .bind(user_id)
@@ -110,7 +110,7 @@ pub async fn get_dashboard(
     let top_debits = sqlx::query_as::<_, TopMerchant>(
         r#"SELECT description, SUM(amount)::float8 AS total
            FROM transactions
-            WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
+            WHERE user_id = $1 AND NOT deleted AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            GROUP BY description ORDER BY total DESC LIMIT 10"#,
     )
     .bind(user_id)
@@ -143,7 +143,7 @@ pub async fn get_analysis(
              COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8,
              COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8,
              COUNT(*) FILTER (WHERE NOT is_transfer)::bigint
-           FROM transactions WHERE user_id = $1"#,
+           FROM transactions WHERE user_id = $1 AND NOT deleted"#,
     )
     .bind(user_id)
     .fetch_one(&mut *tx)
@@ -153,7 +153,7 @@ pub async fn get_analysis(
     let cat_rows: Vec<(String, f64, i64)> = sqlx::query_as(
         r#"SELECT category, SUM(amount)::float8, COUNT(*)::bigint
            FROM transactions
-            WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
+            WHERE user_id = $1 AND NOT deleted AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            GROUP BY category
            ORDER BY SUM(amount) DESC"#,
     )
@@ -173,7 +173,7 @@ pub async fn get_analysis(
 
     // Average daily spend (days with at least one debit)
     let (active_days,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(DISTINCT value_date)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer"
+        "SELECT COUNT(DISTINCT value_date)::bigint FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer"
     )
     .bind(user_id)
     .fetch_one(&mut *tx)
@@ -197,7 +197,7 @@ pub async fn get_analysis(
                  AND value_date  < date_trunc('month', CURRENT_DATE)
                  AND NOT is_transfer
              ), 0)::float8
-           FROM transactions WHERE user_id = $1 AND direction = 'debit'"#,
+           FROM transactions WHERE user_id = $1 AND NOT deleted AND direction = 'debit'"#,
     )
     .bind(user_id)
     .fetch_one(&mut *tx)
@@ -215,7 +215,7 @@ pub async fn get_analysis(
                   amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
                   rev, base_rev, deleted, updated_at, client_id
            FROM transactions
-            WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
+            WHERE user_id = $1 AND NOT deleted AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            ORDER BY amount DESC LIMIT 1"#,
     )
     .bind(user_id)
@@ -265,7 +265,7 @@ pub async fn get_analytics_explore(
         _ => "AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')".to_string(),
     };
 
-    let mut wheres = vec![format!("user_id = $1")];
+    let mut wheres = vec!["user_id = $1".to_string(), "NOT deleted".to_string()];
     let mut bind_idx = 2;
 
     if let Some(ref from) = params.from {
@@ -362,7 +362,7 @@ pub async fn get_analytics_detail(
     let mut tx = state.db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
-    let mut wheres = vec!["user_id = $1".to_string()];
+    let mut wheres = vec!["user_id = $1".to_string(), "NOT deleted".to_string()];
     let mut bind_idx = 2;
     if let Some(ref cat) = params.category {
         wheres.push(format!("category = ${}", bind_idx)); bind_idx += 1;
@@ -415,31 +415,31 @@ pub async fn get_analytics_highlights(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let highest_earning_month: Option<(String, f64)> = sqlx::query_as(
-        "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
+        "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='credit' AND NOT is_transfer GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let highest_spending_month: Option<(String, f64)> = sqlx::query_as(
-        "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type='investment') GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
+        "SELECT to_char(value_date, 'YYYY-MM') AS month, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type='investment') GROUP BY month ORDER BY SUM(amount) DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let biggest_expense: Option<TxnRow> = sqlx::query_as(
-        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let biggest_income: Option<TxnRow> = sqlx::query_as(
-        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let top_payee: Option<(String, f64)> = sqlx::query_as(
-        "SELECT description, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY SUM(amount) DESC LIMIT 1"
+        "SELECT description, SUM(amount)::float8 FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY SUM(amount) DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let most_frequent_payee: Option<(String, i64)> = sqlx::query_as(
-        "SELECT description, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY COUNT(*) DESC LIMIT 1"
+        "SELECT description, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer GROUP BY description ORDER BY COUNT(*) DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let top_category: Option<(String, f64, i64)> = sqlx::query_as(
-        "SELECT category, SUM(amount)::float8, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1"
+        "SELECT category, SUM(amount)::float8, COUNT(*)::bigint FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let best_savings_month: Option<(String, f64)> = sqlx::query_as(
@@ -447,7 +447,7 @@ pub async fn get_analytics_highlights(
          (COALESCE(SUM(amount) FILTER (WHERE direction='credit'),0) - \
           COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer),0))::float8 / \
          NULLIF(SUM(amount) FILTER (WHERE direction='credit'),0) * 100.0 AS savings_rate \
-         FROM transactions WHERE user_id = $1 AND NOT is_transfer GROUP BY month HAVING COALESCE(SUM(amount) FILTER (WHERE direction='credit'),0) > 0 ORDER BY savings_rate DESC LIMIT 1"
+         FROM transactions WHERE user_id = $1 AND NOT deleted AND NOT is_transfer GROUP BY month HAVING COALESCE(SUM(amount) FILTER (WHERE direction='credit'),0) > 0 ORDER BY savings_rate DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     tx.commit().await?;
@@ -474,7 +474,7 @@ pub async fn list_categories(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT DISTINCT category FROM transactions WHERE user_id = $1 ORDER BY category"
+        "SELECT DISTINCT category FROM transactions WHERE user_id = $1 AND NOT deleted ORDER BY category"
     )
     .bind(user_id)
     .fetch_all(&mut *tx)
@@ -732,7 +732,7 @@ pub async fn get_account_balances(
                   COALESCE(SUM(amount) FILTER (WHERE direction='credit' AND NOT is_transfer), 0)::float8
                     - COALESCE(SUM(amount) FILTER (WHERE direction='debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')), 0)::float8 AS balance,
                   COUNT(*) FILTER (WHERE NOT is_transfer)::bigint AS txn_count
-           FROM transactions WHERE user_id = $1
+           FROM transactions WHERE user_id = $1 AND NOT deleted
            GROUP BY bank, account_label ORDER BY bank"#,
     )
     .bind(user_id)
@@ -757,7 +757,7 @@ pub async fn get_recurring(
                   COUNT(DISTINCT to_char(value_date, 'YYYY-MM'))::bigint AS months_active,
                   category
            FROM transactions
-            WHERE user_id = $1 AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
+            WHERE user_id = $1 AND NOT deleted AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            GROUP BY description, category
            HAVING COUNT(DISTINCT to_char(value_date, 'YYYY-MM')) >= 2
            ORDER BY months_active DESC

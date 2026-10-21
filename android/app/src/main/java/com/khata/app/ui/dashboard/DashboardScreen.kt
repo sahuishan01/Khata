@@ -99,7 +99,7 @@ fun DashboardScreen(
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     StatCard(
-                        label = "Total Earned",
+                        label = "Money In",
                         value = formatINR(stats.totalEarned),
                         icon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         accentColor = MaterialTheme.colorScheme.secondary,
@@ -115,6 +115,15 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+
+            item {
+                Text(
+                    "Money In includes all recorded credits, including refunds, and is not confirmed earnings. " +
+                        "Mark transfers between your own accounts as transfers to exclude them from totals.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             if ((analysis?.totalInvested ?: 0.0) > 0) {
