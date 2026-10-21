@@ -107,11 +107,17 @@ END;
 $$;
 -- Evaluate the whole sync batch before inferring uniqueness, irrespective of alert order.
 CREATE CONSTRAINT TRIGGER transaction_card_evidence AFTER INSERT OR UPDATE ON transactions
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION reconcile_new_card_evidence();
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+WHEN (NOT NEW.deleted AND (is_cred_funding(NEW) OR is_card_receipt(NEW)))
+EXECUTE FUNCTION reconcile_new_card_evidence();
 
 ALTER TABLE transactions NO FORCE ROW LEVEL SECURITY;
 WITH candidates AS MATERIALIZED (
     SELECT DISTINCT user_id,amount,value_date FROM transactions t WHERE is_cred_funding(t)
 )
 SELECT reconcile_card_repayments(user_id,amount,value_date) FROM candidates;
+-- Finish any backfill-triggered work before changing table security. PostgreSQL
+-- rejects ALTER TABLE while this transaction has deferred row events pending.
+SET CONSTRAINTS transaction_card_evidence IMMEDIATE;
 ALTER TABLE transactions FORCE ROW LEVEL SECURITY;
+SET CONSTRAINTS transaction_card_evidence DEFERRED;
