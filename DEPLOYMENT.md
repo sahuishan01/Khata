@@ -228,3 +228,31 @@ IDs, checked the reported repayment corrections and sync tombstones, compared
 summary totals against the database, checked that no future SMS dates remain,
 and verified public assets and authentication. Backend/database listeners stay
 on loopback with Caddy as the public entry point.
+
+
+## General repayment reconciliation follow-up
+
+Backend artifact from the successful backend job in run `39587141836` (commit
+`f4149f0`) is deployed with migration 0038: backend tests, Clippy, artifact
+generation and upload passed.
+The unchanged web job is waiting for the shared runner behind Flurer at the time
+of this verification; the whole workflow is still in progress. Deployed web
+assets remain those verified from successful run `39582103790`. The deployed
+web assets and Android APK are unchanged; both clients use the shared server
+reconciliation results.
+
+The migration processes every tenant's existing repayment history. The deferred
+triggers handle future imports, including a later generic confirmation in a
+separate upload. CRED and explicit bill payments can supply funding evidence;
+older SMS metadata can use a unique complete chain, while explicit card
+fingerprints/roles also support missing funding history. Adjacent-day matches
+are available in duplicate review. Ambiguous candidates are preserved for
+review. Explicit restores remain authoritative during future rescans.
+
+The encrypted backup is referenced by
+`/root/.local/state/khata-confirmation-filter/backend-deployment.json`.
+Additional root-only evidence in that directory includes `ci-verification.json`,
+`history-at-deployment.json` and `live-verification.json`. Verification checks
+every original financial field and source ID, newly excluded confirmations,
+transfer legs, all history pages, summary totals, sync tombstones, public assets,
+authentication and forced RLS. See `docs/transaction-identity.md` for rules.

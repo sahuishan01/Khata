@@ -39,13 +39,18 @@ fingerprint, were verified in the minified APK before publication.
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.
 
-Backend and web artifacts from run `39582103790` (commit `76d658a`) are deployed
-with migration 0037 (187 backend tests passed, one ignored; Clippy passed).
-Phone and desktop browser checks passed for infinite scrolling, retries,
-stale responses, refresh, duplicate review and Undo. Live checks verified all
-history pages, transfer accounting, sync tombstones, authentication and public
-asset hashes. Physical-phone UI verification remains unavailable. See
-`docs/transaction-identity.md` for matching rules and deployment evidence.
+Backend artifact from run `39587141836` (commit `f4149f0`) is deployed with
+migration 0038 (backend tests and Clippy passed).
+The unchanged web assets remain from run `39582103790`; desktop and phone browser
+checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
+Whole-history reconciliation handles CRED and direct bill payments, older
+confirmation metadata, separate upload batches and date differences. Ambiguous
+matches remain review candidates; explicit restores survive later rescans.
+Live checks verified preserved source IDs/financial fields, sync tombstones,
+summary totals, authentication, complete paging and public asset hashes.
+Physical-phone UI verification remains unavailable. See `DEPLOYMENT.md` and
+`docs/transaction-identity.md` for rules and evidence.
+
 
 
 ## Design
