@@ -17,6 +17,21 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 
 class SyncOutboxTest {
+    @Test fun smsEvidenceSurvivesUploadAndServerSnapshot() = runBlocking {
+        val timestamp = java.time.Instant.parse("2026-10-20T04:00:00Z").toEpochMilli()
+        val body = "INR 500 debited from HDFC A/c XX1234. Avl bal INR 7500"
+        val source = com.khata.app.sms.SmsSource.from(body, timestamp, timestamp)
+        val local = LocalTransaction(smsSource = Gson().toJson(source), dirty = true, pendingOp = "CREATE")
+        val dao = MemoryDao(listOf(local))
+        val api = api { ops ->
+            assertEquals(source, ops.single().smsSource)
+            SyncPushResult(listOf(SyncAccepted(local.clientId, 1)), emptyList())
+        }
+        SyncOutbox(dao, api).push()
+        val row = Gson().fromJson("""{"id":"${local.id}","client_id":"${local.clientId}","value_date":"2026-10-20","txn_date":"2026-10-20","sms_source":${Gson().toJson(source)},"description":"Payment","amount":500,"direction":"debit","category":"Uncategorized","bank":"HDFC","notes":"Auto-captured via SMS (HDFC)","rev":1} """, TxnRow::class.java)
+        assertEquals(source, Gson().fromJson(row.toLocal().smsSource, com.khata.app.sms.SmsSource::class.java))
+    }
+
     internal class MemoryDao(initial: List<LocalTransaction>) : TransactionDao {
         val rows = initial.associateBy { it.id }.toMutableMap()
         override fun getAllFlow(): Flow<List<LocalTransaction>> = MutableStateFlow(rows.values.toList())

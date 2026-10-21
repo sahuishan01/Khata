@@ -52,6 +52,8 @@ pub struct TxnRow {
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub client_id: Option<Uuid>,
     #[sqlx(default)]
+    pub sms_source: Option<sqlx::types::Json<SmsSource>>,
+    #[sqlx(default)]
     #[serde(skip_serializing)]
     pub sync_rev: i64,
 }
@@ -277,6 +279,36 @@ pub struct SyncPushOp {
     pub notes: Option<String>,
     pub is_transfer: Option<bool>,
     pub deleted: Option<bool>,
+    pub sms_source: Option<sqlx::types::Json<SmsSource>>,
+}
+
+/// SMS provenance only. Raw SMS text and account identifiers stay on the device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmsSource {
+    pub parser_version: i32,
+    pub received_at: Option<i64>,
+    pub body_hash: Option<String>,
+    pub event_key: Option<String>,
+    pub date_source: String,
+    pub parsed_date: NaiveDate,
+    pub previous_txn_date: Option<NaiveDate>,
+    pub previous_value_date: Option<NaiveDate>,
+}
+
+impl SmsSource {
+    pub fn validate(&self) -> Result<(), crate::error::AppError> {
+        let hash_valid = self.body_hash.as_ref().is_none_or(|hash|
+            hash.len() == 64 && hash.bytes().all(|c| c.is_ascii_hexdigit()));
+        let received_valid = self.received_at.is_none_or(|t|
+            (946684800000..=chrono::Utc::now().timestamp_millis() + 300_000).contains(&t));
+        if !(0..=1).contains(&self.parser_version) || !hash_valid || !received_valid
+            || !matches!(self.date_source.as_str(), "body" | "message" | "queue")
+            || self.event_key.as_ref().is_some_and(|key| self.body_hash.as_ref() != Some(key))
+        {
+            return Err(crate::error::AppError::BadRequest("Invalid SMS provenance".into()));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize)]

@@ -30,6 +30,7 @@ data class LocalTransaction(
     val updatedAt: Long = System.currentTimeMillis(),
     val dirty: Boolean = false,
     val pendingOp: String? = null,
+    val smsSource: String? = null,
 )
 
 @Entity(tableName = "sync_state")

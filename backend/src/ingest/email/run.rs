@@ -857,7 +857,7 @@ mod tests {
         let client_id = Uuid::new_v4();
         let operation = || SyncPushOp {
             client_id, base_rev: 0, amount: Some(250.0), direction: Some("debit".into()), description: Some("SMS test".into()),
-            category: None, bank: Some("HDFC".into()), bank_ref: Some("1234567890".into()), txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None,
+            category: None, bank: Some("HDFC".into()), bank_ref: Some("1234567890".into()), txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None, sms_source: None,
         };
         let first = sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![operation()])).await.unwrap().0;
         assert_eq!(first.accepted.len(), 1);
@@ -881,7 +881,7 @@ mod tests {
         let ops = (0..205).map(|_| SyncPushOp {
             client_id: Uuid::new_v4(), base_rev: 0, amount: Some(250.0), direction: Some("debit".into()),
             description: Some("SMS backfill".into()), category: None, bank: Some("HDFC".into()), bank_ref: None,
-            txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None,
+            txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None, sms_source: None,
         }).collect();
         assert_eq!(sync_push(State(state.clone()), CurrentUser(user_id), Json(ops)).await.unwrap().0.accepted.len(), 205);
         let first = sync_pull(State(state.clone()), CurrentUser(user_id), Query(SyncPullQuery {
@@ -911,7 +911,7 @@ mod tests {
         let op = SyncPushOp {
             client_id: Uuid::new_v4(), base_rev: 0, amount: Some(100.0), direction: Some("credit".into()),
             description: Some("Existing transaction".into()), category: None, bank: None, bank_ref: None,
-            txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None,
+            txn_date: None, value_date: None, notes: None, is_transfer: None, deleted: None, sms_source: None,
         };
         sync_push(State(state.clone()), CurrentUser(user_id), Json(vec![op])).await.unwrap();
         sqlx::raw_sql(include_str!("../../../migrations/0033_sync_change_cursor.sql"))
