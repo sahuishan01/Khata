@@ -29,20 +29,23 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.15` (verification pending).
-Last verified signed APK: `v0.45.14`
-(GitHub Actions run `39574262637`, 40 release unit tests passed). Its signing
-certificate matches `v0.45.12`; versionCode 198 supports installing over that
-release. The workflow checks that required SMS fields survive minification
-before publishing, in addition to running the regression tests.
+Current release version: `v0.45.15` (verified).
+Last verified signed APK: `v0.45.15`
+(GitHub Actions run `39581391908`, 46 release unit tests passed). Its signing
+certificate matches `v0.45.14`; versionCode 199 supports updating the existing
+app. Required SMS metadata fields, including card confirmation role and card
+fingerprint, were verified in the minified APK before publication.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
-R8. Use `v0.45.14`; its Gson DTO is retained explicitly in the ProGuard rules.
+R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.
 
-Backend and web artifacts from run `39552892838` are deployed with migration
-0036 (181 backend tests passed, one ignored; Clippy passed). See
-`docs/transaction-identity.md` for duplicate review, sync tombstones and transfer
-matching rules.
+Backend and web artifacts from run `39582103790` (commit `76d658a`) are deployed
+with migration 0037 (187 backend tests passed, one ignored; Clippy passed).
+Phone and desktop browser checks passed for infinite scrolling, retries,
+stale responses, refresh, duplicate review and Undo. Live checks verified all
+history pages, transfer accounting, sync tombstones, authentication and public
+asset hashes. Physical-phone UI verification remains unavailable. See
+`docs/transaction-identity.md` for matching rules and deployment evidence.
 
 
 ## Design
