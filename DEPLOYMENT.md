@@ -185,3 +185,46 @@ existing app, then run **Scan SMS inbox** once. v0.45.13 was withdrawn after
 artifact verification found its SMS metadata removed by R8; it was not sent
 as a verified release notification. Invalid older metadata now falls back
 without blocking queued transactions. Physical-device UI validation was unavailable.
+
+
+## Automatic history loading and card confirmations
+
+The current signed Android release is
+[v0.45.15](https://github.com/sahuishan01/Khata/releases/tag/v0.45.15), built by
+run `39581391908`: 46 release unit tests passed. The downloaded APK has
+versionCode 199, a valid signature and the same signing certificate as
+v0.45.14. Its required SMS metadata fields survived minification. Install over
+the existing app, keep app data, and run **Scan SMS inbox** once to attach card
+confirmation evidence to messages still present on the phone.
+
+Backend and web artifacts from run `39582103790` (commit `76d658a`) are deployed
+with migration 0037. All 187 backend tests passed, one was ignored, and Clippy
+and the web build passed. The backend-only migration correction followed the
+Android tag; Android and web sources are identical to the tested release.
+
+Android and web load further transaction pages automatically near the bottom.
+Page errors retain loaded records and allow retry. Filter changes reject stale
+requests, refresh retains the loaded range, and tied API sort values use a
+unique-ID tie breaker. Browser checks at phone and desktop widths cover these
+flows, duplicate review, failed exclusion and Undo. Deployed web asset hashes
+match the browser-tested CI artifact. Physical-phone installation and gestures
+are not verified by these automated checks.
+
+Unique, closely timed CRED debit/card receipt pairs are transfers. Later card
+confirmations need explicit receipt/confirmation roles, the same card
+fingerprint and unambiguous funding before automatic exclusion. Ambiguous
+records remain review candidates. Source records and sync exclusions are
+retained; spending and income exclude repayment legs and duplicate confirmations.
+Migration 0037 drains deferred backfill events before restoring forced RLS.
+
+The encrypted backup and backend record are in
+`/root/.local/state/khata-ingest-fix/card-confirmations-deployment.json`.
+Root-only evidence under `/root/.local/state/khata-duplicate-audit/` includes
+`card-confirmations-ci-verification.json`, `apk-0.45.15-verification.json`,
+`history-browser-verification.json`, `card-overlap-correction.json`,
+`card-confirmations-live-verification.json` and `web-deployment.json`.
+Live verification paged through the complete visible history without repeated
+IDs, checked the reported repayment corrections and sync tombstones, compared
+summary totals against the database, checked that no future SMS dates remain,
+and verified public assets and authentication. Backend/database listeners stay
+on loopback with Caddy as the public entry point.

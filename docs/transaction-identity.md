@@ -123,3 +123,16 @@ inferring uniqueness. Manual transfer choices override later parser evidence.
 The app sends a card fingerprint rather than a card number; raw SMS text stays
 on the device. Already confirmed examples can be excluded through the review
 API while retaining their client identities and audit trail.
+
+
+Verified in Android [v0.45.15](https://github.com/sahuishan01/Khata/releases/tag/v0.45.15)
+(run `39581391908`, 46 tests, versionCode 199, signing certificate matching
+v0.45.14) and backend/web run `39582103790` (commit `76d658a`, 187 tests passed,
+one ignored, Clippy passed). Migration 0037 is deployed; its backfill drains
+deferred row events before restoring forced RLS. Tests cover a populated
+backfill, a complete sync batch with ambiguous funding, card fingerprints,
+manual transfer choices and stable ordering across tied pages. Browser checks
+cover phone/desktop pagination, retry, stale responses, refresh and Undo; live
+checks verify complete history paging, summary totals, preserved source IDs,
+reported confirmation exclusions and device sync tombstones. Evidence paths
+are listed in `DEPLOYMENT.md`. Physical-phone UI verification remains pending.
