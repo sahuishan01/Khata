@@ -232,14 +232,12 @@ on loopback with Caddy as the public entry point.
 
 ## General repayment reconciliation follow-up
 
-Backend artifact from the successful backend job in run `39587141836` (commit
-`f4149f0`) is deployed with migration 0038: backend tests, Clippy, artifact
-generation and upload passed.
-The unchanged web job is waiting for the shared runner behind Flurer at the time
-of this verification; the whole workflow is still in progress. Deployed web
-assets remain those verified from successful run `39582103790`. The deployed
-web assets and Android APK are unchanged; both clients use the shared server
-reconciliation results.
+Backend artifact from successful run `39587141836` (commit `f4149f0`) is
+deployed with migration 0038: 194 backend tests passed, one was ignored, and
+Clippy and the web build passed. Both jobs ran on the intended `heaven` runner.
+The deployed web assets remain those verified from successful run `39582103790`;
+web source and the Android APK are unchanged. Both clients consume the shared
+server reconciliation results.
 
 The migration processes every tenant's existing repayment history. The deferred
 triggers handle future imports, including a later generic confirmation in a
