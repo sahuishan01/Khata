@@ -40,7 +40,8 @@ fingerprint, were verified in the minified APK before publication.
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.
 
 Backend artifact from run `39587141836` (commit `f4149f0`) is deployed with
-migration 0038 (backend tests and Clippy passed).
+migration 0038 (194 backend tests passed, one ignored; Clippy and the workflow's
+web build passed).
 The unchanged web assets remain from run `39582103790`; desktop and phone browser
 checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
 Whole-history reconciliation handles CRED and direct bill payments, older

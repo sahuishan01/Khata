@@ -154,7 +154,8 @@ are listed in `DEPLOYMENT.md`. Physical-phone UI verification remains pending.
 The general reconciliation follow-up is deployed with migration 0038 from the
 successful backend job in
 [run 39587141836](https://github.com/sahuishan01/Khata/actions/runs/39587141836)
-(commit `f4149f0`): backend tests, Clippy and artifact generation passed.
+(commit `f4149f0`): 194 backend tests passed, one ignored, and Clippy, artifact
+generation and the web build passed on the intended `heaven` runner.
 Regression cases cover multiple banks and amounts, direct bill payments,
 separate upload batches in either order, adjacent dates, immediate explicit
 confirmations, missing funding/card identifiers, conflicting references,
