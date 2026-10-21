@@ -6,11 +6,13 @@ on:
     branches: [master]
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/backend-test.yml'
   pull_request:
     branches: [master]
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/backend-test.yml'
 
 jobs:
@@ -134,3 +136,27 @@ jobs:
             "$(pg_config --bindir)/pg_ctl" -D "$pg_data" -m fast -w stop
           fi
           rm -rf "$pg_data"
+
+  web:
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","heaven"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build web frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          git rev-parse HEAD > dist/REVISION
+      - name: Upload verified web frontend
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: khata-web-${{ github.sha }}
+          path: frontend/dist/
+          if-no-files-found: error
+          retention-days: 14

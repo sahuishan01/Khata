@@ -120,7 +120,7 @@ export function DashboardPage() {
               color="expense"
             />
             <StatCard
-              label="Total Earned"
+              label="Money In"
               value={<Amount paise={stats!.total_earned} size="lg" />}
               icon={<TrendingUp size={16} />}
               color="income"
@@ -142,6 +142,11 @@ export function DashboardPage() {
               />
             )}
           </div>
+
+          <p className="muted" style={{ marginTop: 8, marginBottom: 16 }}>
+            Money In includes all recorded credits, including refunds, and is not confirmed earnings.
+            Mark transfers between your own accounts as transfers to exclude them from totals.
+          </p>
 
           {analysis && analysis.month_comparison.last_month > 0 && (
             <div style={{ marginBottom: 16 }}>

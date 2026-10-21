@@ -170,3 +170,204 @@ async fn backfill_advances_sync_cursor_and_later_manual_override_wins(pool: PgPo
         .fetch_one(&pool).await.unwrap();
     assert!(forced);
 }
+
+fn bank_op(bank: &str, reference: Option<&str>, direction: &str, amount: f64) -> SyncPushOp {
+    let mut row = op("Bank alert", direction, amount);
+    row.bank = Some(bank.into());
+    row.bank_ref = reference.map(str::to_string);
+    row
+}
+
+async fn identity_rows(pool: &PgPool, owner: Uuid) -> Vec<(Uuid, bool, bool, i64)> {
+    let mut tx = pool.begin().await.unwrap();
+    khata::db::set_current_user(&mut *tx, owner).await.unwrap();
+    let rows = sqlx::query_as("SELECT client_id,deleted,is_transfer,rev FROM transactions ORDER BY sync_rev")
+        .fetch_all(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    rows
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn separate_sms_ids_with_same_bank_reference_count_once_and_cannot_resurrect(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let first = bank_op("KOTAK", Some("123456789012"), "debit", 10000.0);
+    let second = bank_op("KOTAK", Some("123456789012"), "debit", 10000.0);
+    let second_id = second.client_id;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![first,second])).await.unwrap();
+    let rows = identity_rows(&pool, owner).await;
+    assert_eq!(rows.len(), 2, "Retain both source identities");
+    assert_eq!(rows.iter().filter(|r| r.1).count(), 1);
+    let dashboard = handlers::get_dashboard(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(dashboard.total_spent, 10000.0);
+    let params = serde_json::from_value(serde_json::json!({})).unwrap();
+    let listed = handlers::list_txns(State(app.clone()), CurrentUser(owner), Query(params)).await.unwrap().0;
+    assert_eq!(listed.total, 1);
+    assert_eq!(listed.data.len(), 1);
+
+    let mut retry = bank_op("KOTAK", Some("123456789012"), "debit", 10000.0);
+    retry.client_id = second_id;
+    retry.base_rev = 1;
+    retry.deleted = Some(false);
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![retry])).await.unwrap();
+    let mut resolution = bank_op("KOTAK", Some("123456789012"), "debit", 10000.0);
+    resolution.client_id = second_id;
+    resolution.deleted = Some(false);
+    handlers::sync_resolve(State(app.clone()), CurrentUser(owner), Json(vec![resolution])).await.unwrap();
+    let pull = handlers::sync_pull(State(app), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    assert_eq!(pull.txns.len(), 2, "Sync must include tombstones");
+    assert!(pull.txns.iter().find(|r| r.client_id == Some(second_id)).unwrap().deleted);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn no_reference_repeated_payments_and_other_tenants_are_never_merged(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let other = user(&pool).await;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![
+        bank_op("KOTAK", None, "debit", 10000.0), bank_op("KOTAK", None, "debit", 10000.0),
+        bank_op("Manual", Some("123456789012"), "debit", 10000.0),
+        bank_op("Manual", Some("123456789012"), "debit", 10000.0),
+        bank_op("HDFC", Some("123456789012"), "debit", 10000.0),
+        bank_op("HDFC", Some("123456789012"), "debit", 20000.0),
+        bank_op("HDFC", Some("123456"), "debit", 10000.0),
+        bank_op("HDFC", Some("123456"), "debit", 10000.0),
+    ])).await.unwrap();
+    handlers::sync_push(State(app.clone()), CurrentUser(other), Json(vec![
+        bank_op("HDFC", Some("123456789012"), "debit", 10000.0),
+        bank_op("KOTAK", Some("123456789012"), "credit", 20000.0),
+    ])).await.unwrap();
+    for tenant in [owner, other] {
+        assert!(identity_rows(&pool, tenant).await.iter().all(|r| !r.1 && !r.2));
+    }
+    let dashboard = handlers::get_dashboard(State(app), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(dashboard.total_spent, 90000.0);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn reference_backed_bank_transfer_updates_both_sides_and_preserves_manual_override(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let debit = bank_op("HDFC", Some("123456789012"), "debit", 500.0);
+    let debit_client = debit.client_id;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![debit])).await.unwrap();
+    let cursor = handlers::sync_pull(State(app.clone()), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0.new_rev;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![
+        bank_op("KOTAK", Some("123456789012"), "credit", 500.0)
+    ])).await.unwrap();
+    assert!(identity_rows(&pool, owner).await.iter().all(|r| !r.1 && r.2));
+    let dashboard = handlers::get_dashboard(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!((dashboard.total_spent, dashboard.total_earned), (0.0, 0.0));
+    let pull = handlers::sync_pull(State(app.clone()), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(cursor), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    assert_eq!(pull.txns.len(), 2, "Existing counterpart must advance its cursor");
+    let debit_id = pull.txns.iter().find(|r| r.client_id == Some(debit_client)).unwrap().id;
+    handlers::toggle_transfer(State(app.clone()), CurrentUser(owner), axum::extract::Path(debit_id),
+        Json(handlers::ToggleTransferReq { is_transfer: false })).await.unwrap();
+    let mut retry = bank_op("HDFC", Some("123456789012"), "debit", 500.0);
+    retry.client_id = debit_client;
+    retry.base_rev = 3;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![retry])).await.unwrap();
+    let dashboard = handlers::get_dashboard(State(app), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(dashboard.total_spent, 500.0);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn ambiguous_references_and_distant_dates_do_not_trigger_transfer_matching(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let mut late = bank_op("KOTAK", Some("123456789012"), "credit", 500.0);
+    late.value_date = Some(NaiveDate::from_ymd_opt(2026, 10, 24).unwrap());
+    handlers::sync_push(State(app), CurrentUser(owner), Json(vec![
+        bank_op("HDFC", Some("123456789012"), "debit", 500.0), late,
+        bank_op("AXIS", Some("998877665544"), "debit", 500.0),
+        bank_op("CANARA", Some("998877665544"), "debit", 500.0),
+        bank_op("KOTAK", Some("998877665544"), "credit", 500.0),
+    ])).await.unwrap();
+    assert!(identity_rows(&pool, owner).await.iter().all(|r| !r.1 && !r.2));
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn excluded_no_reference_duplicate_leaves_all_financial_queries_but_remains_in_sync(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let mut originals = vec![op("Reported payment", "debit", 10000.0), op("Reported payment", "debit", 10000.0),
+        op("Salary", "credit", 25000.0), op("Bad imported credit", "credit", 999999.0)];
+    let date = chrono::Utc::now().date_naive();
+    for row in &mut originals { row.txn_date = Some(date); row.value_date = Some(date); }
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(originals)).await.unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    khata::db::set_current_user(&mut *tx, owner).await.unwrap();
+    let ids: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM transactions WHERE description='Reported payment' ORDER BY id")
+        .fetch_all(&mut *tx).await.unwrap();
+    sqlx::query("UPDATE transactions SET duplicate_of=$1, deleted=true, rev=rev+1 WHERE id=$2")
+        .bind(ids[0]).bind(ids[1]).execute(&mut *tx).await.unwrap();
+    sqlx::query("UPDATE transactions SET deleted=true, rev=rev+1 WHERE description='Bad imported credit'")
+        .execute(&mut *tx).await.unwrap();
+    sqlx::query("INSERT INTO budgets (user_id,category,monthly_limit) VALUES ($1,'Uncategorized',20000)")
+        .bind(owner).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let dashboard = handlers::get_dashboard(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!((dashboard.total_spent, dashboard.total_earned), (10000.0, 25000.0));
+    assert_eq!(dashboard.monthly[0].earned, 25000.0);
+    assert_eq!(dashboard.top_debits[0].total, 10000.0);
+    let analysis = handlers::get_analysis(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(analysis.total_transactions, 2);
+    let detail = handlers::get_analytics_detail(State(app.clone()), CurrentUser(owner), Query(
+        khata::txns::models::DetailQuery { category: None, month: None, payee: None }
+    )).await.unwrap().0;
+    assert_eq!((detail.total_spent, detail.total_earned, detail.txn_count), (10000.0, 25000.0, 2));
+    let highlights = handlers::get_analytics_highlights(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(highlights.biggest_income.unwrap().amount, 25000.0);
+    let balances = handlers::get_account_balances(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(balances[0].total_earned, 25000.0);
+    let budget = khata::budgets::handlers::budget_status(State(app.clone()), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(budget[0].spent, 10000.0);
+    for (question, expected) in [("What is my total spending?", 10000.0), ("What is my total income?", 25000.0)] {
+        let matched = khata::chat::predefined::match_question(question, &[]).unwrap();
+        let mut tx = pool.begin().await.unwrap();
+        khata::db::set_current_user(&mut *tx, owner).await.unwrap();
+        let actual: f64 = sqlx::query_scalar(&format!("SELECT amount::float8 FROM ({}) AS answer", matched.sql))
+            .fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(actual, expected);
+        tx.commit().await.unwrap();
+    }
+    let pull = handlers::sync_pull(State(app), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    assert_eq!(pull.txns.iter().filter(|r| r.deleted).count(), 2);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn identity_backfill_is_atomic_tenant_scoped_and_advances_revisions(pool: PgPool) {
+    let owner = user(&pool).await;
+    let other = user(&pool).await;
+    let app = state(&pool);
+    sqlx::query("ALTER TABLE transactions DISABLE TRIGGER transaction_identity").execute(&pool).await.unwrap();
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![
+        bank_op("HDFC", Some("123456789012"), "debit", 500.0),
+        bank_op("KOTAK", Some("123456789012"), "credit", 500.0),
+        bank_op("HDFC", None, "debit", 10000.0), bank_op("HDFC", None, "debit", 10000.0),
+    ])).await.unwrap();
+    handlers::sync_push(State(app), CurrentUser(other), Json(vec![
+        bank_op("HDFC", Some("123456789012"), "debit", 500.0),
+    ])).await.unwrap();
+    sqlx::query("ALTER TABLE transactions ENABLE TRIGGER transaction_identity").execute(&pool).await.unwrap();
+    let migration = include_str!("../migrations/0035_transaction_identity.sql");
+    let backfill = &migration[migration.find("ALTER TABLE transactions NO FORCE").unwrap()..];
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::raw_sql(backfill).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let rows = identity_rows(&pool, owner).await;
+    assert_eq!(rows.iter().filter(|r| r.2 && r.3 == 2).count(), 2);
+    assert!(rows.iter().all(|r| !r.1));
+    assert!(!identity_rows(&pool, other).await[0].2);
+    let forced: bool = sqlx::query_scalar("SELECT relforcerowsecurity FROM pg_class WHERE oid='transactions'::regclass")
+        .fetch_one(&pool).await.unwrap();
+    assert!(forced);
+}
