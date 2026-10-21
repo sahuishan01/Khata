@@ -81,3 +81,20 @@ UTR and UPI slash references are now extracted, and sync updates persist newly
 extracted references. Rescanning preserves previously acknowledged client IDs,
 including old parser identities and exclusions. The device database upgrades
 from schema 1 to 2 with a nullable metadata column, without deleting queued work.
+
+Verified follow-up on 2026-10-21: backend and web run
+[39552892838](https://github.com/sahuishan01/Khata/actions/runs/39552892838)
+passed 181 backend tests (one ignored), Clippy and the web build. Migration 0036
+is live. Production checks confirmed no future SMS dates, retained original
+date values, correct totals, sync exclusions, authentication and forced RLS.
+
+The signed
+[v0.45.14 APK](https://github.com/sahuishan01/Khata/releases/tag/v0.45.14)
+passed 40 release tests and the minified-field check in
+[run 39574262637](https://github.com/sahuishan01/Khata/actions/runs/39574262637).
+Its signature matches v0.45.12 and its version code is 198. v0.45.13 was withheld
+when artifact inspection found that R8 removed the SMS DTO's Gson fields.
+`SmsSource` lives outside the API model package, so it has an explicit ProGuard
+keep rule. The workflow checks these fields in the final DEX files before
+publishing. Invalid legacy metadata is ignored during upload and rebuilt by
+rescan, preserving the financial row. Physical-device UI checks remain unavailable.

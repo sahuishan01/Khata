@@ -175,3 +175,13 @@ UTR/UPI references are saved on existing records without replacing their client
 IDs. No-reference repeat alerts need matching anchored text and receipt within
 two minutes; amount/payee/day alone remain review suggestions. Keep current data
 when updating and rescanning: Clear all data also removes saved exclusions.
+
+The signed Android update is
+[v0.45.14](https://github.com/sahuishan01/Khata/releases/tag/v0.45.14), built by
+run `39574262637`: 40 release tests passed and all required metadata fields
+survived minification. The downloaded APK has versionCode 198, a valid ZIP and
+signature, and the same signing certificate as v0.45.12. Install over the
+existing app, then run **Scan SMS inbox** once. v0.45.13 was withdrawn after
+artifact verification found its SMS metadata removed by R8; it was not sent
+as a verified release notification. Invalid older metadata now falls back
+without blocking queued transactions. Physical-device UI validation was unavailable.
