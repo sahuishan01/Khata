@@ -9,6 +9,13 @@ use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
 
 use super::models::*;
 
+// A review suggestion only: repeated payments without references can be legitimate.
+const MATCHING_RECORD: &str = "d.user_id = t.user_id AND d.id <> t.id AND NOT d.deleted \
+    AND d.bank = t.bank AND d.value_date = t.value_date AND d.amount = t.amount \
+    AND d.direction = t.direction AND d.description = t.description \
+    AND d.bank_ref IS NOT DISTINCT FROM t.bank_ref";
+
+
 pub async fn list_txns(
     State(state): State<AppState>,
     CurrentUser(user_id): CurrentUser,
@@ -28,15 +35,16 @@ pub async fn list_txns(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let (total,): (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(*) FROM transactions
+        &format!(r#"SELECT COUNT(*) FROM transactions t
            WHERE user_id = $1 AND NOT deleted
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
              AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
-             AND ($6::text IS NULL OR bank = $6)"#,
+             AND ($6::text IS NULL OR bank = $6)
+             AND (NOT $7 OR EXISTS (SELECT 1 FROM transactions d WHERE {MATCHING_RECORD}))"#),
     )
-    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search).bind(&bank_filter)
+    .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search).bind(&bank_filter).bind(params.duplicates_only.unwrap_or(false))
     .fetch_one(&mut *tx).await?;
 
     // Whitelist-validated sort — safe to interpolate
@@ -56,25 +64,64 @@ pub async fn list_txns(
     let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
                   amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
-                  rev, base_rev, deleted, updated_at, client_id
-           FROM transactions
+                  rev, base_rev, deleted, updated_at, client_id,
+                  EXISTS (SELECT 1 FROM transactions d WHERE {MATCHING_RECORD}) AS possible_duplicate
+           FROM transactions t
            WHERE user_id = $1 AND NOT deleted
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
              AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
              AND ($6::text IS NULL OR bank = $6)
+             AND (NOT $7 OR EXISTS (SELECT 1 FROM transactions d WHERE {MATCHING_RECORD}))
            ORDER BY {sort_col} {sort_dir}{secondary}
-           LIMIT $7 OFFSET $8"#
+           LIMIT $8 OFFSET $9"#
     );
     let data = sqlx::query_as::<_, TxnRow>(&sql)
         .bind(user_id).bind(&category_filter).bind(date_from).bind(date_to).bind(&search).bind(&bank_filter)
-        .bind(per_page).bind(offset)
+        .bind(params.duplicates_only.unwrap_or(false)).bind(per_page).bind(offset)
         .fetch_all(&mut *tx).await?;
 
     tx.commit().await?;
 
     Ok(Json(TxnListResponse { data, total, page, per_page }))
+}
+
+/// The user confirms one suggested row is a duplicate. Retain its source identity.
+pub async fn exclude_duplicate(
+    State(state): State<AppState>, CurrentUser(user_id): CurrentUser, Path(txn_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let mut tx = state.db.begin().await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
+    sqlx::query("SELECT id FROM users WHERE id=$1 FOR UPDATE")
+        .bind(user_id).execute(&mut *tx).await?;
+    let canonical: Option<Uuid> = sqlx::query_scalar(&format!(
+        "SELECT d.id FROM transactions t JOIN transactions d ON {MATCHING_RECORD} \
+         WHERE t.id=$1 AND t.user_id=$2 AND NOT t.deleted \
+         ORDER BY d.created_at,d.id LIMIT 1"
+    )).bind(txn_id).bind(user_id).fetch_optional(&mut *tx).await?;
+    let canonical = canonical.ok_or_else(|| AppError::BadRequest("No matching transaction remains; refresh the list".into()))?;
+    // Keep every older alias attached to a live root when reviewing a group of 3+.
+    sqlx::query("UPDATE transactions SET duplicate_of=$1,rev=rev+1,version=version+1,updated_at=now() WHERE duplicate_of=$2 AND user_id=$3")
+        .bind(canonical).bind(txn_id).bind(user_id).execute(&mut *tx).await?;
+    sqlx::query("UPDATE transactions SET duplicate_of=$1,deleted=true,rev=rev+1,version=version+1,updated_at=now() WHERE id=$2 AND user_id=$3")
+        .bind(canonical).bind(txn_id).bind(user_id).execute(&mut *tx).await?;
+    tx.commit().await?;
+    tracing::info!(%user_id, %txn_id, "Excluded user-confirmed duplicate");
+    Ok(Json(serde_json::json!({"message":"Duplicate excluded. The matching transaction is still included."})))
+}
+
+pub async fn restore_duplicate(
+    State(state): State<AppState>, CurrentUser(user_id): CurrentUser, Path(txn_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let mut tx = state.db.begin().await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
+    let result = sqlx::query("UPDATE transactions SET duplicate_of=NULL,deleted=false,rev=rev+1,version=version+1,updated_at=now() WHERE id=$1 AND user_id=$2 AND duplicate_of IS NOT NULL")
+        .bind(txn_id).bind(user_id).execute(&mut *tx).await?;
+    if result.rows_affected() == 0 { return Err(AppError::NotFound); }
+    tx.commit().await?;
+    tracing::info!(%user_id, %txn_id, "Restored excluded duplicate");
+    Ok(Json(serde_json::json!({"message":"Transaction restored"})))
 }
 
 pub async fn get_dashboard(

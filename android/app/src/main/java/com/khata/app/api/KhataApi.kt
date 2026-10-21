@@ -29,11 +29,14 @@ interface KhataApi {
         @Query("page") page: Int = 1, @Query("per_page") perPage: Int = 50,
         @Query("sort_by") sortBy: String = "date", @Query("sort_dir") sortDir: String = "desc",
         @Query("category") category: String? = null,
-        @Query("from") from: String? = null, @Query("to") to: String? = null
+        @Query("from") from: String? = null, @Query("to") to: String? = null,
+        @Query("duplicates_only") duplicatesOnly: Boolean = false
     ): TxnListResponse
     @GET("api/txns/categories") suspend fun listCategories(): List<String>
     @POST("api/txns") suspend fun createTxn(@Body body: CreateTxnReq): TxnRow
     @PATCH("api/txns/{id}/transfer") suspend fun toggleTransfer(@Path("id") id: String, @Body body: ToggleTransferReq): MessageResponse
+    @POST("api/txns/{id}/duplicate") suspend fun excludeDuplicate(@Path("id") id: String): MessageResponse
+    @POST("api/txns/{id}/restore") suspend fun restoreDuplicate(@Path("id") id: String): MessageResponse
     @PATCH("api/txns/{id}/notes") suspend fun updateNotes(@Path("id") id: String, @Body body: UpdateNotesReq): MessageResponse
     @PUT("api/txns/{id}/category") suspend fun updateCategory(@Path("id") id: String, @Body body: Map<String, String>): Map<String, Any>
 

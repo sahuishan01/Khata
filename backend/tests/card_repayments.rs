@@ -371,3 +371,41 @@ async fn identity_backfill_is_atomic_tenant_scoped_and_advances_revisions(pool: 
         .fetch_one(&pool).await.unwrap();
     assert!(forced);
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn duplicate_review_requires_confirmation_is_tenant_scoped_and_can_be_undone(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let other = user(&pool).await;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![
+        op("Repeated payment", "debit", 10000.0), op("Repeated payment", "debit", 10000.0),
+        op("Repeated payment", "debit", 10000.0), op("A separate payee", "debit", 10000.0),
+    ])).await.unwrap();
+    let list = handlers::list_txns(State(app.clone()), CurrentUser(owner), Query(
+        serde_json::from_value(serde_json::json!({"duplicates_only":true})).unwrap()
+    )).await.unwrap().0;
+    assert_eq!(list.total, 3);
+    assert!(list.data.iter().all(|r| r.possible_duplicate));
+    let first = list.data[0].id;
+    assert!(handlers::exclude_duplicate(State(app.clone()), CurrentUser(other), axum::extract::Path(first)).await.is_err());
+    handlers::exclude_duplicate(State(app.clone()), CurrentUser(owner), axum::extract::Path(first)).await.unwrap();
+    assert!(handlers::restore_duplicate(State(app.clone()), CurrentUser(other), axum::extract::Path(first)).await.is_err());
+    // Excluding the chosen root of another alias must reparent that alias.
+    let mut tx = pool.begin().await.unwrap();
+    khata::db::set_current_user(&mut *tx, owner).await.unwrap();
+    let root: Uuid = sqlx::query_scalar("SELECT duplicate_of FROM transactions WHERE id=$1")
+        .bind(first).fetch_one(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    handlers::exclude_duplicate(State(app.clone()), CurrentUser(owner), axum::extract::Path(root)).await.unwrap();
+    let list = handlers::list_txns(State(app.clone()), CurrentUser(owner), Query(
+        serde_json::from_value(serde_json::json!({})).unwrap()
+    )).await.unwrap().0;
+    assert_eq!(list.total, 2);
+    assert!(list.data.iter().all(|r| !r.possible_duplicate));
+    let last = list.data.iter().find(|r| r.description == "Repeated payment").unwrap().id;
+    assert!(handlers::exclude_duplicate(State(app.clone()), CurrentUser(owner), axum::extract::Path(last)).await.is_err());
+    handlers::restore_duplicate(State(app.clone()), CurrentUser(owner), axum::extract::Path(first)).await.unwrap();
+    handlers::restore_duplicate(State(app.clone()), CurrentUser(owner), axum::extract::Path(root)).await.unwrap();
+    let dashboard = handlers::get_dashboard(State(app), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(dashboard.total_spent, 40000.0);
+}

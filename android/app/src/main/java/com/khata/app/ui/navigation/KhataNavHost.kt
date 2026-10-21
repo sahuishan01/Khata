@@ -231,6 +231,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.Transactions.route) {
                 val filterState by viewModel.txnFilterState.collectAsState()
+                val lastExcludedDuplicateId by viewModel.lastExcludedDuplicateId.collectAsState()
                 TransactionsScreen(
                     txnState = txnState.txns ?: cachedTxnsState,
                     deviceSyncStatus = {
@@ -240,6 +241,10 @@ fun KhataNavHost(themeManager: ThemeManager) {
                     isLoading = txnState.isLoading,
                     error = txnState.error,
                     filter = filterState,
+                    onFilterChange = viewModel::updateTxnFilter,
+                    lastExcludedDuplicateId = lastExcludedDuplicateId,
+                    onExcludeDuplicate = viewModel::excludeDuplicate,
+                    onRestoreDuplicate = viewModel::restoreDuplicate,
                     onLoad = { s, d, c, f, t, p ->
                         viewModel.loadTransactions(s, d, c, f, t, p)
                     },

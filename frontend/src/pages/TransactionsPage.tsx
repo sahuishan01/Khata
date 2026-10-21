@@ -9,7 +9,7 @@ import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 interface TxnRow {
   id: string; value_date: string; description: string
   amount: number; direction: string; bank: string; category: string
-  is_transfer: boolean; notes: string; bank_ref?: string
+  is_transfer: boolean; possible_duplicate?: boolean; notes: string; bank_ref?: string
 }
 interface TxnList { data: TxnRow[]; total: number; page: number; per_page: number }
 
@@ -69,12 +69,16 @@ export function TransactionsPage() {
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const requestId = useRef(0)
+  const [duplicatesOnly, setDuplicatesOnly] = useState(false)
+  const [undoDuplicateId, setUndoDuplicateId] = useState<string | null>(null)
+  const [duplicateBusy, setDuplicateBusy] = useState(false)
 
   const categoryFilter = searchParams.get('category') ?? ''
 
   const fetchPage = useCallback((p: number) => {
     const request = ++requestId.current
     const params = new URLSearchParams({ page: String(p), per_page: '50', sort_by: sortBy, sort_dir: sortDir })
+    if (duplicatesOnly) params.set('duplicates_only', 'true')
     if (categoryFilter) params.set('category', categoryFilter)
     if (searchQuery) params.set('search', searchQuery)
     const { from, to } = getDateRange(datePreset, customFrom, customTo)
@@ -88,7 +92,7 @@ export function TransactionsPage() {
     }).catch(() => {
       if (request === requestId.current) setRefreshError('Could not refresh transactions. Retrying automatically…')
     })
-  }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery])
+  }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery, duplicatesOnly])
 
   useVisibleRefresh(() => fetchPage(page))
 
@@ -140,10 +144,41 @@ export function TransactionsPage() {
     } catch { setRefreshError('Could not save the transaction change. Please retry.') }
   }
 
+  const excludeDuplicate = async (t: TxnRow) => {
+    if (!window.confirm(`Exclude this duplicate entry for ${t.description}, ${formatINR(t.amount)}, ${formatDate(t.value_date)}? Only confirm if it is the same payment as the matching record. You can undo this.`)) return
+    setDuplicateBusy(true)
+    try {
+      await api.post(`/txns/${t.id}/duplicate`)
+      setUndoDuplicateId(t.id)
+      await fetchPage(page)
+    } catch { setRefreshError('Could not exclude the duplicate. Refresh and try again.') }
+    finally { setDuplicateBusy(false) }
+  }
+  const undoDuplicate = async () => {
+    if (!undoDuplicateId) return
+    setDuplicateBusy(true)
+    try {
+      await api.post(`/txns/${undoDuplicateId}/restore`)
+      setUndoDuplicateId(null)
+      await fetchPage(page)
+    } catch { setRefreshError('Could not restore the transaction. Please retry.') }
+    finally { setDuplicateBusy(false) }
+  }
+  const duplicateAction = (t: TxnRow) => t.possible_duplicate && (
+    <button className="btn btn-secondary btn-sm" disabled={duplicateBusy}
+      onClick={e => { e.stopPropagation(); void excludeDuplicate(t) }}>Exclude duplicate…</button>
+  )
+
   const totalPages = list ? Math.ceil(list.total / list.per_page) : 1
 
   return (
     <div>
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <input type="checkbox" checked={duplicatesOnly} onChange={e => { setDuplicatesOnly(e.target.checked); setPage(1) }} />
+        Possible duplicates
+      </label>
+      {duplicatesOnly && <p role="status" className="text-muted">These rows share a bank, date, payee, amount and reference (when available). Repeated payments may be legitimate. Expand a row to exclude only a confirmed duplicate.</p>}
+      {undoDuplicateId && <p role="status">Duplicate excluded. <button className="btn btn-secondary btn-sm" disabled={duplicateBusy} onClick={() => void undoDuplicate()}>Undo</button></p>}
       {/* Header */}
       <div className="flex items-center justify-between mb-4" style={{ flexWrap: 'wrap', gap: 10 }}>
         <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
@@ -292,6 +327,7 @@ export function TransactionsPage() {
                       </td>
                       <td className="txn-desc" style={{ color: 'var(--text)' }}>
                         {t.description}
+                        {t.possible_duplicate && <span className="badge badge-gray" style={{ marginLeft: 6 }}>Possible duplicate</span>}
                         {t.notes && <span style={{ fontSize: 11, color: 'var(--text-2)', marginLeft: 6 }}>📝</span>}
                       </td>
                       <td style={{
@@ -327,9 +363,11 @@ export function TransactionsPage() {
                     {expandedId === t.id && (
                       <tr className="txn-expanded">
                         <td colSpan={5} style={{ padding: '10px 12px', background: 'var(--surface-2)' }}>
+                          {duplicateAction(t)}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
                             <div><span style={{ color: 'var(--text-muted)' }}>Amount: </span><span style={{ fontWeight: 600, color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)' }}>{formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}</span></div>
-                            <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
+                            {duplicateAction(t)}
+                    <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
                             <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
                             <div><span style={{ color: 'var(--text-muted)' }}>Date: </span><span>{formatDate(t.value_date)}</span></div>
                             <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
@@ -374,6 +412,7 @@ export function TransactionsPage() {
                     }}>
                       {t.description}
                     </div>
+                    {t.possible_duplicate && <span className="badge badge-gray">Possible duplicate</span>}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                         {formatDate(t.value_date)}
@@ -394,6 +433,7 @@ export function TransactionsPage() {
                 </div>
                 {expandedId === t.id && (
                   <div style={{ padding: '8px 14px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12 }}>
+                    {duplicateAction(t)}
                     <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
