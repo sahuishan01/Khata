@@ -41,3 +41,17 @@ Build backend and web artifacts in the existing Backend Tests workflow. Signed
 APKs use the existing Build Android APK workflow. Deploy verified artifacts only,
 with a fresh encrypted database backup; retain source rows rather than deleting
 lookalikes in bulk.
+
+Verified deployment on 2026-10-21: backend and web artifacts from
+[Backend Tests run 39539446022](https://github.com/sahuishan01/Khata/actions/runs/39539446022)
+passed 175 backend tests (one ignored), Clippy and the web build. Browser checks
+passed on desktop and mobile layouts, including automatic refresh and review/undo.
+Production checks verified summary totals, retained sync tombstones, authentication,
+row-level security and public asset hashes after an encrypted database backup.
+
+[v0.45.12](https://github.com/sahuishan01/Khata/releases/tag/v0.45.12) passed 31 Android
+release unit tests in
+[run 39540420171](https://github.com/sahuishan01/Khata/actions/runs/39540420171).
+The downloaded APK has version code 196 and matches the v0.45.10 signing certificate;
+its ZIP integrity and expected feature code were verified. Physical-device UI
+validation was unavailable. Backend/web sources match the release tag.
