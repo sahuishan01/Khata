@@ -87,6 +87,7 @@ $$;
 CREATE FUNCTION is_card_funding_pair(f transactions,r transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
     SELECT f.user_id=r.user_id AND f.id<>r.id AND f.amount=r.amount AND f.amount>0
         AND is_card_funding(f) AND is_card_receipt(r) AND abs(f.value_date-r.value_date)<=2
+        AND r.sms_source->>'payment_role' IS DISTINCT FROM 'card_confirmation'
         AND f.sms_source->>'received_at' IS NOT NULL AND r.sms_source->>'received_at' IS NOT NULL
         AND abs((f.sms_source->>'received_at')::bigint-(r.sms_source->>'received_at')::bigint)<=600000;
 $$;

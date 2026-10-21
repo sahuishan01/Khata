@@ -821,3 +821,18 @@ async fn restored_sms_exclusions_are_not_reapplied_when_provenance_changes(pool:
     handlers::sync_push(State(app),CurrentUser(owner),Json(vec![rescan])).await.unwrap();
     assert!(identity_rows(&pool,owner).await.iter().all(|r|!r.1));
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn explicit_confirmations_near_the_receipt_do_not_look_like_a_second_payment(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let time=chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();let key="d".repeat(64);
+    for (i,offset) in [-2000_i64,30_000].iter().enumerate() {
+        let amount=701.0+i as f64;
+        let funding=overlap_op("CRED Club","debit",amount,time,None,None);
+        let receipt=overlap_op("Credit card payment received","credit",amount,time+3000,Some("card_receipt"),Some(&key));
+        let confirmation=overlap_op("Credit card payment received","credit",amount,time+3000+offset,Some("card_confirmation"),Some(&key));
+        handlers::sync_push(State(app.clone()),CurrentUser(owner),Json(vec![confirmation,receipt,funding])).await.unwrap();
+    }
+    let rows=identity_rows(&pool,owner).await;assert_eq!(rows.len(),6);
+    assert_eq!(rows.iter().filter(|r|r.1).count(),2);assert_eq!(rows.iter().filter(|r|!r.1 && r.2).count(),4);
+}
