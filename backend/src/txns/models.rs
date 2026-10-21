@@ -293,6 +293,8 @@ pub struct SmsSource {
     pub parsed_date: NaiveDate,
     pub previous_txn_date: Option<NaiveDate>,
     pub previous_value_date: Option<NaiveDate>,
+    pub payment_role: Option<String>,
+    pub card_account_key: Option<String>,
 }
 
 impl SmsSource {
@@ -302,6 +304,8 @@ impl SmsSource {
         let received_valid = self.received_at.is_none_or(|t|
             (946684800000..=chrono::Utc::now().timestamp_millis() + 300_000).contains(&t));
         if !(0..=1).contains(&self.parser_version) || !hash_valid || !received_valid
+            || self.payment_role.as_deref().is_some_and(|role| !matches!(role, "card_receipt" | "card_confirmation"))
+            || self.card_account_key.as_ref().is_some_and(|key| key.len() != 64 || !key.bytes().all(|c| c.is_ascii_hexdigit()))
             || !matches!(self.date_source.as_str(), "body" | "message" | "queue")
             || self.event_key.as_ref().is_some_and(|key| self.body_hash.as_ref() != Some(key))
         {

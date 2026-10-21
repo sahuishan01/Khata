@@ -567,3 +567,104 @@ async fn sms_hash_does_not_override_distinct_references_and_invalid_provenance_i
     assert!(handlers::sync_push(State(app), CurrentUser(owner), Json(vec![invalid])).await.is_err());
     assert_eq!(identity_rows(&pool, owner).await.len(), 2);
 }
+
+fn overlap_op(description: &str, direction: &str, amount: f64, time: i64, role: Option<&str>, key: Option<&str>) -> SyncPushOp {
+    let mut row = bank_op("HDFC", None, direction, amount);
+    row.description = Some(description.into());
+    let mut source = sms_source(time, false);
+    source.payment_role = role.map(str::to_string);
+    source.card_account_key = key.map(str::to_string);
+    row.sms_source = Some(source);
+    row
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn reported_cred_triplets_are_transfers_with_reviewable_later_confirmations(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    for amount in [7777.0,3151.0] {
+        let funding = overlap_op("CRED Club", "debit", amount, time, None, None);
+        let receipt = overlap_op("Credit card payment received", "credit", amount, time+3000, None, None);
+        let later = overlap_op("Transaction", "credit", amount, time+86_400_000, None, None);
+        let later_id = later.client_id;
+        handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![later,receipt,funding])).await.unwrap();
+        let params = serde_json::from_value(serde_json::json!({"duplicates_only":true})).unwrap();
+        let candidates = handlers::list_txns(State(app.clone()), CurrentUser(owner), Query(params)).await.unwrap().0;
+        let candidate = candidates.data.iter().find(|r| r.client_id==Some(later_id)).unwrap();
+        handlers::exclude_duplicate(State(app.clone()), CurrentUser(owner), axum::extract::Path(candidate.id)).await.unwrap();
+    }
+    let rows=identity_rows(&pool,owner).await;
+    assert_eq!(rows.len(),6);
+    assert_eq!(rows.iter().filter(|r| r.1).count(),2);
+    assert_eq!(rows.iter().filter(|r| !r.1 && r.2).count(),4);
+    let dashboard=handlers::get_dashboard(State(app.clone()),CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(dashboard.total_spent,0.0); assert_eq!(dashboard.total_earned,0.0);
+    let other=user(&pool).await;
+    let params=serde_json::from_value(serde_json::json!({"duplicates_only":true})).unwrap();
+    assert_eq!(handlers::list_txns(State(app),CurrentUser(other),Query(params)).await.unwrap().0.total,0);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn card_confirmation_keys_require_one_funding_and_distinct_receipt_roles(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let time=chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let key="b".repeat(64);
+    let funding=overlap_op("CRED Club","debit",7777.0,time,None,None);
+    let receipt=overlap_op("Credit card payment received","credit",7777.0,time+3000,Some("card_receipt"),Some(&key));
+    let confirmation=overlap_op("Credit card payment received","credit",7777.0,time+86_400_000,Some("card_confirmation"),Some(&key));
+    handlers::sync_push(State(app.clone()),CurrentUser(owner),Json(vec![confirmation,receipt,funding])).await.unwrap();
+    let rows=identity_rows(&pool,owner).await;
+    assert_eq!(rows.iter().filter(|r| r.1).count(),1);
+    assert_eq!(rows.iter().filter(|r| !r.1 && r.2).count(),2);
+    // Another card and another received-payment alert must remain separate.
+    let other=overlap_op("Credit card payment received","credit",7777.0,time+5000,Some("card_receipt"),Some(&"c".repeat(64)));
+    handlers::sync_push(State(app),CurrentUser(owner),Json(vec![other])).await.unwrap();
+    assert_eq!(identity_rows(&pool,owner).await.iter().filter(|r| r.1).count(),1);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn ambiguous_cred_funding_is_not_merged_even_when_it_arrives_last_in_the_batch(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let time=chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();let key="b".repeat(64);
+    let receipt=overlap_op("Credit card payment received","credit",7777.0,time,Some("card_receipt"),Some(&key));
+    let confirmation=overlap_op("Credit card payment received","credit",7777.0,time+86_400_000,Some("card_confirmation"),Some(&key));
+    let first=overlap_op("CRED Club","debit",7777.0,time,None,None);
+    let second=overlap_op("CRED Club","debit",7777.0,time+3000,None,None);
+    handlers::sync_push(State(app),CurrentUser(owner),Json(vec![receipt,confirmation,first,second])).await.unwrap();
+    let rows=identity_rows(&pool,owner).await;
+    assert!(rows.iter().all(|r| !r.1));
+    assert_eq!(rows.iter().filter(|r| r.2).count(),2,"Only explicit card receipts are transfers");
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn cred_purchases_distant_receipts_and_manual_transfer_choices_are_preserved(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let time=chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let funding=overlap_op("CRED Club","debit",500.0,time,None,None);let funding_id=funding.client_id;
+    let distant=overlap_op("Credit card payment received","credit",500.0,time+86_400_000,None,None);
+    handlers::sync_push(State(app.clone()),CurrentUser(owner),Json(vec![funding,distant])).await.unwrap();
+    assert!(!identity_rows(&pool,owner).await.iter().find(|r| r.0==funding_id).unwrap().2);
+    let query=serde_json::from_value(serde_json::json!({})).unwrap();
+    let listed=handlers::list_txns(State(app.clone()),CurrentUser(owner),Query(query)).await.unwrap().0;
+    let id=listed.data.iter().find(|r| r.client_id==Some(funding_id)).unwrap().id;
+    handlers::toggle_transfer(State(app.clone()),CurrentUser(owner),axum::extract::Path(id),Json(handlers::ToggleTransferReq{is_transfer:false})).await.unwrap();
+    let receipt=overlap_op("Credit card payment received","credit",500.0,time+3000,None,None);
+    handlers::sync_push(State(app),CurrentUser(owner),Json(vec![receipt])).await.unwrap();
+    assert!(!identity_rows(&pool,owner).await.iter().find(|r| r.0==funding_id).unwrap().2);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn transaction_pages_have_a_stable_order_with_identical_sort_and_creation_values(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let operations=(0..125).map(|_| bank_op("HDFC",None,"debit",1.0)).collect();
+    handlers::sync_push(State(app.clone()),CurrentUser(owner),Json(operations)).await.unwrap();
+    for sort in ["date","amount","description","category"] {
+        let mut ids=Vec::new();
+        for page in 1..=3 {
+            let params=serde_json::from_value(serde_json::json!({"page":page,"per_page":50,"sort_by":sort})).unwrap();
+            let result=handlers::list_txns(State(app.clone()),CurrentUser(owner),Query(params)).await.unwrap().0;
+            assert_eq!(result.total,125);ids.extend(result.data.into_iter().map(|r|r.id));
+        }
+        ids.sort();ids.dedup();assert_eq!(ids.len(),125,"{sort} must neither repeat nor skip tied records");
+    }
+}

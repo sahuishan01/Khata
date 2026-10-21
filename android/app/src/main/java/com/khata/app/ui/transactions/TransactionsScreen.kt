@@ -10,6 +10,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,6 +73,10 @@ fun TransactionsScreen(
     categories: List<String>,
     isLoading: Boolean,
     error: String?,
+    isLoadingMore: Boolean = false,
+    hasMore: Boolean = false,
+    moreError: String? = null,
+    onLoadMore: () -> Unit = {},
     filter: TxnFilter = TxnFilter(),
     onFilterChange: (TxnFilter) -> Unit = {},
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?, preset: Int) -> Unit,
@@ -87,20 +95,19 @@ fun TransactionsScreen(
     var showCustomDatePicker by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-
-    // Local search filter — filters cached data without server request
-    val filteredData = remember(txnState, searchQuery) {
-        if (searchQuery.isBlank() || txnState == null) txnState
-        else {
-            val q = searchQuery.uppercase()
-            val filtered = txnState!!.data.filter { txn ->
-                txn.description.uppercase().contains(q) ||
-                txn.category.uppercase().contains(q) ||
-                (txn.notes.uppercase().contains(q))
+    var searchQuery by remember(filter.search) { mutableStateOf(filter.search) }
+    val filteredData = txnState
+    val listState = rememberLazyListState()
+    LaunchedEffect(searchQuery) {
+        delay(300)
+        if (searchQuery != filter.search) onFilterChange(filter.copy(search = searchQuery))
+    }
+    LaunchedEffect(filter) { listState.scrollToItem(0) }
+    LaunchedEffect(listState, hasMore, isLoading, isLoadingMore, moreError, txnState?.page) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged().collect { last ->
+                if (last >= (txnState?.data?.size ?: 0) - 8 && hasMore && !isLoading && !isLoadingMore && moreError == null) onLoadMore()
             }
-            txnState!!.copy(data = filtered, total = filtered.size)
-        }
     }
 
     val fmt = DateTimeFormatter.ISO_LOCAL_DATE
@@ -194,7 +201,7 @@ fun TransactionsScreen(
             label = { Text("Possible duplicates") }
         )
         if (filter.duplicatesOnly) {
-            Text("Matching bank, date, payee, amount and reference (when available). Repeated payments may be legitimate. Exclude only confirmed duplicates.",
+            Text("Matching records or card confirmations linked to a CRED debit. Repeated payments may be legitimate. Exclude only confirmed duplicates.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (lastExcludedDuplicateId != null) {
@@ -348,8 +355,17 @@ fun TransactionsScreen(
                 Text("${filteredData?.total ?: 0} transactions", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
 
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory, onExcludeDuplicate = onExcludeDuplicate) }
+                    item(key = "pagination") {
+                        when {
+                            isLoadingMore -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp)) }
+                            moreError != null -> TextButton(onClick = onLoadMore, modifier = Modifier.fillMaxWidth()) { Text(moreError) }
+                            hasMore -> TextButton(onClick = onLoadMore, modifier = Modifier.fillMaxWidth()) { Text("Load more transactions") }
+                            else -> Text("All ${txns.size} transactions loaded", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
                 }
             }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, Fragment } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { CategoryEditor } from '../components/CategoryEditor'
 import { formatINR, formatDate } from '../utils/format'
@@ -56,7 +56,11 @@ export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [list, setList]             = useState<TxnList | null>(null)
   const [categories, setCategories] = useState<string[]>([])
-  const [page, setPage]             = useState(1)
+  const loadedPage = useRef(1)
+  const busy = useRef(false)
+  const sentinel = useRef<HTMLDivElement>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreError, setMoreError] = useState<string | null>(null)
   const [sortBy, setSortBy]         = useState<SortBy>('date')
   const [sortDir, setSortDir]       = useState<SortDir>('desc')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
@@ -75,26 +79,71 @@ export function TransactionsPage() {
 
   const categoryFilter = searchParams.get('category') ?? ''
 
-  const fetchPage = useCallback((p: number) => {
+  const fetchPage = useCallback(async (p: number, append = false, checkOnly = false) => {
+    if ((append || checkOnly) && busy.current) return
     const request = ++requestId.current
-    const params = new URLSearchParams({ page: String(p), per_page: '50', sort_by: sortBy, sort_dir: sortDir })
+    busy.current = true
+    if (append) { setLoadingMore(true); setMoreError(null) }
+    const params = new URLSearchParams({ per_page: '50', sort_by: sortBy, sort_dir: sortDir })
     if (duplicatesOnly) params.set('duplicates_only', 'true')
     if (categoryFilter) params.set('category', categoryFilter)
     if (searchQuery) params.set('search', searchQuery)
     const { from, to } = getDateRange(datePreset, customFrom, customTo)
     if (from) params.set('from', from)
-    if (to)   params.set('to', to)
-    return api.get<TxnList>(`/txns?${params}`).then(r => {
-      if (request !== requestId.current) return
-      setList(r.data)
-      setRefreshError(null)
-      setLastUpdated(new Date())
-    }).catch(() => {
-      if (request === requestId.current) setRefreshError('Could not refresh transactions. Retrying automatically…')
-    })
+    if (to) params.set('to', to)
+    try {
+      let rows: TxnRow[] = []
+      let response: TxnList | null = null
+      let last = checkOnly ? 1 : p
+      for (let current = append ? p : 1; current <= last; current++) {
+        params.set('page', String(current))
+        response = (await api.get<TxnList>(`/txns?${params}`)).data
+        if (request !== requestId.current) return
+        rows = rows.concat(response.data)
+        if (checkOnly && current === 1) {
+          // Polling an unchanged first page keeps the loaded history and scroll position.
+          const previous = listRef.current
+          if (previous && previous.total === response.total &&
+              JSON.stringify(previous.data.slice(0, response.per_page)) === JSON.stringify(response.data)) {
+            setRefreshError(null); setLastUpdated(new Date()); return
+          }
+          last = loadedPage.current
+        }
+        if (response.data.length === 0 || current * response.per_page >= response.total) break
+      }
+      if (!response) return
+      const result = response
+      setList(previous => ({ ...result, data: [...new Map(
+        (append ? [...(previous?.data ?? []), ...rows] : rows).map(t => [t.id, t] as const)
+      ).values()] }))
+      loadedPage.current = response.page
+      setRefreshError(null); setMoreError(null); setLastUpdated(new Date())
+    } catch {
+      if (request === requestId.current) {
+        if (append) setMoreError('Could not load more transactions. Retry.')
+        else setRefreshError('Could not refresh transactions. Retrying automatically…')
+      }
+    } finally {
+      if (request === requestId.current) { busy.current = false; setLoadingMore(false) }
+    }
   }, [sortBy, sortDir, categoryFilter, datePreset, customFrom, customTo, searchQuery, duplicatesOnly])
 
-  useVisibleRefresh(() => fetchPage(page))
+  const listRef = useRef<TxnList | null>(null)
+  listRef.current = list
+  useVisibleRefresh(() => fetchPage(loadedPage.current, false, true))
+  const hasMore = !!list && list.page * list.per_page < list.total
+  const loadMore = useCallback(() => {
+    if (!busy.current && hasMore) void fetchPage(loadedPage.current + 1, true)
+  }, [fetchPage, hasMore])
+  useEffect(() => {
+    const node = sentinel.current
+    if (!node || !hasMore || moreError || loadingMore || !('IntersectionObserver' in window)) return
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) loadMore()
+    }, { rootMargin: '400px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [loadMore, hasMore, moreError, loadingMore, list?.page])
 
   useEffect(() => {
     Promise.all([
@@ -109,8 +158,10 @@ export function TransactionsPage() {
   }, [])
 
   useEffect(() => {
-    void fetchPage(page)
-  }, [page, fetchPage])
+    loadedPage.current = 1
+    setList(null); setMoreError(null)
+    void fetchPage(1)
+  }, [fetchPage])
 
   const handleSort = (col: SortBy) => {
     if (col === sortBy) {
@@ -120,13 +171,12 @@ export function TransactionsPage() {
       setSortBy(col)
       setSortDir(col === 'amount' ? 'desc' : col === 'date' ? 'desc' : 'asc')
     }
-    setPage(1)
   }
 
   const handleCategoryUpdate = (txnId: string, newCat: string) => {
     setList(l => l ? { ...l, data: l.data.map(t => t.id === txnId ? { ...t, category: newCat } : t) } : l)
     api.get<string[]>('/txns/categories').then(r => setCategories(r.data))
-    setTimeout(() => fetchPage(page), 1500)
+    setTimeout(() => fetchPage(loadedPage.current), 1500)
   }
 
   const toggleTransfer = async (id: string, val: boolean) => {
@@ -150,7 +200,7 @@ export function TransactionsPage() {
     try {
       await api.post(`/txns/${t.id}/duplicate`)
       setUndoDuplicateId(t.id)
-      await fetchPage(page)
+      await fetchPage(loadedPage.current)
     } catch { setRefreshError('Could not exclude the duplicate. Refresh and try again.') }
     finally { setDuplicateBusy(false) }
   }
@@ -160,7 +210,7 @@ export function TransactionsPage() {
     try {
       await api.post(`/txns/${undoDuplicateId}/restore`)
       setUndoDuplicateId(null)
-      await fetchPage(page)
+      await fetchPage(loadedPage.current)
     } catch { setRefreshError('Could not restore the transaction. Please retry.') }
     finally { setDuplicateBusy(false) }
   }
@@ -169,29 +219,28 @@ export function TransactionsPage() {
       onClick={e => { e.stopPropagation(); void excludeDuplicate(t) }}>Exclude duplicate…</button>
   )
 
-  const totalPages = list ? Math.ceil(list.total / list.per_page) : 1
 
   return (
     <div>
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-        <input type="checkbox" checked={duplicatesOnly} onChange={e => { setDuplicatesOnly(e.target.checked); setPage(1) }} />
+        <input type="checkbox" checked={duplicatesOnly} onChange={e => { setDuplicatesOnly(e.target.checked); loadedPage.current = 1 }} />
         Possible duplicates
       </label>
-      {duplicatesOnly && <p role="status" className="text-muted">These rows share a bank, date, payee, amount and reference (when available). Repeated payments may be legitimate. Expand a row to exclude only a confirmed duplicate.</p>}
+      {duplicatesOnly && <p role="status" className="text-muted">Suggestions include matching records and card payment confirmations linked to a CRED debit. Repeated payments may be legitimate. Expand a row to exclude only a confirmed duplicate.</p>}
       {undoDuplicateId && <p role="status">Duplicate excluded. <button className="btn btn-secondary btn-sm" disabled={duplicateBusy} onClick={() => void undoDuplicate()}>Undo</button></p>}
       {/* Header */}
       <div className="flex items-center justify-between mb-4" style={{ flexWrap: 'wrap', gap: 10 }}>
         <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
           <h1 className="page-title">Transactions</h1>
           {list && <span className="badge badge-gray">{list.total.toLocaleString()} total</span>}
-          <button className="btn btn-secondary btn-sm" onClick={() => fetchPage(page)}>Refresh</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchPage(loadedPage.current)}>Refresh</button>
           {lastUpdated && <span style={{ color: 'var(--text-2)', fontSize: 11 }}>Updated {lastUpdated.toLocaleTimeString()} · refreshes every 15s</span>}
           {refreshError && <span role="status" style={{ color: 'var(--warn)', fontSize: 12 }}>{refreshError}</span>}
           {categoryFilter && (
             <span className="badge badge-purple" style={{ gap: 6 }}>
               {categoryFilter}
               <button
-                onClick={() => { setSearchParams({}); setPage(1) }}
+                onClick={() => { setSearchParams({}); loadedPage.current = 1 }}
                 style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'inherit', lineHeight: 1 }}
                 title="Clear filter"
               >
@@ -208,7 +257,7 @@ export function TransactionsPage() {
             style={{ width: 180, padding: '6px 10px', fontSize: 13 }}
             placeholder="Search payee or ref…"
             value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPage(1) }}
+            onChange={e => { setSearchQuery(e.target.value); loadedPage.current = 1 }}
           />
           <select
             className="form-input"
@@ -216,9 +265,8 @@ export function TransactionsPage() {
             value={categoryFilter}
             onChange={e => {
               const val = e.target.value
-              setPage(1)
-              if (val) setSearchParams({ category: val })
-              else { setSearchParams({}); setPage(1) }
+                        if (val) setSearchParams({ category: val })
+              else { setSearchParams({}); loadedPage.current = 1 }
             }}
           >
             <option value="">All categories</option>
@@ -235,7 +283,7 @@ export function TransactionsPage() {
             value={`${sortBy}-${sortDir}`}
             onChange={e => {
               const [by, dir] = e.target.value.split('-') as [SortBy, SortDir]
-              setSortBy(by); setSortDir(dir); setPage(1)
+              setSortBy(by); setSortDir(dir); loadedPage.current = 1
             }}
           >
             <option value="date-desc">Date: newest first</option>
@@ -256,7 +304,7 @@ export function TransactionsPage() {
             {DATE_PRESETS.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => { setDatePreset(key); setPage(1) }}
+                onClick={() => { setDatePreset(key); loadedPage.current = 1 }}
                 className={datePreset === key ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
                 style={{ padding: '4px 10px', fontSize: 12 }}
               >
@@ -272,7 +320,7 @@ export function TransactionsPage() {
               className="form-input"
               style={{ width: 'auto', padding: '5px 10px', fontSize: 13 }}
               value={customFrom}
-              onChange={e => { setCustomFrom(e.target.value); setPage(1) }}
+              onChange={e => { setCustomFrom(e.target.value); loadedPage.current = 1 }}
             />
             <span style={{ color: 'var(--text-2)', fontSize: 13 }}>to</span>
             <input
@@ -280,7 +328,7 @@ export function TransactionsPage() {
               className="form-input"
               style={{ width: 'auto', padding: '5px 10px', fontSize: 13 }}
               value={customTo}
-              onChange={e => { setCustomTo(e.target.value); setPage(1) }}
+              onChange={e => { setCustomTo(e.target.value); loadedPage.current = 1 }}
             />
           </div>
         )}
@@ -444,23 +492,11 @@ export function TransactionsPage() {
             ))}
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-4">
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              <ChevronLeft size={14} /> Prev
-            </button>
-            <span className="text-muted">Page {page} of {totalPages}</span>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={list.data.length < list.per_page}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Next <ChevronRight size={14} />
-            </button>
+          <div ref={sentinel} className="flex items-center justify-between mt-4" aria-live="polite">
+            <span className="text-muted">{list.data.length} of {list.total} transactions loaded</span>
+            {hasMore && <button className="btn btn-secondary btn-sm" disabled={loadingMore}
+              onClick={loadMore}>{loadingMore ? 'Loading more…' : moreError ?? 'Load more transactions'}</button>}
+            {!hasMore && <span className="text-muted">All transactions loaded</span>}
           </div>
         </>
       )}

@@ -43,7 +43,7 @@ object SmsImport {
             bank = parsed.bank, bankRef = parsed.refNo.orEmpty(), txnDate = date, valueDate = date,
             isTransfer = parsed.isTransfer, notes = "Auto-captured via SMS (${parsed.bank})",
             updatedAt = queuedAt, dirty = true, pendingOp = "CREATE",
-            smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt)),
+            smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt, parsed.direction, parsed.bank)),
         )
     }
 
@@ -52,7 +52,7 @@ object SmsImport {
         if (old.deleted || !old.notes.startsWith("Auto-captured")) return old
         val oldMessageDate = SmsDates.timestampDate(timestamp)
         val previousSource = SmsSource.decode(old.smsSource)
-        val incomingSource = SmsSource.from(body, timestamp, old.updatedAt)
+        val incomingSource = SmsSource.from(body, timestamp, old.updatedAt, parsed.direction, parsed.bank)
         // Another alert for a referenced payment may omit the transaction date.
         // Its receipt day must not replace a known valid date from the earlier alert.
         val source = if (previousSource?.dateSource == "body" && incomingSource.dateSource != "body" &&

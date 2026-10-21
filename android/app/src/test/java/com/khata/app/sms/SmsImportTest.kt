@@ -135,4 +135,20 @@ class SmsImportTest {
         assertTrue(dao.getByClientId(old.clientId)!!.dirty)
         assertEquals(canonical, dao.getByClientId(canonical.clientId))
     }
+    @Test fun bankCardSettlementAndReceiptShareACardKeyWithoutTreatingCredPurchasesAsRepayments() {
+        val receipt = "Payment of INR 7777 received for HDFC Bank Card XX1234 on 15/10/26"
+        val confirmation = "Payment of INR 7777 credited to HDFC Bank Card ending 1234 on 15/10/26"
+        for (text in listOf(receipt, confirmation)) assertTrue(CardTransfers.isRepayment(text, "credit"))
+        val first = SmsSource.from(receipt, timestamp, queued, "credit", "HDFC")
+        val later = SmsSource.from(confirmation, timestamp, queued, "credit", "HDFC")
+        assertEquals("card_receipt", first.paymentRole)
+        assertEquals("card_confirmation", later.paymentRole)
+        assertNotNull(first.cardAccountKey)
+        assertEquals(first.cardAccountKey, later.cardAccountKey)
+        assertNotEquals(first.cardAccountKey, SmsSource.from(confirmation.replace("1234", "9876"), timestamp, queued, "credit", "HDFC").cardAccountKey)
+        assertFalse(CardTransfers.isRepayment("INR 7777 debited to CRED Club", "debit"))
+        assertFalse(CardTransfers.isRepayment("Payment refund credited to HDFC Bank Card XX1234", "credit"))
+        assertFalse(CardTransfers.isRepayment("Payment received for HDFC debit card XX1234", "credit"))
+    }
+
 }
