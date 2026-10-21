@@ -24,7 +24,7 @@ import javax.inject.Inject
 
 data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val mustResetPassword: Boolean = false, val user: MeResponse? = null, val error: String? = null)
 data class DashboardUiState(val stats: DashboardStats? = null, val analysis: AnalysisStats? = null, val isLoading: Boolean = false, val error: String? = null)
-data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null, val preset: Int = 0, val search: String = "")
+data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null, val preset: Int = 0, val search: String = "", val duplicatesOnly: Boolean = false)
 data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class ChatUiState(val messages: List<ChatHistoryResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class UsersUiState(val users: List<UserResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val success: String? = null)
@@ -123,6 +123,9 @@ class MainViewModel @Inject constructor(
         _serverUrl.value = url
     }
 
+    private val _lastExcludedDuplicateId = MutableStateFlow<String?>(null)
+    val lastExcludedDuplicateId: StateFlow<String?> = _lastExcludedDuplicateId.asStateFlow()
+
     fun updateTxnFilter(filter: TxnFilter) { _txnFilterState.value = filter }
 
     fun checkAuth() { viewModelScope.launch {
@@ -157,14 +160,28 @@ class MainViewModel @Inject constructor(
 
     fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null, preset: Int = 0) { viewModelScope.launch { try {
         _txnState.value = _txnState.value.copy(isLoading = true, error = null)
-        _txnFilterState.value = TxnFilter(sortBy, sortDir, category, from, to, preset)
-        val t = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to)
+        _txnFilterState.value = _txnFilterState.value.copy(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to, preset = preset)
+        val t = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to, duplicatesOnly = _txnFilterState.value.duplicatesOnly)
         val txnCats = repository.listCategories()
         val managedCats = try { repository.listCategoriesV2().map { it.name } } catch (_: Exception) { emptyList() }
         val allCats = (txnCats + managedCats).distinct().sorted()
         _txnState.value = TxnUiState(txns = t, categories = allCats)
         _cachedTxns.value = t
     } catch (e: Exception) { _txnState.value = _txnState.value.copy(isLoading = false, error = e.message ?: "Failed") } }}
+
+    fun excludeDuplicate(id: String) { viewModelScope.launch { try {
+        repository.excludeDuplicate(id)
+        _lastExcludedDuplicateId.value = id
+        val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+        refreshDashboard()
+    } catch (_: Exception) { _txnState.value = _txnState.value.copy(error = "Could not exclude duplicate. Refresh and retry.") } } }
+    fun restoreDuplicate() { viewModelScope.launch { try {
+        val id = _lastExcludedDuplicateId.value ?: return@launch
+        repository.restoreDuplicate(id)
+        _lastExcludedDuplicateId.value = null
+        val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+        refreshDashboard()
+    } catch (_: Exception) { _txnState.value = _txnState.value.copy(error = "Could not restore transaction. Please retry.") } } }
 
     fun toggleTransfer(id: String, v: Boolean) { viewModelScope.launch { try {
         repository.toggleTransfer(id, v);

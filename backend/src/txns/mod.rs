@@ -20,6 +20,8 @@ pub fn router() -> Router<AppState> {
         .route("/analytics/detail", get(handlers::get_analytics_detail))
         .route("/analytics/highlights", get(handlers::get_analytics_highlights))
         .route("/categories", get(handlers::list_categories))
+        .route("/:id/duplicate", post(handlers::exclude_duplicate))
+        .route("/:id/restore", post(handlers::restore_duplicate))
         .route("/:id", get(handlers::get_txn))
         .route("/:id/category", put(handlers::update_category))
         .route("/:id/transfer", patch(handlers::toggle_transfer))

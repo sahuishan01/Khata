@@ -47,6 +47,7 @@ data class TxnRow(
     val rev: Long = 0,
     @SerializedName("base_rev") val baseRev: Long = 0,
     val deleted: Boolean = false,
+    @SerializedName("possible_duplicate") val possibleDuplicate: Boolean = false,
     @SerializedName("txn_date") val txnDate: String = valueDate,
     @SerializedName("bank_ref") val bankRef: String? = null,
     val balance: Double? = null,

@@ -47,6 +47,8 @@ pub struct TxnRow {
     pub rev: i64,
     pub base_rev: i64,
     pub deleted: bool,
+    #[sqlx(default)]
+    pub possible_duplicate: bool,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub client_id: Option<Uuid>,
     #[sqlx(default)]
@@ -73,6 +75,7 @@ pub struct CreateTxnReq {
 
 #[derive(Debug, Deserialize)]
 pub struct ListParams {
+    pub duplicates_only: Option<bool>,
     pub page: Option<i64>,
     pub per_page: Option<i64>,
     pub direction: Option<String>,

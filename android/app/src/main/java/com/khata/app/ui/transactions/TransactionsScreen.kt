@@ -75,6 +75,9 @@ fun TransactionsScreen(
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
     onUpdateCategory: ((String, String) -> Unit)? = null,
+    lastExcludedDuplicateId: String? = null,
+    onExcludeDuplicate: (String) -> Unit = {},
+    onRestoreDuplicate: () -> Unit = {},
     deviceSyncStatus: @Composable () -> Unit = {},
 ) {
     var sortBy by remember(filter) { mutableStateOf(filter.sortBy) }
@@ -184,6 +187,22 @@ fun TransactionsScreen(
             trailingIcon = { if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp)) } }
         )
         Spacer(Modifier.height(6.dp))
+
+        FilterChip(
+            selected = filter.duplicatesOnly,
+            onClick = { onFilterChange(filter.copy(duplicatesOnly = !filter.duplicatesOnly)) },
+            label = { Text("Possible duplicates") }
+        )
+        if (filter.duplicatesOnly) {
+            Text("Matching bank, date, payee, amount and reference (when available). Repeated payments may be legitimate. Exclude only confirmed duplicates.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (lastExcludedDuplicateId != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Duplicate excluded.", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onRestoreDuplicate) { Text("Undo") }
+            }
+        }
 
         // Date presets row (horizontally scrollable)
         Row(
@@ -330,7 +349,7 @@ fun TransactionsScreen(
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory) }
+                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onUpdateNotes = onUpdateNotes, onUpdateCategory = onUpdateCategory, onExcludeDuplicate = onExcludeDuplicate) }
                 }
             }
 
@@ -359,7 +378,8 @@ private fun TransactionCard(
     allCategories: List<String> = emptyList(),
     onToggleTransfer: (String, Boolean) -> Unit,
     onUpdateNotes: (String, String) -> Unit,
-    onUpdateCategory: ((String, String) -> Unit)? = null
+    onUpdateCategory: ((String, String) -> Unit)? = null,
+    onExcludeDuplicate: (String) -> Unit = {}
 ) {
     var showNotes by remember { mutableStateOf(false) }
     var notesText by remember { mutableStateOf(txn.notes) }
@@ -367,6 +387,16 @@ private fun TransactionCard(
     var newCat by remember { mutableStateOf("") }
     var showOverflow by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
+    var confirmDuplicate by remember { mutableStateOf(false) }
+    if (confirmDuplicate) {
+        AlertDialog(
+            onDismissRequest = { confirmDuplicate = false },
+            title = { Text("Exclude duplicate?") },
+            text = { Text("${txn.description} · ${formatINR(txn.amount)} · ${formatDate(txn.valueDate)}. Only confirm if this is the same payment as the matching record. You can undo this.") },
+            confirmButton = { TextButton(onClick = { confirmDuplicate = false; onExcludeDuplicate(txn.id) }) { Text("Exclude duplicate") } },
+            dismissButton = { TextButton(onClick = { confirmDuplicate = false }) { Text("Cancel") } }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
@@ -392,6 +422,9 @@ private fun TransactionCard(
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                    if (txn.possibleDuplicate) {
+                        Text("Possible duplicate", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
+                    }
                     if (txn.notes.isNotBlank()) {
                         Text(txn.notes, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
@@ -428,6 +461,12 @@ private fun TransactionCard(
                     Box {
                         IconButton(onClick = { showOverflow = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "More", modifier = Modifier.size(16.dp)) }
                         DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
+                            if (txn.possibleDuplicate) {
+                                DropdownMenuItem(
+                                    text = { Text("Exclude duplicate…", fontSize = 12.sp) },
+                                    onClick = { showOverflow = false; confirmDuplicate = true }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(if (txn.isTransfer) "Remove transfer" else "Mark transfer", fontSize = 12.sp) },
                                 onClick = { onToggleTransfer(txn.id, !txn.isTransfer); showOverflow = false },
