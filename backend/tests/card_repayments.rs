@@ -579,6 +579,28 @@ fn overlap_op(description: &str, direction: &str, amount: f64, time: i64, role: 
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn existing_card_backfill_finishes_deferred_events_before_restoring_rls(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let time=chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    sqlx::query("ALTER TABLE transactions DISABLE TRIGGER transaction_card_evidence").execute(&pool).await.unwrap();
+    handlers::sync_push(State(app),CurrentUser(owner),Json(vec![
+        overlap_op("CRED Club","debit",7777.0,time,None,None),
+        overlap_op("Credit card payment received","credit",7777.0,time+3000,None,None),
+    ])).await.unwrap();
+    sqlx::query("ALTER TABLE transactions ENABLE TRIGGER transaction_card_evidence").execute(&pool).await.unwrap();
+    assert_eq!(identity_rows(&pool,owner).await.iter().filter(|r|r.2).count(),1);
+    let migration=include_str!("../migrations/0037_card_confirmations.sql");
+    let backfill=&migration[migration.rfind("ALTER TABLE transactions NO FORCE").unwrap()..];
+    let mut tx=pool.begin().await.unwrap();
+    sqlx::raw_sql(backfill).execute(&mut *tx).await.unwrap();tx.commit().await.unwrap();
+    let rows=identity_rows(&pool,owner).await;
+    assert_eq!(rows.len(),2);assert!(rows.iter().all(|r|!r.1 && r.2));
+    let forced:bool=sqlx::query_scalar("SELECT relforcerowsecurity FROM pg_class WHERE oid='transactions'::regclass")
+        .fetch_one(&pool).await.unwrap();
+    assert!(forced);
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn reported_cred_triplets_are_transfers_with_reviewable_later_confirmations(pool: PgPool) {
     let app = state(&pool); let owner = user(&pool).await;
     let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
