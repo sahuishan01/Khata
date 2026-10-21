@@ -11,8 +11,8 @@ use super::models::*;
 
 // A review suggestion only: repeated payments without references can be legitimate.
 const MATCHING_RECORD: &str = "d.user_id = t.user_id AND d.id <> t.id AND NOT d.deleted \
-    AND d.bank = t.bank AND d.value_date = t.value_date AND d.amount = t.amount \
-    AND d.direction = t.direction AND ((d.description = t.description \
+    AND upper(d.bank) = upper(t.bank) AND d.amount = t.amount \
+    AND d.direction = t.direction AND ((d.value_date = t.value_date AND d.description = t.description \
     AND d.bank_ref IS NOT DISTINCT FROM t.bank_ref) OR is_card_confirmation_candidate(t,d))";
 
 
@@ -104,7 +104,7 @@ pub async fn exclude_duplicate(
     // Keep every older alias attached to a live root when reviewing a group of 3+.
     sqlx::query("UPDATE transactions SET duplicate_of=$1,rev=rev+1,version=version+1,updated_at=now() WHERE duplicate_of=$2 AND user_id=$3")
         .bind(canonical).bind(txn_id).bind(user_id).execute(&mut *tx).await?;
-    sqlx::query("UPDATE transactions SET duplicate_of=$1,deleted=true,rev=rev+1,version=version+1,updated_at=now() WHERE id=$2 AND user_id=$3")
+    sqlx::query("UPDATE transactions SET duplicate_of=$1,deleted=true,duplicate_override=false,duplicate_reason='user_confirmed',rev=rev+1,version=version+1,updated_at=now() WHERE id=$2 AND user_id=$3")
         .bind(canonical).bind(txn_id).bind(user_id).execute(&mut *tx).await?;
     tx.commit().await?;
     tracing::info!(%user_id, %txn_id, "Excluded user-confirmed duplicate");
@@ -116,7 +116,7 @@ pub async fn restore_duplicate(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let mut tx = state.db.begin().await?;
     crate::db::set_current_user(&mut *tx, user_id).await?;
-    let result = sqlx::query("UPDATE transactions SET duplicate_of=NULL,deleted=false,rev=rev+1,version=version+1,updated_at=now() WHERE id=$1 AND user_id=$2 AND duplicate_of IS NOT NULL")
+    let result = sqlx::query("UPDATE transactions SET duplicate_of=NULL,deleted=false,duplicate_override=true,duplicate_reason=NULL,rev=rev+1,version=version+1,updated_at=now() WHERE id=$1 AND user_id=$2 AND duplicate_of IS NOT NULL")
         .bind(txn_id).bind(user_id).execute(&mut *tx).await?;
     if result.rows_affected() == 0 { return Err(AppError::NotFound); }
     tx.commit().await?;
