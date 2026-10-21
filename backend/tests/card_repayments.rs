@@ -804,3 +804,20 @@ async fn general_backfill_reconciles_existing_groups_and_restores_forced_rls(poo
     let forced:bool=sqlx::query_scalar("SELECT relforcerowsecurity FROM pg_class WHERE oid='transactions'::regclass").fetch_one(&pool).await.unwrap();
     assert!(forced);
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn restored_sms_exclusions_are_not_reapplied_when_provenance_changes(pool: PgPool) {
+    let app=state(&pool);let owner=user(&pool).await;
+    let time=chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let mut first=bank_op("HDFC",None,"debit",701.0);first.sms_source=Some(sms_source(time,true));
+    let mut second=bank_op("HDFC",None,"debit",701.0);second.sms_source=Some(sms_source(time+30_000,true));let id=second.client_id;
+    handlers::sync_push(State(app.clone()),CurrentUser(owner),Json(vec![first,second])).await.unwrap();
+    let pull=handlers::sync_pull(State(app.clone()),CurrentUser(owner),Query(
+        khata::txns::models::SyncPullQuery{since_rev:Some(0),limit:Some(100),cursor_version:Some(2)})).await.unwrap().0;
+    let row=pull.txns.iter().find(|r|r.client_id==Some(id)).unwrap();assert!(row.deleted);
+    handlers::restore_duplicate(State(app.clone()),CurrentUser(owner),axum::extract::Path(row.id)).await.unwrap();
+    let mut rescan=bank_op("HDFC",None,"debit",701.0);rescan.client_id=id;rescan.base_rev=row.rev+1;
+    let mut source=sms_source(time+30_000,true);source.date_source="body".into();rescan.sms_source=Some(source);
+    handlers::sync_push(State(app),CurrentUser(owner),Json(vec![rescan])).await.unwrap();
+    assert!(identity_rows(&pool,owner).await.iter().all(|r|!r.1));
+}
