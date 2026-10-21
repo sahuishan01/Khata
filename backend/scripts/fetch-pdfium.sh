@@ -18,5 +18,10 @@ DEST="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/.pdfium"
 mkdir -p "$DEST"
 URL="https://github.com/bblanchon/pdfium-binaries/releases/download/${VER}/pdfium-${OS}-${ARCH}.tgz"
 echo "fetching $URL"
-curl -fsSL "$URL" | tar -xz -C "$DEST"
+archive="$(mktemp)"
+trap 'rm -f "$archive"' EXIT HUP INT TERM
+# A stalled release-asset connection must not leave CI waiting indefinitely.
+# Finish the download before extraction so a failed curl cannot be hidden by a pipe.
+curl -fsSL --connect-timeout 15 --max-time 180 --retry 3 --retry-all-errors "$URL" -o "$archive"
+tar -xzf "$archive" -C "$DEST"
 echo "libpdfium at $DEST/lib/"
