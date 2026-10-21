@@ -31,7 +31,7 @@ internal class SyncOutbox(private val dao: TransactionDao, private val api: Khat
                     bank = txn.bank, bankRef = txn.bankRef.ifBlank { null },
                     txnDate = txnDate ?: valueDate ?: queueDate, valueDate = valueDate ?: txnDate ?: queueDate,
                     notes = txn.notes, isTransfer = txn.isTransfer, deleted = txn.deleted,
-                    smsSource = txn.smsSource?.let { com.google.gson.Gson().fromJson(it, com.khata.app.sms.SmsSource::class.java) },
+                    smsSource = com.khata.app.sms.SmsSource.decode(txn.smsSource),
                 )
             })
             val sent = batch.associateBy { it.clientId }

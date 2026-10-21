@@ -1,7 +1,9 @@
 package com.khata.app.sms
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.Gson
 import java.security.MessageDigest
+import java.time.LocalDate
 import java.util.Locale
 
 /** Provenance without retaining SMS text, sender, account numbers or balances. */
@@ -16,6 +18,19 @@ data class SmsSource(
     @SerializedName("previous_value_date") val previousValueDate: String? = null,
 ) {
     companion object {
+        /** Older/minified metadata must never prevent the financial row uploading. */
+        fun decode(json: String?): SmsSource? {
+            val source = json?.let { runCatching { Gson().fromJson(it, SmsSource::class.java) }.getOrNull() }
+                ?: return null
+            return source.takeIf {
+                it.dateSource in listOf("body", "message", "queue") &&
+                    runCatching { LocalDate.parse(it.parsedDate) }.isSuccess &&
+                    it.parserVersion in 0..1 &&
+                    (it.bodyHash == null || it.bodyHash.matches(Regex("[a-fA-F0-9]{64}"))) &&
+                    (it.eventKey == null || it.eventKey == it.bodyHash)
+            }
+        }
+
         private val account = Regex("(?i)\\b(?:a/c|ac|account|card)\\s*(?:no\\.?|number)?\\s*[:.-]?\\s*[xX*0-9]{2,}\\d{2,}")
         private val balance = Regex("(?i)\\b(?:avl\\.?|avail(?:able)?|closing|clear)?\\s*bal(?:ance)?\\.?\\s*[:=-]?\\s*(?:rs\\.?|inr|₹)?\\s*[0-9,]+(?:\\.[0-9]{1,2})?")
         private val clock = Regex("(?<![0-9])(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?![0-9])")

@@ -29,14 +29,18 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.13` (CI verification pending).
+Current release version: `v0.45.14` (CI verification pending).
 Last verified signed APK: `v0.45.12`
 (GitHub Actions run `39540420171`, 31 release unit tests passed). Its signing
 certificate matches `v0.45.10`. The release workflow runs regression tests before
 packaging the signed APK.
 
-Backend and web artifacts from run `39539446022` are deployed with migration
-0035 (175 backend tests passed, one ignored; Clippy passed). See
+`v0.45.13` passed its build but was withdrawn after artifact checks found SMS
+metadata stripped by R8. `v0.45.14` preserves that DTO and checks the minified
+APK before publication; use the next verified release rather than v0.45.13.
+
+Backend and web artifacts from run `39552892838` are deployed with migration
+0036 (181 backend tests passed, one ignored; Clippy passed). See
 `docs/transaction-identity.md` for duplicate review, sync tombstones and transfer
 matching rules.
 

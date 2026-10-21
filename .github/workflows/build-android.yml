@@ -131,6 +131,19 @@ jobs:
               summary.write(message + '\n')
           PY
 
+      - name: Verify SMS metadata in the minified APK
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          apk = 'app/build/outputs/apk/release/app-release.apk'
+          with zipfile.ZipFile(apk) as archive:
+              dex = [archive.read(name) for name in archive.namelist() if name.endswith('.dex')]
+          for field in ('sms_source', 'parser_version', 'received_at', 'body_hash', 'event_key', 'date_source', 'parsed_date'):
+              assert any(field.encode() in content for content in dex), f'Release APK lost SMS field: {field}'
+          print('Minified APK retains all required SMS metadata fields.')
+          PY
+
       - name: Get version from tag
         id: version
         env:
