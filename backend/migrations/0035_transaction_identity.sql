@@ -5,6 +5,9 @@ ALTER TABLE transactions ADD CONSTRAINT transaction_duplicate_not_self
 CREATE INDEX idx_transactions_reference_identity
     ON transactions (user_id, (btrim(bank_ref)), amount, value_date)
     WHERE NOT deleted AND bank_ref IS NOT NULL;
+CREATE INDEX idx_transactions_duplicate_review
+    ON transactions (user_id, bank, value_date, amount, direction, description)
+    WHERE NOT deleted;
 
 CREATE FUNCTION is_named_bank(bank text) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
