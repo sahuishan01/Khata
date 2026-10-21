@@ -998,6 +998,7 @@ async fn explicit_resolution_returns_revisions_after_deferred_reconciliation(poo
     let mut resolution = copy_sync_ops(&[funding, receipt]);
     handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&resolution))).await.unwrap();
     resolution[1].description = Some("Credit card payment received".into());
+    resolution[1].is_transfer = Some(true);
     let accepted = handlers::sync_resolve(State(app.clone()), CurrentUser(owner), Json(resolution)).await.unwrap().0;
     let rows = change_page(&app, owner, 0).await.txns;
     assert!(rows.iter().all(|r| r.is_transfer));
