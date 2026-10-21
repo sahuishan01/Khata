@@ -22,11 +22,12 @@ object SmsImport {
             (sender + "|" + parsed.amount + "|" + parsed.direction + "|" + legacyDate + "|" + (legacyParsed.refNo ?: body.take(24))).toByteArray()
         ).toString().take(16)
         val repairedId = UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
-        val old = dao.getByClientId(clientId) ?: dao.getByClientId(previousClientId)
-            ?: dao.getByClientId(legacyId) ?: dao.getByClientId(repairedId)
-        val row = old?.let {
-            repair(if (it.rev > 0 || it.baseRev > 0) it else it.copy(clientId = clientId), parsed, body, timestamp)
-        } ?: transaction(parsed, body, sender, timestamp, queuedAt)
+        // Prefer this message's old identity, even if another alert already owns
+        // the new reference-based ID. Otherwise its old duplicate is never repaired.
+        val old = dao.getByClientId(legacyId) ?: dao.getByClientId(repairedId)
+            ?: dao.getByClientId(previousClientId) ?: dao.getByClientId(clientId)
+        val row = old?.let { repair(it, parsed, body, timestamp) }
+            ?: transaction(parsed, body, sender, timestamp, queuedAt)
         if (row == old) return SmsSaveResult.UNCHANGED
         dao.upsert(row)
         return if (old == null) SmsSaveResult.CREATED else SmsSaveResult.UPDATED

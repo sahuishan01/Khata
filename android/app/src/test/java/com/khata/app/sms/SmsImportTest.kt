@@ -120,4 +120,19 @@ class SmsImportTest {
         assertEquals("2026-10-18", repaired.txnDate)
         assertEquals("2026-10-18", repaired.valueDate)
     }
+
+    @Test fun anExistingReferenceIdentityDoesNotHideTheOldUnreferencedAlert() = runBlocking {
+        val text = "INR 500 debited from Kotak A/c XX1234 to SHOP. UTR: 123456789012"
+        val parsed = SmsParser.parse(text, "AD-KOTAKB")!!
+        val old = SmsImport.transaction(parsed.copy(refNo = null), text, "AD-KOTAKB", timestamp, queued)
+            .copy(rev = 1, baseRev = 1, smsSource = null, dirty = false, pendingOp = null)
+        val canonical = SmsImport.transaction(parsed, text, "VM-KOTAKB", timestamp, queued)
+            .copy(rev = 1, baseRev = 1, dirty = false, pendingOp = null)
+        val dao = SyncOutboxTest.MemoryDao(listOf(old, canonical))
+        SmsImport.queue(dao, parsed, text, "AD-KOTAKB", timestamp, queued)
+        assertEquals(2, dao.rows.size)
+        assertEquals("123456789012", dao.getByClientId(old.clientId)!!.bankRef)
+        assertTrue(dao.getByClientId(old.clientId)!!.dirty)
+        assertEquals(canonical, dao.getByClientId(canonical.clientId))
+    }
 }
