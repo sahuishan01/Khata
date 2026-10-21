@@ -163,3 +163,25 @@ ambiguous credits and persistent Undo. Live checks preserved every original
 source identity and financial field, verified all history pages and sync
 exclusions, and compared summary totals against the database. The existing
 Android v0.45.15 and web clients consume these shared API results.
+
+## Retried device uploads and conflict revisions
+
+A lost upload response or a rebuilt device cache can leave a CREATE queued with
+`base_rev=0` after the server has saved it. Identical fields now acknowledge the
+existing record instead of demanding conflict resolution. An identical SMS may
+also acknowledge the server's automatic transfer classification or duplicate
+exclusion; it cannot replace a manual transfer override. Different amounts,
+dates, references, notes, categories or SMS evidence still require review when
+the base revision is stale.
+
+A replay advances only the download cursor. This makes the canonical row visible
+to a phone that already pulled past it while keeping its dirty local copy. The
+financial fields, conflict revision, timestamps, source IDs and exclusions stay
+unchanged. This recovery also works in v0.45.15 without an APK update.
+
+Push and explicit resolution flush deferred reconciliation before returning
+acknowledged revisions or conflict snapshots. Earlier rows changed by later rows
+in the batch therefore return their final committed revision. Owner locks also
+serialize concurrent create retries. Regression tests cover 405 queued records,
+canonical re-download, preserved exclusions, manual overrides, actual stale
+edits, concurrent requests, tenant isolation and final reconciliation revisions.

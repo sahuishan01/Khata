@@ -836,3 +836,172 @@ async fn explicit_confirmations_near_the_receipt_do_not_look_like_a_second_payme
     let rows=identity_rows(&pool,owner).await;assert_eq!(rows.len(),6);
     assert_eq!(rows.iter().filter(|r|r.1).count(),2);assert_eq!(rows.iter().filter(|r|!r.1 && r.2).count(),4);
 }
+
+fn copy_sync_ops(ops: &[SyncPushOp]) -> Vec<SyncPushOp> {
+    serde_json::from_value(serde_json::to_value(ops).unwrap()).unwrap()
+}
+
+async fn change_page(app: &AppState, owner: Uuid, cursor: i64) -> khata::txns::models::SyncPullResponse {
+    handlers::sync_pull(State(app.clone()), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(cursor), limit: Some(1000), cursor_version: Some(2) }
+    )).await.unwrap().0
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn lost_acknowledgements_replay_more_than_one_device_batch_without_conflicts(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let ops: Vec<_> = (0..405).map(|_| bank_op("HDFC", None, "debit", 1.0)).collect();
+    let first = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&ops))).await.unwrap().0;
+    let cursor = change_page(&app, owner, 0).await.new_rev;
+    // A failed phone response leaves CREATE/base_rev=0 queued even after a pull
+    // advanced past those dirty rows. The retry must re-download canonical rows.
+    for batch in ops.chunks(200) {
+        let retry = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(batch))).await.unwrap().0;
+        assert!(retry.conflicts.is_empty()); assert_eq!(retry.accepted.len(), batch.len());
+        assert!(retry.accepted.iter().all(|a| a.server_rev == 1));
+    }
+    let refreshed = change_page(&app, owner, cursor).await;
+    assert_eq!(refreshed.txns.len(), 405); assert!(!refreshed.has_more);
+    assert_eq!(first.accepted.len(), refreshed.txns.len());
+    assert!(refreshed.txns.iter().all(|r| r.rev == 1 && !r.deleted));
+    assert_eq!(change_page(&app, owner, 0).await.txns.len(), 405);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn acknowledgements_include_deferred_card_and_earlier_row_reference_revisions(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let funding = overlap_op("CRED Club", "debit", 7777.0, time, None, None);
+    let funding_id = funding.client_id;
+    let first_reference = bank_op("AXIS", Some("123456789012"), "debit", 600.0);
+    let reference_id = first_reference.client_id;
+    let result = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![
+        funding, first_reference, bank_op("KOTAK", Some("123456789012"), "credit", 600.0),
+        overlap_op("Credit card payment received", "credit", 7777.0, time+3000, None, None),
+        overlap_op("Transaction", "credit", 7777.0, time+86_400_000, None, None),
+    ])).await.unwrap().0;
+    let page = change_page(&app, owner, 0).await;
+    for accepted in &result.accepted {
+        let row = page.txns.iter().find(|r| r.client_id == Some(accepted.client_id)).unwrap();
+        assert_eq!(accepted.server_rev, row.rev);
+    }
+    for id in [funding_id, reference_id] {
+        assert!(result.accepted.iter().find(|r| r.client_id == id).unwrap().server_rev > 1);
+    }
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn replayed_sms_keeps_server_transfers_and_exclusions_and_refreshes_dirty_cache(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let mut ops = vec![overlap_op("CRED Club", "debit", 7777.0, time, None, None),
+        overlap_op("Credit card payment received", "credit", 7777.0, time+3000, None, None),
+        overlap_op("Transaction", "credit", 7777.0, time+86_400_000, None, None)];
+    for op in &mut ops { op.notes = Some("Auto-captured via SMS (HDFC)".into()); op.deleted = Some(false); }
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&ops))).await.unwrap();
+    let before = change_page(&app, owner, 0).await;
+    assert_eq!(before.txns.iter().filter(|r| r.deleted).count(), 1);
+    for replay_base in [0, 1] {
+        for op in &mut ops { op.base_rev = replay_base; }
+        let retry = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&ops))).await.unwrap().0;
+        assert!(retry.conflicts.is_empty()); assert_eq!(retry.accepted.len(), 3);
+    }
+    let after = change_page(&app, owner, before.new_rev).await;
+    assert_eq!(after.txns.len(), 3);
+    for row in &after.txns {
+        let original = before.txns.iter().find(|old| old.id == row.id).unwrap();
+        assert_eq!(serde_json::to_value(original).unwrap(), serde_json::to_value(row).unwrap());
+    }
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn actual_stale_edits_and_incompatible_sms_still_need_conflict_resolution(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let original = op("Original purchase", "debit", 100.0);
+    let id = original.client_id;
+    let base = serde_json::to_value(&original).unwrap();
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![original])).await.unwrap();
+    for (field, value) in [
+        ("amount", serde_json::json!(200)), ("direction", serde_json::json!("credit")),
+        ("description", serde_json::json!("Edited purchase")), ("category", serde_json::json!("Food")),
+        ("bank", serde_json::json!("AXIS")), ("bank_ref", serde_json::json!("987654321012")),
+        ("txn_date", serde_json::json!("2026-10-19")), ("value_date", serde_json::json!("2026-10-19")),
+        ("notes", serde_json::json!("A real local edit")), ("deleted", serde_json::json!(true)),
+        ("is_transfer", serde_json::json!(true)), ("base_rev", serde_json::json!(99)),
+    ] {
+        let mut request = base.clone(); request[field] = value;
+        let result = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![serde_json::from_value(request).unwrap()])).await.unwrap().0;
+        assert!(result.accepted.is_empty(), "{field}"); assert_eq!(result.conflicts.len(), 1, "{field}");
+        assert_eq!(result.conflicts[0].client_id, id);
+    }
+    let page = change_page(&app, owner, 0).await;
+    assert_eq!(page.txns[0].amount, 100.0); assert_eq!(page.txns[0].rev, 1);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn manual_transfer_override_is_not_mistaken_for_an_automatic_sms_change(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let mut original = overlap_op("Ordinary purchase", "debit", 50.0, time, None, None);
+    original.notes = Some("Auto-captured via SMS (HDFC)".into());
+    let replay = copy_sync_ops(&[original]);
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&replay))).await.unwrap();
+    let row = change_page(&app, owner, 0).await.txns.remove(0);
+    handlers::toggle_transfer(State(app.clone()), CurrentUser(owner), axum::extract::Path(row.id),
+        Json(handlers::ToggleTransferReq { is_transfer: true })).await.unwrap();
+    let result = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(replay)).await.unwrap().0;
+    assert_eq!(result.conflicts.len(), 1); assert!(result.accepted.is_empty());
+    assert!(change_page(&app, owner, 0).await.txns[0].is_transfer);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn concurrent_create_retries_are_idempotent_with_tenant_isolation(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await; let other = user(&pool).await;
+    let original = op("Repeated request", "debit", 25.0);
+    let first = copy_sync_ops(&[original]); let second = copy_sync_ops(&first);
+    let (a, b) = tokio::join!(
+        handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&first))),
+        handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(second)));
+    for result in [a.unwrap().0, b.unwrap().0] {
+        assert!(result.conflicts.is_empty()); assert_eq!(result.accepted[0].server_rev, 1);
+    }
+    assert_eq!(change_page(&app, owner, 0).await.txns.len(), 1);
+    assert!(change_page(&app, other, 0).await.txns.is_empty());
+    handlers::sync_push(State(app.clone()), CurrentUser(other), Json(first)).await.unwrap();
+    assert_eq!(change_page(&app, other, 0).await.txns.len(), 1);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn conflict_snapshots_include_reconciliation_from_other_operations_in_the_batch(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let original = overlap_op("CRED Club", "debit", 7777.0, time, None, None);
+    let id = original.client_id;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![original])).await.unwrap();
+    let mut stale = overlap_op("Local edit to funding", "debit", 7777.0, time, None, None);
+    stale.client_id = id;
+    let result = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![stale,
+        overlap_op("Credit card payment received", "credit", 7777.0, time+3000, None, None),
+    ])).await.unwrap().0;
+    assert_eq!(result.conflicts.len(), 1);
+    let server = change_page(&app, owner, 0).await.txns.into_iter().find(|r| r.client_id == Some(id)).unwrap();
+    assert!(server.is_transfer); assert_eq!(result.conflicts[0].server_rev, server.rev);
+    assert_eq!(serde_json::to_value(&result.conflicts[0].server_txn).unwrap(), serde_json::to_value(server).unwrap());
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn explicit_resolution_returns_revisions_after_deferred_reconciliation(pool: PgPool) {
+    let app = state(&pool); let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let funding = overlap_op("CRED Club", "debit", 7777.0, time, None, None);
+    let receipt = overlap_op("Unclassified credit", "credit", 7777.0, time+3000, None, None);
+    let mut resolution = copy_sync_ops(&[funding, receipt]);
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(copy_sync_ops(&resolution))).await.unwrap();
+    resolution[1].description = Some("Credit card payment received".into());
+    let accepted = handlers::sync_resolve(State(app.clone()), CurrentUser(owner), Json(resolution)).await.unwrap().0;
+    let rows = change_page(&app, owner, 0).await.txns;
+    assert!(rows.iter().all(|r| r.is_transfer));
+    for acknowledgement in accepted {
+        assert_eq!(acknowledgement.server_rev, rows.iter().find(|r| r.client_id == Some(acknowledgement.client_id)).unwrap().rev);
+    }
+}
