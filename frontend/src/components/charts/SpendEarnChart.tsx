@@ -56,7 +56,7 @@ export function SpendEarnChart({ data }: { data: MonthBucket[] }) {
           wrapperStyle={{ paddingBottom: 12, fontSize: 12, color: 'var(--text-2)' }}
         />
         <Bar dataKey="spent" fill="var(--expense)" name="Spent" radius={[6, 6, 0, 0]} maxBarSize={32} />
-        <Bar dataKey="earned" fill="var(--income)" name="Earned" radius={[6, 6, 0, 0]} maxBarSize={32} />
+        <Bar dataKey="earned" fill="var(--income)" name="Money In" radius={[6, 6, 0, 0]} maxBarSize={32} />
       </BarChart>
     </ResponsiveContainer>
   )
