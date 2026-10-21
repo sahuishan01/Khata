@@ -64,6 +64,9 @@ remains unavailable. See `DEPLOYMENT.md` and `docs/transaction-identity.md`.
 - Read SECURITY.md for security related instructions
 
 ## PDF Statement Parsing
+- Before statement comparison, read `docs/statement-reconciliation.md` and the
+  protected baseline reference at `~/.local/state/khata-baselines/comparison-session.json`.
+  Preserve that frozen snapshot through uploads, rescans and parser repairs.
 - The PDF ingest path uses `pdfium-render` for positioned (coordinate-aware) text
   extraction, then reconstructs table columns from per-bank `BankProfile.pdf_columns`
   bands. Code: `backend/src/ingest/pdf/` (`table.rs`, `rows.rs`, `reconcile.rs`, `mod.rs`).
