@@ -44,9 +44,10 @@ sudo -u caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 sudo systemctl reload caddy
 ```
 
-For frontend updates, run `npm run build` in `frontend/`, copy only `dist/` to a
-new release directory, and switch `/srv/khata/current` after verification. For
-backend updates, use the existing `Backend Tests` GitHub Actions workflow. It
+Build frontend and backend updates through the existing `Backend Tests` GitHub
+Actions workflow. For frontend updates, download the successful run's
+`khata-web-<commit>` artifact into a new release directory, verify it, and switch
+`/srv/khata/current`. For backend updates, the same workflow
 runs tests and Clippy, builds the release binary, and uploads `khata-backend-<commit>`
 with PDFium, the source revision, and checksums. Download the artifact for the
 verified commit with `gh run download`, verify `SHA256SUMS`, install the
@@ -254,3 +255,34 @@ Additional root-only evidence in that directory includes `ci-verification.json`,
 every original financial field and source ID, newly excluded confirmations,
 transfer legs, all history pages, summary totals, sync tombstones, public assets,
 authentication and forced RLS. See `docs/transaction-identity.md` for rules.
+
+
+## Upload retries reporting 200 conflicts
+
+The app sends queued transactions in batches of 200. A repeated CREATE with
+`base_rev=0` previously conflicted even when the server had already saved the
+same transaction. Automatic repayment reconciliation also changed some revisions
+after upload acknowledgements were assembled. The server now acknowledges exact
+replays, re-enqueues canonical rows for download without changing their financial
+fields, and flushes deferred reconciliation before returning final revisions.
+Manual transfer overrides and genuine stale edits remain protected.
+
+Backend run [39597159197](https://github.com/sahuishan01/Khata/actions/runs/39597159197) passed 202 tests (1 ignored),
+Clippy and the web build on heaven. Its verified backend artifact is deployed;
+there is no new migration or APK. Existing Android v0.45.15 can recover by tapping
+**Retry queued uploads**. Keep the current app data and queue; another clear or
+inbox scan is unnecessary for this recovery.
+
+After the user's Clear all data and reimport, production replay verification
+changed a 228-record sample from all conflicts to all acknowledgements.
+Revisions matched committed rows, and canonical rows appeared after the prior
+pull cursor. Every stored financial field, timestamp, exclusion and source ID
+was preserved. Full checks covered all 2959 source rows, 2940 visible rows,
+19 exclusions, history paging, sync tombstones, totals, authentication,
+forced RLS, public web files and loopback-only service ports. Physical-phone
+completion still needs the user to retry their existing queue.
+
+The encrypted backup, artifact/deployment manifest and private verification
+reports are under `~/.local/state/khata-sync-conflicts/` (the manifest references
+the encrypted archive in `~/.local/state/khata-ingest-fix/backup/`). Previously
+cleared history was not restored. The frontend assets remain unchanged.

@@ -185,3 +185,10 @@ in the batch therefore return their final committed revision. Owner locks also
 serialize concurrent create retries. Regression tests cover 405 queued records,
 canonical re-download, preserved exclusions, manual overrides, actual stale
 edits, concurrent requests, tenant isolation and final reconciliation revisions.
+
+Verified server rollout: [39597159197](https://github.com/sahuishan01/Khata/actions/runs/39597159197) passed
+202 backend tests (1 ignored), Clippy and the web build.
+Production replay acknowledged 228 existing records with zero conflicts and
+unchanged stored financial fields, revisions, timestamps and exclusions. All
+2959 source records remain in paged sync. Android v0.45.15 can
+retry its pending uploads without another scan or data clear.

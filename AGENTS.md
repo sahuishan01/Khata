@@ -39,19 +39,22 @@ fingerprint, were verified in the minified APK before publication.
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.
 
-Backend artifact from run `39587141836` (commit `f4149f0`) is deployed with
-migration 0038 (194 backend tests passed, one ignored; Clippy and the workflow's
-web build passed).
+Backend artifact from run `39597159197` (commit `35ee2c3`) is deployed
+with migration 0038 (202 backend tests passed, 1 ignored; Clippy and the
+workflow's web build passed). Identical upload retries now acknowledge saved rows
+and refresh the device's canonical cache. Automatic transfer/duplicate flags are
+preserved; genuine stale edits still require review. Push and resolution return
+revisions after deferred reconciliation. This recovery works in Android v0.45.15.
+
 The unchanged web assets remain from run `39582103790`; desktop and phone browser
 checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
 Whole-history reconciliation handles CRED and direct bill payments, older
-confirmation metadata, separate upload batches and date differences. Ambiguous
-matches remain review candidates; explicit restores survive later rescans.
-Live checks verified preserved source IDs/financial fields, sync tombstones,
-summary totals, authentication, complete paging and public asset hashes.
-Physical-phone UI verification remains unavailable. See `DEPLOYMENT.md` and
-`docs/transaction-identity.md` for rules and evidence.
-
+confirmation metadata, separate upload batches and date differences. Explicit
+restores survive later rescans. Live replay checks acknowledged 228 saved records
+without conflicts or financial-field changes; all 2959 source records
+remain available through paged sync, including exclusions. Authentication, totals,
+forced RLS and loopback bindings were verified. Physical-phone UI verification
+remains unavailable. See `DEPLOYMENT.md` and `docs/transaction-identity.md`.
 
 
 ## Design
