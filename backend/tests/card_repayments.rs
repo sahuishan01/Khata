@@ -425,3 +425,145 @@ async fn long_imported_text_does_not_break_identity_indexes(pool: PgPool) {
     )).await.unwrap().0;
     assert_eq!(list.total, 2, "Unrecognized references require review, not automatic exclusion");
 }
+
+fn sms_source(received: i64, anchored: bool) -> sqlx::types::Json<khata::txns::models::SmsSource> {
+    sqlx::types::Json(serde_json::from_value(serde_json::json!({
+        "parser_version": 1, "received_at": received, "body_hash": "a".repeat(64),
+        "event_key": if anchored { Some("a".repeat(64)) } else { None },
+        "date_source": "message", "parsed_date": "2026-10-20"
+    })).unwrap())
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn future_sms_dates_use_message_or_queue_dates_but_manual_entries_are_preserved(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let received = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let mut sms = op("Bank alert", "credit", 500.0);
+    sms.notes = Some("Auto-captured via SMS (CANARA)".into());
+    sms.txn_date = Some(NaiveDate::from_ymd_opt(2099, 12, 2).unwrap());
+    sms.value_date = sms.txn_date;
+    sms.sms_source = Some(sms_source(received, false));
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![sms])).await.unwrap();
+    let mut manual = op("Future manual entry", "credit", 600.0);
+    manual.txn_date = Some(NaiveDate::from_ymd_opt(2099, 12, 2).unwrap()); manual.value_date = manual.txn_date;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![manual])).await.unwrap();
+    let pull = handlers::sync_pull(State(app), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    let sms = pull.txns.iter().find(|t| t.description == "Bank alert").unwrap();
+    assert_eq!(sms.value_date.to_string(), "2026-10-20");
+    let source = sms.sms_source.as_ref().unwrap();
+    assert_eq!(source.date_source, "message");
+    assert_eq!(source.previous_value_date.unwrap().to_string(), "2099-12-02");
+    assert_eq!(pull.txns.iter().find(|t| t.description == "Future manual entry").unwrap().value_date.to_string(), "2099-12-02");
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn rescan_reference_updates_are_saved_and_exclude_the_second_identity(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let first = bank_op("KOTAK", Some("123456789012"), "debit", 10000.0);
+    let second = bank_op("KOTAK", None, "debit", 10000.0);
+    let second_id = second.client_id;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![first, second])).await.unwrap();
+    let mut update = bank_op("KOTAK", Some("123456789012"), "debit", 10000.0);
+    update.client_id = second_id; update.base_rev = 1;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![update])).await.unwrap();
+    let rows = identity_rows(&pool, owner).await;
+    assert_eq!(rows.iter().filter(|r| !r.1).count(), 1);
+    assert!(rows.iter().find(|r| r.0 == second_id).unwrap().1);
+    let pull = handlers::sync_pull(State(app), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    assert_eq!(pull.txns.iter().find(|r| r.client_id == Some(second_id)).unwrap().bank_ref.as_deref(), Some("123456789012"));
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn anchored_repeat_alerts_are_excluded_without_merging_distinct_payments_or_tenants(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let other = user(&pool).await;
+    let received = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let make = |offset, anchored| {
+        let mut row = bank_op("HDFC", None, "debit", 500.0);
+        row.sms_source = Some(sms_source(received + offset, anchored)); row
+    };
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![
+        make(0, true), make(30_000, true), make(600_000, true), make(0, false), make(30_000, false),
+    ])).await.unwrap();
+    let rows = identity_rows(&pool, owner).await;
+    assert_eq!(rows.len(), 5);
+    assert_eq!(rows.iter().filter(|r| r.1).count(), 1);
+    handlers::sync_push(State(app.clone()), CurrentUser(other), Json(vec![make(0, true)])).await.unwrap();
+    assert!(!identity_rows(&pool, other).await[0].1);
+    let dashboard = handlers::get_dashboard(State(app), CurrentUser(owner)).await.unwrap().0;
+    assert_eq!(dashboard.total_spent, 2000.0);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn source_added_by_rescan_deduplicates_and_syncs_tombstones(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let received = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let mut first = bank_op("CANARA", None, "credit", 500.0);
+    let mut second = bank_op("CANARA", None, "credit", 500.0);
+    let ids = [first.client_id, second.client_id];
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![first, second])).await.unwrap();
+    first = bank_op("CANARA", None, "credit", 500.0); first.client_id = ids[0]; first.base_rev = 1;
+    first.sms_source = Some(sms_source(received, true));
+    second = bank_op("CANARA", None, "credit", 500.0); second.client_id = ids[1]; second.base_rev = 1;
+    second.sms_source = Some(sms_source(received + 60_000, true));
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![first, second])).await.unwrap();
+    let pull = handlers::sync_pull(State(app), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    assert_eq!(pull.txns.len(), 2);
+    assert_eq!(pull.txns.iter().filter(|r| r.deleted).count(), 1);
+    assert!(pull.txns.iter().all(|r| r.sms_source.as_ref().unwrap().body_hash.as_ref().unwrap().len() == 64));
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn future_sms_backfill_preserves_old_dates_and_advances_the_sync_cursor(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    sqlx::query("ALTER TABLE transactions DISABLE TRIGGER transaction_evidence").execute(&pool).await.unwrap();
+    let mut sms = op("Bank alert", "credit", 500.0);
+    sms.notes = Some("Auto-captured via SMS (CANARA)".into());
+    sms.txn_date = Some(NaiveDate::from_ymd_opt(2099,12,2).unwrap()); sms.value_date = sms.txn_date;
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![sms])).await.unwrap();
+    sqlx::query("ALTER TABLE transactions ENABLE TRIGGER transaction_evidence").execute(&pool).await.unwrap();
+    let old_cursor = identity_rows(&pool, owner).await[0].3;
+    let migration = include_str!("../migrations/0036_sms_provenance.sql");
+    let backfill = &migration[migration.find("ALTER TABLE transactions NO FORCE").unwrap()..];
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::raw_sql(backfill).execute(&mut *tx).await.unwrap(); tx.commit().await.unwrap();
+    let pull = handlers::sync_pull(State(app), CurrentUser(owner), Query(
+        khata::txns::models::SyncPullQuery { since_rev: Some(0), limit: Some(100), cursor_version: Some(2) }
+    )).await.unwrap().0;
+    let row = &pull.txns[0];
+    assert!(row.rev > old_cursor);
+    assert!(row.value_date <= chrono::Utc::now().date_naive() + chrono::Duration::days(1));
+    assert_eq!(row.sms_source.as_ref().unwrap().previous_value_date.unwrap().to_string(), "2099-12-02");
+    let forced: bool = sqlx::query_scalar("SELECT relforcerowsecurity FROM pg_class WHERE oid='transactions'::regclass")
+        .fetch_one(&pool).await.unwrap();
+    assert!(forced);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn sms_hash_does_not_override_distinct_references_and_invalid_provenance_is_rejected(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let received = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z").unwrap().timestamp_millis();
+    let mut first = bank_op("HDFC", Some("123456789012"), "debit", 500.0);
+    first.sms_source = Some(sms_source(received, true));
+    let mut second = bank_op("HDFC", Some("223456789012"), "debit", 500.0);
+    second.sms_source = Some(sms_source(received, true));
+    handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![first, second])).await.unwrap();
+    assert!(identity_rows(&pool, owner).await.iter().all(|r| !r.1));
+    let mut invalid = bank_op("HDFC", None, "debit", 500.0);
+    let mut source = sms_source(received, true);
+    source.event_key = Some("unbounded invalid key".repeat(1000)); invalid.sms_source = Some(source);
+    assert!(handlers::sync_push(State(app), CurrentUser(owner), Json(vec![invalid])).await.is_err());
+    assert_eq!(identity_rows(&pool, owner).await.len(), 2);
+}

@@ -58,6 +58,13 @@ object SmsParser {
         return first in PAYEE_STOP_WORDS
     }
     private val REF_PATTERN = Pattern.compile("(?i)\\b(?:upi\\s*ref(?:erence)?|ref(?:erence)?|rrn|txn\\s*(?:id|no|number)|transaction\\s*(?:id|no|number))\\s*\\.?\\s*(?:(?:no|number|id)\\.?\\s*)?[:#-]?\\s*([A-Za-z0-9][A-Za-z0-9/-]{5,})")
+    private val EXTRA_REFERENCE = Regex("(?i)\\b(?:utr(?:\\s*(?:no|number))?\\.?\\s*[:#-]?\\s*([A-Za-z0-9]{10,35})|upi[/:-](?:p2[ap]/)?([0-9]{12})(?![0-9]))")
+
+    // Keep old identities discoverable when a new parser learns a previously missed reference.
+    fun legacyReference(body: String): String? {
+        val matcher = REF_PATTERN.matcher(body.replace("\n", " "))
+        return if (matcher.find()) matcher.group(1)?.takeIf { value -> value.any { it.isDigit() } } else null
+    }
 
     fun parse(body: String, sender: String = ""): ParsedSmsTxn? {
         val cleanBody = body.replace("\n", " ").trim()
@@ -130,10 +137,8 @@ object SmsParser {
         }
 
         // Detect Ref Number
-        var refNo: String? = null
-        val refMatcher = REF_PATTERN.matcher(cleanBody)
-        if (refMatcher.find()) {
-            refNo = refMatcher.group(1)?.takeIf { value -> value.any { it.isDigit() } }
+        val refNo = legacyReference(cleanBody) ?: EXTRA_REFERENCE.find(cleanBody)?.let { match ->
+            match.groupValues.drop(1).firstOrNull { it.isNotEmpty() && it.any(Char::isDigit) }
         }
 
         return ParsedSmsTxn(

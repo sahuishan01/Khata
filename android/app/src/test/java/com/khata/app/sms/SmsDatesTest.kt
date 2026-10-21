@@ -40,4 +40,21 @@ class SmsDatesTest {
         assertEquals("2026-10-18", SmsDates.resolve("Statement date 01/10/2026. Rs 500 debited on 18/10/26. Payment due on 01/11/2026", received, queued))
         assertEquals("2026-10-20", SmsDates.resolve("Rs 500 debited. Available balance as on 01/11/26", received, queued))
     }
+
+    @Test fun futureDatesFallBackToTheOriginalMessageWithoutSwappingMonthAndDay() {
+        for (date in listOf("02/12/2026", "02-11-26", "01-Dec-2026", "2026-12-02")) {
+            assertEquals(date, "2026-10-20", SmsDates.resolve("INR 500 credited on $date", received, queued))
+        }
+        assertEquals("2026-10-18", SmsDates.resolve("Date 02/12/26. INR 500 debited on 18/10/26", received, queued))
+        // A valid past date wins even when importing years later.
+        assertEquals("2024-12-02", SmsDates.resolve("INR 500 credited on 02/12/24", received, queued))
+    }
+
+    @Test fun clocksReferencesAndFutureDeviceTimestampsAreNotTransactionDates() {
+        for (body in listOf("INR 500 credited at 12.02.26", "INR 500 credited. Time: 02.12.26",
+            "INR 500 credited. Ref: 02-12-26")) {
+            assertEquals("2026-10-20", SmsDates.resolve(body, received, queued))
+        }
+        assertEquals("2026-10-23", SmsDates.resolve("INR 500 credited on 02/12/26", queued + 86_400_000, queued))
+    }
 }

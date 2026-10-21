@@ -55,3 +55,29 @@ release unit tests in
 The downloaded APK has version code 196 and matches the v0.45.10 signing certificate;
 its ZIP integrity and expected feature code were verified. Physical-device UI
 validation was unavailable. Backend/web sources match the release tag.
+
+## SMS dates and rescan evidence
+
+SMS dates are bounded by the original message day in Asia/Kolkata. A future
+body date is rejected rather than silently swapping day and month. The fallback
+order is valid body date, original message date, then persisted queue date.
+Clock values, due dates and reference fields must not supply transaction dates.
+
+Migration 0036 corrects untouched, future-dated SMS imports using their server
+import day when the original receipt time is unavailable. `sms_source` preserves
+the original dates and identifies this queue fallback. An inbox rescan replaces
+that fallback with the message date, or a valid transaction date from the SMS.
+Ordinary past manual edits and deleted aliases are preserved.
+
+The app retains message receipt time, date provenance and SHA-256 hashes, without
+uploading raw SMS text, sender or account identifiers. Automatic no-reference
+matching requires identical normalized text containing an account plus balance
+or transaction date/time, the same bank/amount/direction/day, and receipt within
+two minutes. Different known references and generic SMS lookalikes stay separate.
+Older records gain this evidence on rescan; existing records without sufficient
+evidence remain in Possible duplicates for review.
+
+UTR and UPI slash references are now extracted, and sync updates persist newly
+extracted references. Rescanning preserves previously acknowledged client IDs,
+including old parser identities and exclusions. The device database upgrades
+from schema 1 to 2 with a nullable metadata column, without deleting queued work.

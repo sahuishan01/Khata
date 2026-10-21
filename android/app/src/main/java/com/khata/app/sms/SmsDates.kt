@@ -26,16 +26,18 @@ object SmsDates {
     private val unrelatedDate = Regex("(?i)(?:due|pay by|statement|billing|bill period|available bal|avl bal|balance as|valid till|expires)")
     private val transactionDate = Regex("(?i)(?:\\bon|\\bdated|txn date|transaction date|value date)\\s*[:=-]?\\s*$")
 
-    fun inBody(body: String): LocalDate? {
+    fun inBody(body: String, latest: LocalDate? = null): LocalDate? {
         val candidates = datePattern.findAll(body).mapNotNull { match ->
             // Stop at sentence/clause boundaries, without treating decimal points as dates.
             val prefix = body.substring(0, match.range.first).takeLast(80)
                 .substringAfterLast(';').substringAfterLast('\n').substringAfterLast(". ")
             if (unrelatedDate.containsMatchIn(prefix)) return@mapNotNull null
+            // A clock (12.02.26), reference or URL is not a transaction date.
+            if (Regex("(?i)(?:\\btime|\\bat|\\bref(?:erence)?|\\brrn)\\s*[:#=-]?\\s*$").containsMatchIn(prefix)) return@mapNotNull null
             val normalized = match.value.replace('/', '-').replace('.', '-').replace(' ', '-')
             val date = formats.firstNotNullOfOrNull { format ->
                 runCatching { LocalDate.parse(normalized, format) }.getOrNull()?.takeIf { it.year in 2000..2099 }
-            } ?: return@mapNotNull null
+            }?.takeIf { latest == null || it <= latest } ?: return@mapNotNull null
             date to transactionDate.containsMatchIn(prefix)
         }.toList()
         return candidates.firstOrNull { it.second }?.first ?: candidates.firstOrNull()?.first
@@ -43,7 +45,17 @@ object SmsDates {
 
     fun timestampDate(timestamp: Long): String = Instant.ofEpochMilli(timestamp).atZone(bankZone).toLocalDate().toString()
 
-    /** Body date > original SMS timestamp > persisted queue creation date. */
+    data class Resolution(val date: String, val source: String)
+
+    /** Posted transactions cannot be later than their alert. Never swap ambiguous day/month values. */
+    fun resolution(body: String, messageTimestamp: Long?, queuedAt: Long): Resolution {
+        val received = messageTimestamp?.takeIf { it > 0 && it <= queuedAt }
+        val latest = LocalDate.parse(timestampDate(received ?: queuedAt))
+        return inBody(body, latest)?.let { Resolution(it.toString(), "body") }
+            ?: Resolution(latest.toString(), if (received != null) "message" else "queue")
+    }
+
+    /** Valid body date > original SMS timestamp > persisted queue creation date. */
     fun resolve(body: String, messageTimestamp: Long?, queuedAt: Long): String =
-        inBody(body)?.toString() ?: timestampDate(messageTimestamp?.takeIf { it > 0 } ?: queuedAt)
+        resolution(body, messageTimestamp, queuedAt).date
 }

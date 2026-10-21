@@ -48,6 +48,7 @@ data class TxnRow(
     @SerializedName("base_rev") val baseRev: Long = 0,
     val deleted: Boolean = false,
     @SerializedName("possible_duplicate") val possibleDuplicate: Boolean = false,
+    @SerializedName("sms_source") val smsSource: com.khata.app.sms.SmsSource? = null,
     @SerializedName("txn_date") val txnDate: String = valueDate,
     @SerializedName("bank_ref") val bankRef: String? = null,
     val balance: Double? = null,
@@ -120,6 +121,7 @@ data class SyncPushOp(
     val notes: String? = null,
     @SerializedName("is_transfer") val isTransfer: Boolean = false,
     val deleted: Boolean = false,
+    @SerializedName("sms_source") val smsSource: com.khata.app.sms.SmsSource? = null,
 )
 
 data class SyncPushResult(
@@ -157,6 +159,7 @@ fun TxnRow.toLocal() = com.khata.app.data.LocalTransaction(
     rev = this.rev,
     baseRev = this.rev,
     deleted = this.deleted,
+    smsSource = this.smsSource?.let { com.google.gson.Gson().toJson(it) },
 )
 
 data class UserEmailConfigResponse(

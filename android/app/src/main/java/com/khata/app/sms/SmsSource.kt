@@ -1,0 +1,37 @@
+package com.khata.app.sms
+
+import com.google.gson.annotations.SerializedName
+import java.security.MessageDigest
+import java.util.Locale
+
+/** Provenance without retaining SMS text, sender, account numbers or balances. */
+data class SmsSource(
+    @SerializedName("parser_version") val parserVersion: Int = 1,
+    @SerializedName("received_at") val receivedAt: Long? = null,
+    @SerializedName("body_hash") val bodyHash: String? = null,
+    @SerializedName("event_key") val eventKey: String? = null,
+    @SerializedName("date_source") val dateSource: String,
+    @SerializedName("parsed_date") val parsedDate: String,
+    @SerializedName("previous_txn_date") val previousTxnDate: String? = null,
+    @SerializedName("previous_value_date") val previousValueDate: String? = null,
+) {
+    companion object {
+        private val account = Regex("(?i)\\b(?:a/c|ac|account|card)\\s*(?:no\\.?|number)?\\s*[:.-]?\\s*[xX*0-9]{2,}\\d{2,}")
+        private val balance = Regex("(?i)\\b(?:avl\\.?|avail(?:able)?|closing|clear)?\\s*bal(?:ance)?\\.?\\s*[:=-]?\\s*(?:rs\\.?|inr|₹)?\\s*[0-9,]+(?:\\.[0-9]{1,2})?")
+        private val clock = Regex("(?<![0-9])(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?![0-9])")
+
+        fun from(body: String, timestamp: Long, queuedAt: Long): SmsSource {
+            val resolved = SmsDates.resolution(body, timestamp, queuedAt)
+            val normalized = body.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
+            val hash = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            // An identical amount/payee/day, or even identical generic SMS text, is insufficient.
+            // Require an account plus a changing balance or an explicit transaction date/time.
+            val anchored = account.containsMatchIn(body) && (balance.containsMatchIn(body) ||
+                (resolved.source == "body" && clock.containsMatchIn(body)))
+            return SmsSource(receivedAt = timestamp.takeIf { it > 0 && it <= queuedAt },
+                bodyHash = hash, eventKey = hash.takeIf { anchored },
+                dateSource = resolved.source, parsedDate = resolved.date)
+        }
+    }
+}

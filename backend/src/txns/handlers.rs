@@ -64,7 +64,7 @@ pub async fn list_txns(
     let sql = format!(
         r#"SELECT id, txn_date, value_date, description,
                   amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
-                  rev, base_rev, deleted, updated_at, client_id,
+                  rev, base_rev, deleted, updated_at, client_id, sms_source,
                   EXISTS (SELECT 1 FROM transactions d WHERE {MATCHING_RECORD}) AS possible_duplicate
            FROM transactions t
            WHERE user_id = $1 AND NOT deleted
@@ -260,7 +260,7 @@ pub async fn get_analysis(
     let largest = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
                   amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
-                  rev, base_rev, deleted, updated_at, client_id
+                  rev, base_rev, deleted, updated_at, client_id, sms_source
            FROM transactions
             WHERE user_id = $1 AND NOT deleted AND direction = 'debit' AND NOT is_transfer AND category NOT IN (SELECT name FROM categories WHERE user_id = $1 AND txn_type = 'investment')
            ORDER BY amount DESC LIMIT 1"#,
@@ -470,11 +470,11 @@ pub async fn get_analytics_highlights(
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let biggest_expense: Option<TxnRow> = sqlx::query_as(
-        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id, sms_source FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='debit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let biggest_income: Option<TxnRow> = sqlx::query_as(
-        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id, sms_source FROM transactions WHERE user_id = $1 AND NOT deleted AND direction='credit' AND NOT is_transfer ORDER BY amount DESC LIMIT 1"
     ).bind(user_id).fetch_optional(&mut *tx).await.map_err(|e| AppError::BadRequest("Query failed".into()))?;
 
     let top_payee: Option<(String, f64)> = sqlx::query_as(
@@ -670,7 +670,7 @@ pub async fn get_txn(
     let row = sqlx::query_as::<_, TxnRow>(
         r#"SELECT id, txn_date, value_date, description,
                   amount::float8, direction, balance::float8, bank, bank_ref, category, is_transfer, notes, version,
-                  rev, base_rev, deleted, updated_at, client_id
+                  rev, base_rev, deleted, updated_at, client_id, sms_source
            FROM transactions WHERE id = $1 AND user_id = $2"#,
     )
     .bind(txn_id)
@@ -745,7 +745,7 @@ pub async fn create_txn(
             RETURNING id, txn_date, value_date, description,
                       amount::float8, direction, balance::float8, bank, bank_ref, category,
                       is_transfer, notes, version,
-                      rev, base_rev, deleted, updated_at, client_id"#,
+                      rev, base_rev, deleted, updated_at, client_id, sms_source"#,
     )
     .bind(user_id)
     .bind(txn_date)
@@ -866,7 +866,7 @@ pub async fn sync_txns(
                 r#"SELECT id, txn_date, value_date, description,
                           amount::float8, direction, balance::float8, bank, bank_ref, category,
                           is_transfer, notes, version,
-                          rev, base_rev, deleted, updated_at, client_id
+                          rev, base_rev, deleted, updated_at, client_id, sms_source
                    FROM transactions WHERE id = $1 AND user_id = $2"#,
             )
             .bind(id).bind(user_id)
@@ -924,7 +924,7 @@ pub async fn sync_pull(
     let rows = sqlx::query_as::<_, TxnRow>(&format!(
         "SELECT id, txn_date, value_date, description, amount::float8, direction, \
          balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
-         rev, base_rev, deleted, updated_at, client_id, sync_rev \
+         rev, base_rev, deleted, updated_at, client_id, sms_source, sync_rev \
          FROM transactions WHERE user_id = $1 AND {cursor_column} > $2 \
          ORDER BY {cursor_column} ASC LIMIT $3"
     ))
@@ -950,6 +950,7 @@ pub async fn sync_push(
     let mut conflicts = vec![];
 
     for op in ops {
+        if let Some(source) = &op.sms_source { source.validate()?; }
         let server_row: Option<(i64, i64, String)> = sqlx::query_as(
             "SELECT rev, base_rev, description FROM transactions WHERE client_id = $1 AND user_id = $2"
         )
@@ -965,8 +966,8 @@ pub async fn sync_push(
                 let fingerprint = format!("device:{}:{}", user_id, op.client_id);
                 let new_rev: i64 = sqlx::query_scalar(
                     "INSERT INTO transactions (user_id, client_id, description, amount, direction, category, \
-                     txn_date, value_date, notes, is_transfer, deleted, bank, bank_ref, raw_description, fingerprint, rev, base_rev) \
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9,''), $10, $11, $12, $13, $3, $14, 1, 1) \
+                     txn_date, value_date, notes, is_transfer, deleted, bank, bank_ref, raw_description, fingerprint, rev, base_rev, sms_source) \
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9,''), $10, $11, $12, $13, $3, $14, 1, 1, $15) \
                      ON CONFLICT (client_id, user_id) DO UPDATE SET rev = transactions.rev + 1 \
                      RETURNING rev"
                 )
@@ -982,7 +983,7 @@ pub async fn sync_push(
                 .bind(op.deleted.unwrap_or(false))
                 .bind(op.bank.unwrap_or_else(|| "Manual".into()))
                 .bind(op.bank_ref)
-                .bind(fingerprint)
+                .bind(fingerprint).bind(&op.sms_source)
                 .fetch_one(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
             }
@@ -994,7 +995,8 @@ pub async fn sync_push(
                      direction = COALESCE($5, direction), category = COALESCE($6, category), \
                      notes = COALESCE($7, notes), is_transfer = COALESCE($8, is_transfer), \
                      deleted = COALESCE($9, deleted), txn_date = COALESCE($11, txn_date), \
-                     value_date = COALESCE($12, value_date), updated_at = NOW() \
+                     value_date = COALESCE($12, value_date), bank = COALESCE($13, bank), \
+                     bank_ref = COALESCE($14, bank_ref), sms_source = COALESCE($15, sms_source), updated_at = NOW() \
                      WHERE client_id = $2 AND user_id = $10"
                 )
                 .bind(new_rev).bind(op.client_id)
@@ -1002,6 +1004,7 @@ pub async fn sync_push(
                 .bind(&op.direction).bind(&op.category)
                 .bind(&op.notes).bind(op.is_transfer)
                 .bind(op.deleted).bind(user_id).bind(op.txn_date).bind(op.value_date)
+                .bind(&op.bank).bind(&op.bank_ref).bind(&op.sms_source)
                 .execute(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
             }
@@ -1009,7 +1012,7 @@ pub async fn sync_push(
                 let txn: TxnRow = sqlx::query_as(
                     "SELECT id, txn_date, value_date, description, amount::float8, direction, \
                      balance::float8, bank, bank_ref, category, is_transfer, notes, version, \
-                     rev, base_rev, deleted, updated_at, client_id \
+                     rev, base_rev, deleted, updated_at, client_id, sms_source \
                      FROM transactions WHERE client_id = $1 AND user_id = $2"
                 )
                 .bind(op.client_id).bind(user_id)
@@ -1039,6 +1042,7 @@ pub async fn sync_resolve(
 
     let mut accepted = vec![];
     for op in resolutions {
+        if let Some(source) = &op.sms_source { source.validate()?; }
         let server_rev: Option<(i64,)> = sqlx::query_as(
             "SELECT rev FROM transactions WHERE client_id = $1 AND user_id = $2"
         ).bind(op.client_id).bind(user_id).fetch_optional(&mut *tx).await?;
@@ -1051,6 +1055,7 @@ pub async fn sync_resolve(
                  category = COALESCE($6, category), notes = COALESCE($7, notes), \
                  is_transfer = COALESCE($8, is_transfer), deleted = COALESCE($9, deleted), \
                  txn_date = COALESCE($11, txn_date), value_date = COALESCE($12, value_date), \
+                 bank = COALESCE($13, bank), bank_ref = COALESCE($14, bank_ref), sms_source = COALESCE($15, sms_source), \
                  updated_at = NOW() WHERE client_id = $2 AND user_id = $10"
             )
             .bind(new_rev).bind(op.client_id)
@@ -1058,6 +1063,7 @@ pub async fn sync_resolve(
             .bind(&op.direction).bind(&op.category)
             .bind(&op.notes).bind(op.is_transfer)
             .bind(op.deleted).bind(user_id).bind(op.txn_date).bind(op.value_date)
+                .bind(&op.bank).bind(&op.bank_ref).bind(&op.sms_source)
             .execute(&mut *tx).await?;
             accepted.push(SyncAccepted { client_id: op.client_id, server_rev: new_rev });
         }
