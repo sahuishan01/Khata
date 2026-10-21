@@ -366,7 +366,6 @@ export function TransactionsPage() {
                           {duplicateAction(t)}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
                             <div><span style={{ color: 'var(--text-muted)' }}>Amount: </span><span style={{ fontWeight: 600, color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)' }}>{formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}</span></div>
-                            {duplicateAction(t)}
                     <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
                             <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
                             <div><span style={{ color: 'var(--text-muted)' }}>Date: </span><span>{formatDate(t.value_date)}</span></div>
