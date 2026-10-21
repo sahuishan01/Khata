@@ -4,9 +4,9 @@ ALTER TABLE transactions ADD CONSTRAINT transaction_duplicate_not_self
     CHECK (duplicate_of IS NULL OR duplicate_of <> id);
 CREATE INDEX idx_transactions_reference_identity
     ON transactions (user_id, (btrim(bank_ref)), amount, value_date)
-    WHERE NOT deleted AND bank_ref IS NOT NULL;
+    WHERE NOT deleted AND btrim(bank_ref) ~ '^[0-9]{10,20}$';
 CREATE INDEX idx_transactions_duplicate_review
-    ON transactions (user_id, bank, value_date, amount, direction, description)
+    ON transactions (user_id, value_date, amount, direction)
     WHERE NOT deleted;
 
 CREATE FUNCTION is_named_bank(bank text) RETURNS boolean
@@ -46,6 +46,7 @@ BEGIN
 
     SELECT array_agg(t.id) INTO matches FROM transactions t
     WHERE t.user_id = NEW.user_id AND NOT t.deleted
+      AND btrim(t.bank_ref) ~ '^[0-9]{10,20}$'
       AND upper(t.bank) = upper(NEW.bank) AND btrim(t.bank_ref) = btrim(NEW.bank_ref)
       AND t.direction = NEW.direction AND t.amount = NEW.amount
       AND abs(t.value_date - NEW.value_date) <= 2;
