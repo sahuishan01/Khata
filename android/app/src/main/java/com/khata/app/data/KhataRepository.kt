@@ -32,8 +32,8 @@ class KhataRepository @Inject constructor(
     suspend fun getDashboard(): DashboardStats = api.dashboard()
     suspend fun getAnalysis(): AnalysisStats = api.analysis()
 
-    suspend fun listTxns(page: Int = 1, category: String? = null, sortBy: String = "date", sortDir: String = "desc", from: String? = null, to: String? = null, duplicatesOnly: Boolean = false): TxnListResponse =
-        api.listTxns(page = page, perPage = if (duplicatesOnly) 200 else 50, category = category, sortBy = sortBy, sortDir = sortDir, from = from, to = to, duplicatesOnly = duplicatesOnly)
+    suspend fun listTxns(page: Int = 1, category: String? = null, sortBy: String = "date", sortDir: String = "desc", from: String? = null, to: String? = null, duplicatesOnly: Boolean = false, search: String? = null): TxnListResponse =
+        api.listTxns(page = page, perPage = 50, category = category, sortBy = sortBy, sortDir = sortDir, from = from, to = to, duplicatesOnly = duplicatesOnly, search = search)
     suspend fun excludeDuplicate(id: String) = api.excludeDuplicate(id)
     suspend fun restoreDuplicate(id: String) = api.restoreDuplicate(id)
     suspend fun listCategories(): List<String> = api.listCategories()

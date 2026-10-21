@@ -98,3 +98,28 @@ when artifact inspection found that R8 removed the SMS DTO's Gson fields.
 keep rule. The workflow checks these fields in the final DEX files before
 publishing. Invalid legacy metadata is ignored during upload and rebuilt by
 rescan, preserving the financial row. Physical-device UI checks remain unavailable.
+
+## Card repayment confirmations and scrolling
+
+Transactions load further pages as the list approaches its end on Android and
+web. Requests retain search, sort, category, date and duplicate filters. Failed
+pages retain loaded rows and expose retry; stale responses cannot append to a
+new filter. The API orders tied rows by their unique IDs. Background web refresh
+checks the first page before reloading the accumulated range, preserving scroll
+position without repeatedly downloading an unchanged history.
+
+A CRED Club debit becomes a transfer only when a unique card repayment receipt
+of the same amount arrives within ten minutes. CRED purchases without that
+receipt remain expenses. Card receipts and matching bank debits remain visible
+as the two transfer legs and do not count as spending or income.
+
+Later generic credits in the same bank/day are review candidates when a CRED
+funding/receipt pair exists. Amount alone never excludes them. Automatic
+confirmation exclusion additionally requires explicit receipt/confirmation
+roles, the same card fingerprint, and one recorded funding debit. Different
+cards, multiple funding debits and multiple received-payment alerts stay
+separate. Deferred reconciliation evaluates the complete sync batch before
+inferring uniqueness. Manual transfer choices override later parser evidence.
+The app sends a card fingerprint rather than a card number; raw SMS text stays
+on the device. Already confirmed examples can be excluded through the review
+API while retaining their client identities and audit trail.

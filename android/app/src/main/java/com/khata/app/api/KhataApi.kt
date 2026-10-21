@@ -30,7 +30,8 @@ interface KhataApi {
         @Query("sort_by") sortBy: String = "date", @Query("sort_dir") sortDir: String = "desc",
         @Query("category") category: String? = null,
         @Query("from") from: String? = null, @Query("to") to: String? = null,
-        @Query("duplicates_only") duplicatesOnly: Boolean = false
+        @Query("duplicates_only") duplicatesOnly: Boolean = false,
+        @Query("search") search: String? = null,
     ): TxnListResponse
     @GET("api/txns/categories") suspend fun listCategories(): List<String>
     @POST("api/txns") suspend fun createTxn(@Body body: CreateTxnReq): TxnRow

@@ -25,7 +25,7 @@ import javax.inject.Inject
 data class AuthUiState(val isChecking: Boolean = true, val isLoading: Boolean = false, val isLoggedIn: Boolean = false, val setupRequired: Boolean = false, val mustResetPassword: Boolean = false, val user: MeResponse? = null, val error: String? = null)
 data class DashboardUiState(val stats: DashboardStats? = null, val analysis: AnalysisStats? = null, val isLoading: Boolean = false, val error: String? = null)
 data class TxnFilter(val sortBy: String = "date", val sortDir: String = "desc", val category: String? = null, val from: String? = null, val to: String? = null, val preset: Int = 0, val search: String = "", val duplicatesOnly: Boolean = false)
-data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
+data class TxnUiState(val txns: TxnListResponse? = null, val categories: List<String> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val isLoadingMore: Boolean = false, val hasMore: Boolean = false, val moreError: String? = null)
 data class ChatUiState(val messages: List<ChatHistoryResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 data class UsersUiState(val users: List<UserResponse> = emptyList(), val isLoading: Boolean = false, val error: String? = null, val success: String? = null)
 data class AccountsUiState(val accounts: List<UserAccount> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
@@ -158,16 +158,32 @@ class MainViewModel @Inject constructor(
         _dashboardState.value = DashboardUiState(stats = s, analysis = a)
     } catch (e: Exception) { _dashboardState.value = _dashboardState.value.copy(isLoading = false, error = e.message) } }}
 
-    fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null, preset: Int = 0) { viewModelScope.launch { try {
-        _txnState.value = _txnState.value.copy(isLoading = true, error = null)
-        _txnFilterState.value = _txnFilterState.value.copy(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to, preset = preset)
-        val t = repository.listTxns(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to, duplicatesOnly = _txnFilterState.value.duplicatesOnly)
-        val txnCats = repository.listCategories()
-        val managedCats = try { repository.listCategoriesV2().map { it.name } } catch (_: Exception) { emptyList() }
-        val allCats = (txnCats + managedCats).distinct().sorted()
-        _txnState.value = TxnUiState(txns = t, categories = allCats)
-        _cachedTxns.value = t
-    } catch (e: Exception) { _txnState.value = _txnState.value.copy(isLoading = false, error = e.message ?: "Failed") } }}
+    private val transactionPager = TransactionPager { page, f ->
+        repository.listTxns(page = page, sortBy = f.sortBy, sortDir = f.sortDir, category = f.category,
+            from = f.from, to = f.to, duplicatesOnly = f.duplicatesOnly, search = f.search.ifBlank { null })
+    }
+    init {
+        viewModelScope.launch {
+            transactionPager.state.collect { p ->
+                _txnState.value = _txnState.value.copy(txns = p.list, isLoading = p.loading, error = p.error,
+                    isLoadingMore = p.loadingMore, hasMore = p.hasMore, moreError = p.moreError)
+                if (p.list != null) _cachedTxns.value = p.list
+            }
+        }
+    }
+    fun loadMoreTransactions() { viewModelScope.launch { transactionPager.loadMore() } }
+    fun loadTransactions(sortBy: String = "date", sortDir: String = "desc", category: String? = null, from: String? = null, to: String? = null, preset: Int = 0) {
+        val query = _txnFilterState.value.copy(sortBy = sortBy, sortDir = sortDir, category = category, from = from, to = to, preset = preset)
+        _txnFilterState.value = query
+        viewModelScope.launch {
+            transactionPager.refresh(query)
+            try {
+                val txnCats = repository.listCategories()
+                val managed = try { repository.listCategoriesV2().map { it.name } } catch (_: Exception) { emptyList() }
+                _txnState.value = _txnState.value.copy(categories = (txnCats + managed).distinct().sorted())
+            } catch (_: Exception) { }
+        }
+    }
 
     fun excludeDuplicate(id: String) { viewModelScope.launch { try {
         repository.excludeDuplicate(id)
@@ -193,11 +209,7 @@ class MainViewModel @Inject constructor(
     } catch (_: Exception) {} }}
     fun updateCategory(id: String, category: String) { viewModelScope.launch { try {
         repository.updateCategory(id, category)
-        val current = _txnState.value
-        current.txns?.let { list ->
-            val updated = list.data.map { if (it.id == id) it.copy(category = category) else it }
-            _txnState.value = current.copy(txns = list.copy(data = updated), error = null)
-        }
+        val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
     } catch (e: Exception) {
         _txnState.value = _txnState.value.copy(error = "Category update failed: ${e.message}")
     } }}

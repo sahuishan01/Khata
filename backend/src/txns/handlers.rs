@@ -12,8 +12,8 @@ use super::models::*;
 // A review suggestion only: repeated payments without references can be legitimate.
 const MATCHING_RECORD: &str = "d.user_id = t.user_id AND d.id <> t.id AND NOT d.deleted \
     AND d.bank = t.bank AND d.value_date = t.value_date AND d.amount = t.amount \
-    AND d.direction = t.direction AND d.description = t.description \
-    AND d.bank_ref IS NOT DISTINCT FROM t.bank_ref";
+    AND d.direction = t.direction AND ((d.description = t.description \
+    AND d.bank_ref IS NOT DISTINCT FROM t.bank_ref) OR is_card_confirmation_candidate(t,d))";
 
 
 pub async fn list_txns(
@@ -22,8 +22,8 @@ pub async fn list_txns(
     Query(params): Query<ListParams>,
 ) -> Result<Json<TxnListResponse>, AppError> {
     let page = params.page.unwrap_or(1).max(1);
-    let per_page = params.per_page.unwrap_or(50).min(200);
-    let offset = (page - 1) * per_page;
+    let per_page = params.per_page.unwrap_or(50).clamp(1, 200);
+    let offset = (page - 1).saturating_mul(per_page);
 
     let category_filter = params.category.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
     let date_from = params.from;
@@ -40,7 +40,7 @@ pub async fn list_txns(
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
-             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
+             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5 OR UPPER(category) LIKE $5 OR UPPER(notes) LIKE $5)
              AND ($6::text IS NULL OR bank = $6)
              AND (NOT $7 OR EXISTS (SELECT 1 FROM transactions d WHERE {MATCHING_RECORD}))"#),
     )
@@ -58,7 +58,7 @@ pub async fn list_txns(
     let secondary = if sort_col == "value_date" {
         format!(", created_at {sort_dir}")
     } else {
-        String::new()
+        String::from(", value_date DESC, created_at DESC")
     };
 
     let sql = format!(
@@ -71,10 +71,10 @@ pub async fn list_txns(
              AND ($2::text IS NULL OR category = $2)
              AND ($3::date IS NULL OR value_date >= $3)
              AND ($4::date IS NULL OR value_date <= $4)
-             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5)
+             AND ($5::text IS NULL OR UPPER(description) LIKE $5 OR UPPER(bank_ref) LIKE $5 OR UPPER(category) LIKE $5 OR UPPER(notes) LIKE $5)
              AND ($6::text IS NULL OR bank = $6)
              AND (NOT $7 OR EXISTS (SELECT 1 FROM transactions d WHERE {MATCHING_RECORD}))
-           ORDER BY {sort_col} {sort_dir}{secondary}
+           ORDER BY {sort_col} {sort_dir}{secondary}, id {sort_dir}
            LIMIT $8 OFFSET $9"#
     );
     let data = sqlx::query_as::<_, TxnRow>(&sql)
@@ -641,7 +641,7 @@ pub async fn toggle_transfer(
     crate::db::set_current_user(&mut *tx, user_id).await?;
 
     let result = sqlx::query(
-        "UPDATE transactions SET is_transfer = $1, version = version + 1, rev = rev + 1, updated_at = NOW() WHERE id = $2 AND user_id = $3"
+        "UPDATE transactions SET is_transfer = $1, transfer_override = true, version = version + 1, rev = rev + 1, updated_at = NOW() WHERE id = $2 AND user_id = $3"
     )
     .bind(req.is_transfer)
     .bind(txn_id)
@@ -896,7 +896,7 @@ pub async fn sync_txns(
                 .execute(&mut *tx).await?;
         }
         if let Some(is_transfer) = item.is_transfer {
-            sqlx::query("UPDATE transactions SET is_transfer = $1, version = version + 1 WHERE id = $2 AND user_id = $3")
+            sqlx::query("UPDATE transactions SET is_transfer = $1, transfer_override = true, version = version + 1 WHERE id = $2 AND user_id = $3")
                 .bind(is_transfer).bind(id).bind(user_id)
                 .execute(&mut *tx).await?;
         }

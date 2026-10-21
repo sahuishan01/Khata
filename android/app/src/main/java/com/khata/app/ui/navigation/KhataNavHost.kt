@@ -92,7 +92,6 @@ fun KhataNavHost(themeManager: ThemeManager) {
     val budgetsState by viewModel.budgetsState.collectAsState()
     val portfolioState by viewModel.portfolioState.collectAsState()
     val categoriesState by viewModel.categoriesState.collectAsState()
-    val cachedTxnsState by viewModel.cachedTxns.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val deviceSyncState by viewModel.deviceSyncState.collectAsState()
@@ -233,13 +232,17 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 val filterState by viewModel.txnFilterState.collectAsState()
                 val lastExcludedDuplicateId by viewModel.lastExcludedDuplicateId.collectAsState()
                 TransactionsScreen(
-                    txnState = txnState.txns ?: cachedTxnsState,
+                    txnState = txnState.txns,
                     deviceSyncStatus = {
                         if (pendingSyncCount > 0 || deviceSyncState is SyncUiState.Error || deviceSyncState is SyncUiState.Conflicts) deviceSyncStatus()
                     },
                     categories = txnState.categories,
                     isLoading = txnState.isLoading,
                     error = txnState.error,
+                    isLoadingMore = txnState.isLoadingMore,
+                    hasMore = txnState.hasMore,
+                    moreError = txnState.moreError,
+                    onLoadMore = viewModel::loadMoreTransactions,
                     filter = filterState,
                     onFilterChange = viewModel::updateTxnFilter,
                     lastExcludedDuplicateId = lastExcludedDuplicateId,
