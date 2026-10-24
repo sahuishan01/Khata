@@ -82,3 +82,12 @@ application” footer. The context guard recognizes application identifiers and
 acknowledgements rather than the generic word “application”. The extra regression
 failed before narrowing the pattern. The unpublished v0.45.20 CI build was
 cancelled; v0.45.21 contains the complete fix.
+
+Signed CI [40114558787](https://github.com/sahuishan01/Khata/actions/runs/40114558787)
+passed all 77 release tests on `heaven`. The downloaded v0.45.21 APK has versionCode
+207 and matches v0.45.19's signing certificate. Archive integrity, GitHub asset
+digest, application/fund-block guards, required SMS metadata, HTTPS-only setup
+and retained title/widget/tile/launcher components were verified. Security Scan
+`40114558309` passed. The existing default CodeQL Java unsigned-autobuild failure
+remains separate from successful signed release CI. See `DEPLOYMENT.md` for
+artifact links and checksum.

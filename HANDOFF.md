@@ -1,5 +1,27 @@
 # HANDOFF.md — Khata Project Handoff
 
+**IPO application receipts (2026-10-24):** Android `v0.45.21` fixes the reported
+Jio Platforms application acknowledgement being parsed as a credit. Collect and
+fund-block context can appear in the following sentence. A receipt clause now
+needs its own money-posting evidence; completed IPO payments/refunds and separate
+real postings remain eligible. Live capture and inbox scans share this parser.
+
+Install as an update, then Add Data → Scan SMS inbox with the source SMS still
+present. Only proven unchanged false imports are excluded through the existing
+revision-protected sync. Edited, referenced and unverifiable rows are preserved.
+No live financial data was changed during development. Backend email filtering
+already rejects the reported wording; no backend/web deploy or migration is
+needed, and v0.45.18 remains the current server deployment.
+
+Signed CI `40114558787` passed 77 release tests on `heaven`; local release lint,
+16 email-parser parity tests and Security Scan `40114558309` passed. APK
+versionCode 207 supports updating v0.45.19 with the same signing certificate.
+ZIP integrity, GitHub asset digest, application/fund-block guards, required SMS
+metadata, HTTPS-only configuration and retained title/widget/tile/launcher
+components were verified. The default CodeQL Java unsigned-autobuild issue
+remains separate. Evidence: `~/.local/state/khata-sms-ipo/`.
+See `docs/sms-request-filtering.md`.
+
 **Pending request filtering (2026-10-24):** Android `v0.45.19` rejects request
 receipts, pending approvals and future debits by clause, while preserving actual
 mandate payments, refunds and completed postings in other clauses. Install as an
@@ -174,7 +196,7 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.19
+**Current Version:** v0.45.21
 
 **Last Updated:** 2026-10-24
 

@@ -29,10 +29,10 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.21` (signed CI verification pending).
-Last verified signed APK: `v0.45.19`
-(GitHub Actions run `40108105231`, 69 release unit tests passed). Its signing
-certificate matches `v0.45.18`; versionCode 205 supports updating the existing
+Current release version: `v0.45.21` (verified).
+Last verified signed APK: `v0.45.21`
+(GitHub Actions run `40114558787`, 77 release unit tests passed). Its signing
+certificate matches `v0.45.19`; versionCode 207 supports updating the existing
 app. Required SMS metadata fields, including card confirmation role and card
 fingerprint, were verified in the minified APK before publication.
 
@@ -78,6 +78,10 @@ say an amount was received, even when the collect-request instruction follows in
 another sentence. Require money evidence in the receipt clause; preserve real
 IPO debits/refunds and separate completed postings. Rescan exclusions retain the
 existing identity/provenance/edit safeguards. See `docs/sms-request-filtering.md`.
+Signed CI `40114558787`, local release lint, 16 email-parser parity tests and
+Security Scan `40114558309` passed. APK integrity, signing continuity, application/
+fund-block guards and required metadata were verified. Evidence:
+`~/.local/state/khata-sms-ipo/`.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use the latest verified signed release; the Gson DTO is retained explicitly
