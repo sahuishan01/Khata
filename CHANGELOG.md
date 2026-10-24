@@ -5,6 +5,21 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-24] — Ignore IPO application receipts (v0.45.20)
+
+- Reject the reported Jio Platforms IPO acknowledgement instead of recording its
+  application amount as a credit. Request/fund-block context may be in a later
+  sentence; receipt clauses must contain evidence of money actually posted.
+- Cover application identifiers, currency abbreviations, digit grouping, case
+  variants and line breaks. Preserve completed IPO debits/refunds and unrelated
+  real postings, including receipts into an identified account.
+- Reuse the guarded rescan exclusion for proven unchanged false imports. Preserve
+  custom titles and unverifiable entries; synchronize exclusions normally.
+- Add seven Android regression tests and check backend email filtering parity.
+  No backend/web behavior or migration change. See `docs/sms-request-filtering.md`.
+
+---
+
 ## [2026-10-24] — Ignore pending UPI requests (v0.45.19)
 
 - Distinguish a payment or mandate request being received from money received.

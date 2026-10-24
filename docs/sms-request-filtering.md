@@ -42,3 +42,37 @@ future-posting filters, required metadata, HTTPS-only configuration and retained
 title/widget/tile/launcher components were verified. Security Scan `40108105133`
 passed. The existing default CodeQL Java unsigned-autobuild configuration issue
 remains separate from signed release CI. See `DEPLOYMENT.md` for artifact details.
+
+## IPO application receipts (v0.45.20)
+
+The reported Jio Platforms IPO acknowledgement reproduced a false credit of
+Rs 107424.00 in v0.45.19: the application amount was followed by “received”,
+while the collect request and blocking-of-funds instruction appeared in the next
+sentence. Application receipt is not money received. No application/VPA identity
+is needed to distinguish the wording; regression fixtures use neutral examples.
+
+The parser now checks request/application/fund-block context across the SMS.
+In that context, a receipt clause needs its own evidence of money posted, such
+as credited/debited/refund wording or an identified account. A separate real
+posting cannot legitimize the application amount. Completed IPO debits/refunds
+and real postings in other clauses remain eligible. Fund blocks are excluded.
+Case, currency/identifier abbreviations, digit grouping and line wrapping are
+covered. This is shared by live SMS capture and explicit inbox scans.
+
+Install the update and run **Add Data → Scan SMS inbox** while the source SMS
+remains present. The existing guarded exclusion verifies the previous parse,
+identity, body hash, receipt time and unchanged fields before queuing a soft
+exclusion through revision-protected sync. Renamed, referenced, transfer or
+unverifiable records remain available for review. No live financial data is
+modified during development. The backend email extractor already rejects the
+reported wording; no backend/web deployment or migration is needed.
+
+Evidence: `~/.local/state/khata-sms-ipo/`.
+
+All 76 Android release unit tests and release lint pass locally. Seven new tests
+cover the reported wording, application/currency/line-wrap variants, fund blocks,
+completed IPO payments/refunds, mixed messages, guarded rescan exclusion,
+idempotence and edited/unverifiable row protection. The pre-fix baseline had six
+failures in the seven new tests. A private direct JVM check also rejects the
+exact unmodified user-provided SMS for three sender cases. All 16 backend
+email-parser parity tests pass using a neutral alert subject.

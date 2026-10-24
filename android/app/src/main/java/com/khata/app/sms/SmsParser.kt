@@ -59,15 +59,38 @@ object SmsParser {
     private val CONFIRMED_POSTING = Pattern.compile(
         "(?i)\\b(?:has|have)\\s+been\\s+(?:debited|credited|spent|paid|withdrawn|transferred)\\b"
     )
+    private val APPLICATION_NOTICE = Pattern.compile(
+        "(?i)\\b(?:app(?:lication)?\\s+(?:no|number|id)|application|bid\\s+(?:no|number|id))\\b"
+    )
+    private val FUND_BLOCK_NOTICE = Pattern.compile(
+        "(?i)\\b(?:blocking\\s+of\\s+funds|" +
+            "(?:funds?|amount)\\s+(?:(?:has|have)\\s+been\\s+|will\\s+be\\s+|(?:is|are)\\s+)?blocked|" +
+            "blocked\\s+(?:funds?|amount))\\b"
+    )
+    private val RECEIPT = Pattern.compile("(?i)\\b(?:received|acknowledged)\\b")
+    private val MONEY_RECEIPT_EVIDENCE = Pattern.compile(
+        "(?i)\\b(?:debited|credited|deposited|spent|paid|withdrawn|transferred|" +
+            "refund(?:ed)?|cashback|salary|dividend|interest)\\b|" +
+            "\\b(?:a/?c|account)\\s*(?:(?:no\\.?|number|ending(?:\\s+in)?)\\s*)?[:#*x\\d\\s-]*\\d{3,}"
+    )
 
     /** "Request received" is not money received; keep other completed alert clauses. */
     private fun nonPostingClauses(body: String): List<IntRange> {
         val excluded = mutableListOf<IntRange>()
+        // An application receipt can put its collect/block instruction in the
+        // next sentence. In that context, "received" alone is not a posting.
+        // Require money evidence in the receipt's own clause so a separate real
+        // credit cannot legitimize the application amount (or vice versa).
+        val receiptNeedsEvidence = REQUEST_NOTICE.matcher(body).find() ||
+            APPLICATION_NOTICE.matcher(body).find() || FUND_BLOCK_NOTICE.matcher(body).find()
         var start = 0
         fun consider(end: Int) {
             val clause = body.substring(start, end)
             if (UNCOMPLETED_NOTICE.matcher(clause).find() ||
-                (REQUEST_NOTICE.matcher(clause).find() && !CONFIRMED_POSTING.matcher(clause).find())) {
+                FUND_BLOCK_NOTICE.matcher(clause).find() ||
+                (REQUEST_NOTICE.matcher(clause).find() && !CONFIRMED_POSTING.matcher(clause).find()) ||
+                (receiptNeedsEvidence && RECEIPT.matcher(clause).find() &&
+                    !MONEY_RECEIPT_EVIDENCE.matcher(clause).find())) {
                 excluded += start until end
             }
             start = end
