@@ -17,6 +17,8 @@ Format: `## [date] — Summary` → bullet list of changes.
 - Manual entry retains its draft on save failures, reports errors, validates
   positive amounts and opens history after a successful save.
 - Add navigation regression tests. See `docs/android-shortcuts.md` for setup.
+- Update the transitive Zod development dependency to 4.6.7 to clear the
+  high-severity collection-validation advisory; the dependency audit is clean.
 
 ---
 
