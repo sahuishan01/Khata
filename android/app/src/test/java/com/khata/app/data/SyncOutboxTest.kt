@@ -17,6 +17,31 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 
 class SyncOutboxTest {
+    @Test fun excludingAPromotionalImportSyncsATombstoneWithoutReplacingTheFinancialFields() = runBlocking {
+        val timestamp = java.time.Instant.parse("2026-10-24T04:00:00Z").toEpochMilli()
+        val body = "Get Rs.276000 credited in minutes with a Personal Loan on your Kotak Credit Card. Tap to apply."
+        val parsed = com.khata.app.sms.ParsedSmsTxn(276000.0, "credit", "KOTAK", "Transaction")
+        val old = com.khata.app.sms.SmsImport.transaction(parsed, body, "AD-KOTAKB", timestamp, timestamp)
+            .copy(rev = 7, baseRev = 7, dirty = false, pendingOp = null)
+        val dao = MemoryDao(listOf(old))
+        assertTrue(com.khata.app.sms.SmsImport.excludePromotion(dao, body, "AD-KOTAKB", timestamp, timestamp))
+        val remote = api { ops ->
+            val op = ops.single()
+            assertEquals(old.clientId, op.clientId)
+            assertEquals(7L, op.baseRev)
+            assertEquals(true, op.deleted)
+            assertEquals(old.amount, op.amount!!, 0.0)
+            assertEquals(old.direction, op.direction)
+            assertEquals(old.txnDate, op.txnDate)
+            SyncPushResult(listOf(SyncAccepted(old.clientId, 8)), emptyList())
+        }
+        assertTrue(SyncOutbox(dao, remote).push().isEmpty())
+        assertTrue(dao.getOutbox().isEmpty())
+        assertTrue(dao.rows.values.single().deleted)
+        assertEquals(old.clientId, dao.rows.values.single().clientId)
+        assertEquals(8L, dao.rows.values.single().baseRev)
+    }
+
     @Test fun invalidLegacySmsMetadataDoesNotBlockTheQueuedTransaction() = runBlocking {
         for (metadata in listOf("{}", "{\"a\":1}", "broken json")) {
             val local = LocalTransaction(smsSource = metadata, dirty = true, pendingOp = "CREATE")

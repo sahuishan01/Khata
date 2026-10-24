@@ -5,6 +5,23 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-24] — Ignore SMS loan offers (v0.45.17)
+
+- Reject promotional instructions such as “Get Rs.276000 credited in minutes”
+  instead of treating the advertised loan amount as a completed credit.
+- Continue importing genuine loan disbursements and transaction alerts that
+  include an offer footer, including alerts following an offer in the same SMS.
+- On explicit **Scan SMS inbox**, exclude unchanged false imports with matching
+  original SMS provenance. Preserve edited, referenced and unverifiable records.
+  Exclusions use the existing revision-protected sync so other devices and the
+  web app also receive the correction; original financial fields are retained.
+- Show the number of promotional imports excluded during the rescan.
+- Add parser, rescan, concurrent-edit and sync regression coverage. All 61
+  Android release unit tests and release lint passed locally; all 15 backend
+  email-parser tests also passed, including the reported SMS as a negative case.
+
+---
+
 ## [2026-10-24] — Widgets and quick shortcuts (v0.45.16)
 
 - Add a resizable home-screen quick-actions widget and a configurable single

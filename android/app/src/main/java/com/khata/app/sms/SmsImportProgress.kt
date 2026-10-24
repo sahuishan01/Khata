@@ -9,6 +9,7 @@ data class SmsImportProgress(
     val saved: Int = 0,
     val updated: Int = 0,
     val alreadySaved: Int = 0,
+    val excludedPromotions: Int = 0,
     val serverCheckFailed: Boolean = false,
     val message: String = "",
     val failed: Boolean = false,

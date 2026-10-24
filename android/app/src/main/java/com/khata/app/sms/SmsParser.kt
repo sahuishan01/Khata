@@ -34,6 +34,15 @@ object SmsParser {
         Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:credited|received|deposited)"),
     )
 
+    // "Get Rs ... credited" describes an offer, not money that has arrived.
+    // Check the clause governing each amount, rather than banning words such as
+    // "loan" or "apply" anywhere in a genuine alert's promotional footer.
+    private val OFFER_PREFIX = Pattern.compile(
+        "(?i)(?:^|[.!?;:,])\\s*(?:(?:dear\\s+customer|congratulations)[,!:\\s]+)?" +
+            "(?:get|avail|borrow|apply\\s+for|you\\s+(?:can|could|may)|" +
+            "(?:you\\s+are\\s+)?eligible\\s+for)\\b[^.!?;]{0,100}$"
+    )
+
     private val BANK_PATTERN = Pattern.compile("(?i)\\b(HDFC|ICICI|SBI|AXIS|KOTAK|PNB|BOB|CANARA|PAYTM|IDFC|YES|INDUSIND)\\b")
     // \b matters: without it the "to" inside ordinary prose ("...wish to inform
     // you that Rs 514...") matches and the payee becomes "inform you that Rs".
@@ -66,7 +75,15 @@ object SmsParser {
         return if (matcher.find()) matcher.group(1)?.takeIf { value -> value.any { it.isDigit() } } else null
     }
 
-    fun parse(body: String, sender: String = ""): ParsedSmsTxn? {
+    fun parse(body: String, sender: String = ""): ParsedSmsTxn? = parseCandidate(body, sender, rejectOffers = true)
+
+    /** Used only to identify a proven, untouched false import during an explicit inbox rescan. */
+    internal fun previouslyImportedPromotion(body: String, sender: String): ParsedSmsTxn? {
+        val previous = parseCandidate(body, sender, rejectOffers = false) ?: return null
+        return previous.takeIf { parse(body, sender) == null }
+    }
+
+    private fun parseCandidate(body: String, sender: String, rejectOffers: Boolean): ParsedSmsTxn? {
         val cleanBody = body.replace("\n", " ").trim()
         val lowerSender = sender.lowercase(Locale.ROOT)
 
@@ -75,40 +92,20 @@ object SmsParser {
             return null
         }
 
-        var amount: Double? = null
-        var direction: String? = null
-
-        // Check Debit
-        for (pattern in DEBIT_PATTERNS) {
-            val matcher = pattern.matcher(cleanBody)
-            if (matcher.find()) {
-                val amtStr = matcher.group(1)?.replace(",", "") ?: continue
-                amount = amtStr.toDoubleOrNull()
-                if (amount != null && amount > 0) {
-                    direction = "debit"
-                    break
-                }
-            }
-        }
-
-        // Check Credit if not debit
-        if (direction == null) {
-            for (pattern in CREDIT_PATTERNS) {
+        fun amountFrom(patterns: List<Pattern>): Double? {
+            for (pattern in patterns) {
                 val matcher = pattern.matcher(cleanBody)
-                if (matcher.find()) {
-                    val amtStr = matcher.group(1)?.replace(",", "") ?: continue
-                    amount = amtStr.toDoubleOrNull()
-                    if (amount != null && amount > 0) {
-                        direction = "credit"
-                        break
-                    }
+                while (matcher.find()) {
+                    if (rejectOffers && OFFER_PREFIX.matcher(cleanBody.substring(0, matcher.start())).find()) continue
+                    val amount = matcher.group(1)?.replace(",", "")?.toDoubleOrNull()
+                    if (amount != null && amount.isFinite() && amount > 0) return amount
                 }
             }
-        }
-
-        if (amount == null || direction == null) {
             return null
         }
+        val debit = amountFrom(DEBIT_PATTERNS)
+        val amount = debit ?: amountFrom(CREDIT_PATTERNS) ?: return null
+        val direction = if (debit != null) "debit" else "credit"
 
         // Detect Bank
         var bank = "Bank"

@@ -116,6 +116,7 @@ fun CombinedUploadScreen(
                         ) else if (smsProgress.running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         Text("${smsProgress.scanned} of ${smsProgress.total} SMS scanned · ${smsProgress.matched} matched", fontSize = 12.sp)
                         Text("${smsProgress.saved - smsProgress.updated} new · ${smsProgress.updated} updated · ${smsProgress.alreadySaved} already saved", fontSize = 12.sp)
+                        if (smsProgress.excludedPromotions > 0) Text("${smsProgress.excludedPromotions} promotional imports excluded", fontSize = 12.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(smsProgress.message, fontSize = 12.sp, color = if (smsProgress.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         if (smsProgress.failed) CopyButton(smsProgress.message, "Copy error")
