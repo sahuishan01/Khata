@@ -33,3 +33,12 @@ email extractor already rejects these request messages; all 15 tests in its
 standalone parity harness pass. No web/backend deployment or migration is needed.
 
 Evidence: `~/.local/state/khata-sms-requests/`.
+
+Signed release CI [40108105231](https://github.com/sahuishan01/Khata/actions/runs/40108105231)
+completed successfully on `heaven`, including all 69 release unit tests and
+minified SMS metadata checks. The APK is versionCode 205 and its signing
+certificate matches v0.45.18. ZIP integrity, the GitHub asset digest, request and
+future-posting filters, required metadata, HTTPS-only configuration and retained
+title/widget/tile/launcher components were verified. Security Scan `40108105133`
+passed. The existing default CodeQL Java unsigned-autobuild configuration issue
+remains separate from signed release CI. See `DEPLOYMENT.md` for artifact details.

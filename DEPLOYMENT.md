@@ -359,3 +359,26 @@ the VPS clock lagged NTP/GitHub by about 42 minutes. Time synchronization was
 refreshed, the Khata runner registration restored, and encrypted runtime credential
 handling verified before successful CI retries. Resource caps were retained.
 Evidence and screenshot comparison: `~/.local/state/khata-transaction-titles/`.
+
+## Pending SMS request filtering (2026-10-24)
+
+Android `v0.45.19` is the verified signed update from run `40108105231` on `heaven`:
+69 release tests passed, versionCode 205, matching v0.45.18's signing certificate.
+The downloaded APK retains request/future-posting guards, SMS metadata and the
+existing title/shortcut components. ZIP integrity and the GitHub asset digest
+were verified. Local release lint and Security Scan `40108105133` passed.
+
+APK SHA-256: `ad45a018edaa991b8767eb0cb2eb82354981060d72134c8f35ecc74bb1a01346`.
+
+Install as an update, then run **Add Data → Scan SMS inbox** with the original
+message present. Rescans exclude only proven unchanged false imports and use
+normal sync; edited or unverifiable entries stay available for review. Backend
+email filtering already rejects the example (15 parity tests passed). No backend,
+web or database migration is needed; the v0.45.18 deployment remains current.
+
+The exact reported HP Telecom text was already ignored by v0.45.18. Its stored
+entry/import path and phone version are unconfirmed, and no matching record was
+found by read-only provenance/company/amount lookup on this server. No live user
+transaction was modified. Do not claim the particular saved entry is removed.
+Usage and scope: `docs/sms-request-filtering.md`. Evidence:
+`~/.local/state/khata-sms-requests/`.

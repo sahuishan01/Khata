@@ -1,5 +1,26 @@
 # HANDOFF.md — Khata Project Handoff
 
+**Pending request filtering (2026-10-24):** Android `v0.45.19` rejects request
+receipts, pending approvals and future debits by clause, while preserving actual
+mandate payments, refunds and completed postings in other clauses. Install as an
+update and run Add Data → Scan SMS inbox. Only proven unchanged false imports are
+excluded; renamed, referenced and unverifiable entries remain for review.
+
+Signed CI `40108105231` passed 69 release tests on `heaven`. The downloaded APK is
+versionCode 205 and matches v0.45.18's signing certificate. Archive integrity,
+GitHub asset digest, request/future-posting guards, SMS metadata and retained
+title/shortcut components were verified. Release lint, 15 email-parser parity
+tests and Security Scan `40108105133` passed. Backend and web source are unchanged;
+the verified v0.45.18 deployments remain current. Existing default CodeQL Java
+unsigned-autobuild failure remains separate from the signed release pipeline.
+
+The exact reported HP Telecom message was already rejected before this change.
+A read-only provenance and company/amount lookup found no matching server entry;
+the installed phone version/import path remain unconfirmed. No live financial
+rows were changed or removed. Do not invent its old parse result or delete by
+amount alone. Evidence: `~/.local/state/khata-sms-requests/`.
+See `docs/sms-request-filtering.md`.
+
 **Editable titles (2026-10-24):** `v0.45.18` adds Edit title to expanded
 transactions on Android and web, plus Android's transaction actions menu. Save
 preserves the import identity and source/financial fields, syncs revisions and
@@ -153,7 +174,7 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.18
+**Current Version:** v0.45.19
 
 **Last Updated:** 2026-10-24
 
