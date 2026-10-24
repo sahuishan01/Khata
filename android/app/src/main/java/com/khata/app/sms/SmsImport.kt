@@ -12,6 +12,23 @@ enum class SmsSaveResult { CREATED, UPDATED, UNCHANGED }
 
 /** Live capture and historical rescans use exactly the same date/transfer policy. */
 object SmsImport {
+    /** Exclude only an unchanged auto-import proven to come from this rejected offer. */
+    suspend fun excludePromotion(dao: TransactionDao, body: String, sender: String, timestamp: Long, queuedAt: Long): Boolean {
+        val parsed = SmsParser.previouslyImportedPromotion(body, sender) ?: return false
+        // Referenced/repayment records need review rather than automatic cleanup.
+        if (parsed.refNo != null || parsed.isTransfer) return false
+        val old = dao.getByClientId(SmsParser.clientId(parsed, body, sender, timestamp)) ?: return false
+        val source = SmsSource.decode(old.smsSource) ?: return false
+        if (source.bodyHash != SmsSource.from(body, timestamp, queuedAt).bodyHash || source.receivedAt != timestamp) return false
+        if (old.deleted || (old.dirty && old.baseRev > 0) ||
+            old.amount != parsed.amount || old.direction != parsed.direction || old.bank != parsed.bank ||
+            old.description != parsed.payee || old.category != "Uncategorized" || old.isTransfer ||
+            old.bankRef.isNotBlank() || old.balance != null ||
+            old.notes != "Auto-captured via SMS (${parsed.bank})" ||
+            old.txnDate != source.parsedDate || old.valueDate != source.parsedDate) return false
+        return dao.excludeSmsIfUnchanged(old)
+    }
+
     suspend fun queue(dao: TransactionDao, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): SmsSaveResult {
         val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
         val legacyParsed = parsed.copy(refNo = SmsParser.legacyReference(body))

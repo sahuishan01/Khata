@@ -29,7 +29,7 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.16` (verified).
+Current release version: `v0.45.17` (signed CI verification pending).
 Last verified signed APK: `v0.45.16`
 (GitHub Actions run `40068680696`, 51 release unit tests passed). Its signing
 certificate matches `v0.45.15`; versionCode 202 supports updating the existing
@@ -44,6 +44,12 @@ Android release lint, native widget/navigation checks, seven browser flows and
 Security Scan `40068392810` passed. Evidence: `~/.local/state/khata-shortcuts/`.
 Repository-wide web lint and GitHub default CodeQL autobuild still have existing
 configuration/code issues; do not describe all repository checks as passing.
+
+`v0.45.17` rejects instructional SMS loan offers while preserving completed loan
+credits and genuine alerts with promotional footers. Explicit **Scan SMS inbox**
+can exclude unchanged false imports only when the original SMS hash, timestamp,
+identity and financial fields match. Preserve edited or unverifiable records.
+See `docs/sms-promotion-filtering.md` for safeguards and regression checks.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.

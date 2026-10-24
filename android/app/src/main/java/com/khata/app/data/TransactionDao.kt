@@ -26,6 +26,14 @@ interface TransactionDao {
     @Query("UPDATE transactions SET dirty = 1, pendingOp = 'delete', deleted = 1 WHERE id = :id")
     suspend fun softDelete(id: String)
 
+    /** A rescan must not overwrite an edit made after its provenance check. */
+    @Transaction
+    suspend fun excludeSmsIfUnchanged(expected: LocalTransaction): Boolean {
+        if (getByClientId(expected.clientId) != expected) return false
+        upsert(expected.copy(deleted = true, dirty = true, pendingOp = "DELETE"))
+        return true
+    }
+
     @Query("SELECT * FROM transactions WHERE dirty = 1 AND pendingOp IS NOT NULL")
     suspend fun getOutbox(): List<LocalTransaction>
 

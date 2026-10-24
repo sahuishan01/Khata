@@ -8,6 +8,49 @@ import com.khata.app.api.TxnRow
 import com.khata.app.api.toLocal
 
 class SmsParserTest {
+    private val loanOffer = "Get Rs.276000 credited in minutes with a Personal Loan on your Kotak Credit Card. " +
+        "Tap to apply: https://1.kotak.bank.in/KOTAKB/OFFER T&C apply"
+
+    @Test fun kotakLoanOfferIsNotACompletedCredit() {
+        for (sender in listOf("", "AD-KOTAKB", "VM-KOTAKB-P")) {
+            assertNull(sender, SmsParser.parse(loanOffer, sender))
+        }
+    }
+
+    @Test fun instructionalCreditOffersAreRejectedEvenWithAnAccountOrBankSender() {
+        for (offer in listOf(
+            "GET UP TO Rs.2,76,000 credited in minutes. Apply now.",
+            "Dear Customer, avail INR 276000 credited to Kotak A/c XX1234. Tap to apply.",
+            "You can get Rs.276000 credited instantly with a personal loan.",
+            "Get a personal loan credited Rs.276000 in minutes. T&C apply.",
+            "Get a pre-approved personal loan of INR 276000 credited instantly. Apply now.",
+        )) assertNull(offer, SmsParser.parse(offer, "AD-KOTAKB"))
+    }
+
+    @Test fun actualLoanDisbursalsRemainTransactions() {
+        for (body in listOf(
+            "Your personal loan of Rs.276000 has been credited to Kotak A/c XX1234. Ref 123456789012",
+            "Rs.276000 credited to Kotak account as personal loan disbursement.",
+            "Pre-approved personal loan of Rs.276000 has been credited to Kotak A/c XX1234.",
+        )) {
+            val txn = SmsParser.parse(body, "AD-KOTAKB")!!
+            assertEquals(276000.0, txn.amount, 0.0)
+            assertEquals("credit", txn.direction)
+        }
+    }
+
+    @Test fun offersDoNotHideOrReplaceARealTransactionInTheSameMessage() {
+        val credit = "Rs.1500 credited to Kotak A/c XX1234. Ref 123456789012."
+        for (body in listOf("$credit $loanOffer", "$loanOffer. $credit")) {
+            val txn = SmsParser.parse(body, "AD-KOTAKB")!!
+            assertEquals(body, 1500.0, txn.amount, 0.0)
+            assertEquals("credit", txn.direction)
+        }
+        val debit = SmsParser.parse("Rs.500 debited from Kotak A/c XX1234 at SHOP. $loanOffer", "AD-KOTAKB")!!
+        assertEquals(500.0, debit.amount, 0.0)
+        assertEquals("debit", debit.direction)
+    }
+
     @Test fun referencePrefixesNeverBecomeTransactionIdentifiers() {
         listOf("Ref No 123456789012", "UPI Ref: 123456789012", "Ref.no.123456789012", "RRN 123456789012").forEach { ref ->
             val parsed = SmsParser.parse("Rs.500.00 debited from HDFC account. $ref", "VM-HDFCBK")!!
