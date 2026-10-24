@@ -1,6 +1,8 @@
 package com.khata.app.ui.more
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,7 +20,7 @@ data class MoreItem(val label: String, val route: String, val icon: @Composable 
 
 @Composable
 fun MoreScreen(items: List<MoreItem>, onNavigate: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("More", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text("All features", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(20.dp))

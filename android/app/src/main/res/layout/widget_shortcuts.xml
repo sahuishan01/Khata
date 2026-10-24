@@ -1,0 +1,19 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="8dp" android:background="@drawable/widget_background">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/widget_shortcuts_name" android:textColor="@color/widget_text"
+        android:textSize="14sp" android:textStyle="bold" android:padding="4dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <TextView android:id="@+id/shortcut_add" style="@style/WidgetShortcut"
+            android:text="@string/shortcut_add_transaction" android:drawableTop="@drawable/ic_shortcut_add" />
+        <TextView android:id="@+id/shortcut_history" style="@style/WidgetShortcut"
+            android:text="@string/shortcut_transactions" android:drawableTop="@drawable/ic_shortcut_history" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <TextView android:id="@+id/shortcut_chat" style="@style/WidgetShortcut"
+            android:text="@string/shortcut_chat" android:drawableTop="@drawable/ic_shortcut_chat" />
+        <TextView android:id="@+id/shortcut_upload" style="@style/WidgetShortcut"
+            android:text="@string/shortcut_add_data" android:drawableTop="@drawable/ic_shortcut_upload" />
+    </LinearLayout>
+</LinearLayout>

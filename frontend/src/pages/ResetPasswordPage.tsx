@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { Eye, EyeOff } from 'lucide-react'
+import { shortcutReturnTo } from '../utils/shortcutReturnTo'
 
 export function ResetPasswordPage() {
   const location = useLocation()
@@ -30,7 +31,7 @@ export function ResetPasswordPage() {
     try {
       await resetPassword(currentPassword, newPassword)
       setSuccess('Password updated successfully')
-      setTimeout(() => navigate('/'), 1500)
+      setTimeout(() => navigate(shortcutReturnTo(location.state), { replace: true }), 1500)
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { error?: string } }; message?: string }
       if (e.response?.status === 401) {

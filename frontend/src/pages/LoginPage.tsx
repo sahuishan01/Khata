@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { getServerUrl, setServerUrl, refreshApiBaseUrl } from '../api/client'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { shortcutReturnTo } from '../utils/shortcutReturnTo'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -15,6 +16,8 @@ export function LoginPage() {
   const login = useAuth(s => s.login)
   const mustResetPassword = useAuth(s => s.mustResetPassword)
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = shortcutReturnTo(location.state)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,9 +31,9 @@ export function LoginPage() {
     try {
       await login(email, password)
       if (mustResetPassword || useAuth.getState().mustResetPassword) {
-        navigate('/reset-password', { state: { forceReset: true } })
+        navigate('/reset-password', { state: { forceReset: true, returnTo } })
       } else {
-        navigate('/')
+        navigate(returnTo, { replace: true })
       }
     } catch (err: unknown) {
       const e = err as { response?: { status?: number }; message?: string }

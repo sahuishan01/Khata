@@ -213,10 +213,12 @@ class MainViewModel @Inject constructor(
     } catch (e: Exception) {
         _txnState.value = _txnState.value.copy(error = "Category update failed: ${e.message}")
     } }}
-    fun createTxn(req: CreateTxnReq) { viewModelScope.launch { try {
+    fun createTxn(req: CreateTxnReq, onFinished: (String?) -> Unit = {}) { viewModelScope.launch { try {
         repository.createTxn(req);
         val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
-    } catch (_: Exception) {} }}
+        refreshDashboard()
+        onFinished(null)
+    } catch (e: Exception) { onFinished(e.message ?: "Could not save transaction. Please try again.") } }}
 
     fun loadChatHistory() { viewModelScope.launch { try {
         _chatState.value = _chatState.value.copy(isLoading = true, error = null)

@@ -18,6 +18,7 @@ import { MorePage } from './pages/MorePage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { DetailViewPage } from './pages/DetailViewPage'
+import { AddTransactionPage } from './pages/AddTransactionPage'
 
 import { SubscriptionsPage } from './pages/SubscriptionsPage'
 import { GoalsPage } from './pages/GoalsPage'
@@ -40,6 +41,7 @@ export function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/"             element={<AppLayout><DashboardPage /></AppLayout>} />
         <Route path="/transactions" element={<AppLayout><TransactionsPage /></AppLayout>} />
+        <Route path="/add"          element={<AppLayout><AddTransactionPage /></AppLayout>} />
         <Route path="/upload"       element={<AppLayout><UploadPage /></AppLayout>} />
         <Route path="/chat"         element={<AppLayout><ChatPage /></AppLayout>} />
         <Route path="/profile"      element={<AppLayout><ProfilePage /></AppLayout>} />

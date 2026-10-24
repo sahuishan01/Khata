@@ -55,6 +55,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.khata.app.ui.components.shared.DeviceSyncStatus
 import com.khata.app.data.SyncUiState
+import com.khata.app.shortcuts.ShortcutAction
+import com.khata.app.shortcuts.ShortcutSettingsScreen
+import com.khata.app.shortcuts.resolveShortcutNavigation
 
 sealed class Screen(val route: String, val label: String = "", val icon: @Composable () -> Unit = {}) {
     data object Setup : Screen("setup")
@@ -75,11 +78,12 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Profile : Screen("profile", "Settings", { Icon(Icons.Default.Settings, contentDescription = null) })
     data object More : Screen("more", "More", { Icon(Icons.Default.MoreVert, contentDescription = null) })
     data object Debug : Screen("debug")
+    data object Shortcuts : Screen("shortcuts")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KhataNavHost(themeManager: ThemeManager) {
+fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = null, onShortcutConsumed: () -> Unit = {}) {
     val navController = rememberNavController()
     val viewModel: MainViewModel = hiltViewModel()
     val authState by viewModel.authState.collectAsState()
@@ -182,13 +186,20 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
     if (authState.isChecking) { SplashScreen(); return }
 
-    LaunchedEffect(authState.isLoggedIn, authState.setupRequired, authState.mustResetPassword) {
-        val dest = navController.currentDestination?.route
-        when {
-            authState.mustResetPassword && dest != Screen.ResetPassword.route -> navController.navigate(Screen.ResetPassword.route) { popUpTo(0) { inclusive = true } }
-            authState.isLoggedIn && !authState.mustResetPassword && dest?.startsWith(Screen.Dashboard.route) != true -> navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
-            authState.setupRequired && dest != Screen.Setup.route -> navController.navigate(Screen.Setup.route) { popUpTo(0) { inclusive = true } }
-            !authState.isLoggedIn && !authState.setupRequired && dest != Screen.Login.route -> navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+    LaunchedEffect(authState.isLoggedIn, authState.setupRequired, authState.mustResetPassword, pendingShortcut) {
+        val next = resolveShortcutNavigation(authState.isLoggedIn, authState.setupRequired,
+            authState.mustResetPassword, navController.currentDestination?.route, pendingShortcut)
+        if (next != null) {
+            if (next.resetStack && next.consumeShortcut) {
+                // Back from a shortcut returns to the dashboard, never to the login form.
+                navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+            }
+            navController.navigate(next.route) {
+                if (next.resetStack && !next.consumeShortcut) popUpTo(0) { inclusive = true }
+                else popUpTo(Screen.Dashboard.route) { inclusive = false }
+                launchSingleTop = true
+            }
+            if (next.consumeShortcut) onShortcutConsumed()
         }
     }
 
@@ -275,7 +286,22 @@ fun KhataNavHost(themeManager: ThemeManager) {
                 }
             }) }
 
-            composable(Screen.AddTransaction.route) { AddTransactionScreen(isLoading = authState.isLoading, error = authState.error, onAdd = { viewModel.createTxn(it) }, onBack = { navController.popBackStack() }) }
+            composable(Screen.AddTransaction.route) {
+                var saving by remember { mutableStateOf(false) }
+                var saveError by remember { mutableStateOf<String?>(null) }
+                AddTransactionScreen(isLoading = saving, error = saveError, onAdd = { request ->
+                    saving = true
+                    saveError = null
+                    viewModel.createTxn(request) { error ->
+                        saving = false
+                        saveError = error
+                        if (error == null && navController.currentDestination?.route == Screen.AddTransaction.route) navController.navigate(Screen.Transactions.route) {
+                            popUpTo(Screen.AddTransaction.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                }, onBack = { navController.popBackStack() })
+            }
 
             composable(Screen.Accounts.route) { AccountsScreen(accounts = accountsState.accounts, isLoading = accountsState.isLoading, error = accountsState.error, blurMode = blurMode, onLoad = { viewModel.loadAccounts() }, onCreate = { l, i -> viewModel.createAccount(l, i) }, onDelete = { id -> viewModel.deleteAccount(id) }) }
 
@@ -293,6 +319,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
             }
 
             composable(Screen.More.route) { MoreScreen(items = listOf(
+                MoreItem("Widgets & shortcuts", Screen.Shortcuts.route) { Icon(Icons.Default.Widgets, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
                 MoreItem("Analytics", Screen.Analytics.route) { Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
                 MoreItem("Chat", Screen.Chat.route) { Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
                 MoreItem("Accounts", Screen.Accounts.route) { Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
@@ -308,6 +335,7 @@ fun KhataNavHost(themeManager: ThemeManager) {
 
             composable(Screen.ResetPassword.route) { ResetPasswordScreen(isLoading = authState.isLoading, error = authState.error, onReset = { c, n -> viewModel.resetPassword(c, n) { navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } } } }, onBack = { navController.popBackStack() }) }
             composable(Screen.Debug.route) { DebugScreen(onBack = { navController.popBackStack() }) }
+            composable(Screen.Shortcuts.route) { ShortcutSettingsScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }

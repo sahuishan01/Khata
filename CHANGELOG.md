@@ -5,6 +5,21 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-24] — Widgets and quick shortcuts (v0.45.16)
+
+- Add a resizable home-screen quick-actions widget and a configurable single
+  shortcut widget for manual entry, transaction history, agent chat and Add Data.
+- Add four independent Quick Settings tiles and app-icon launcher shortcuts.
+  More → Widgets & shortcuts offers widget pinning and tile-placement requests.
+- Preserve the requested screen through sign-in and required password resets,
+  reuse the running app on shortcut taps, and keep device unlock requirements.
+- Add matching installed-web-app shortcuts and the missing `/add` route.
+- Manual entry retains its draft on save failures, reports errors, validates
+  positive amounts and opens history after a successful save.
+- Add navigation regression tests. See `docs/android-shortcuts.md` for setup.
+
+---
+
 ## [2026-10-20] — Fix HTTP 422 when uploading older SMS queues (v0.45.8)
 
 ### Fixed

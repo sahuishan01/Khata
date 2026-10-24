@@ -29,7 +29,7 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.15` (verified).
+Current release version: `v0.45.16` (widgets and shortcuts; signed CI verification pending).
 Last verified signed APK: `v0.45.15`
 (GitHub Actions run `39581391908`, 46 release unit tests passed). Its signing
 certificate matches `v0.45.14`; versionCode 199 supports updating the existing
