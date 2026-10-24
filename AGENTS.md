@@ -29,12 +29,21 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.16` (widgets and shortcuts; signed CI verification pending).
-Last verified signed APK: `v0.45.15`
-(GitHub Actions run `39581391908`, 46 release unit tests passed). Its signing
-certificate matches `v0.45.14`; versionCode 199 supports updating the existing
+Current release version: `v0.45.16` (verified).
+Last verified signed APK: `v0.45.16`
+(GitHub Actions run `40068680696`, 51 release unit tests passed). Its signing
+certificate matches `v0.45.15`; versionCode 202 supports updating the existing
 app. Required SMS metadata fields, including card confirmation role and card
 fingerprint, were verified in the minified APK before publication.
+
+`v0.45.16` adds two home-screen widgets, four Quick Settings tiles and four
+launcher shortcuts. Open **More → Widgets & shortcuts** for placement controls.
+Shortcut destinations survive sign-in and required password reset. The matching
+web shortcuts and `/add` route are deployed from successful run `40068081552`.
+Android release lint, native widget/navigation checks, seven browser flows and
+Security Scan `40068392810` passed. Evidence: `~/.local/state/khata-shortcuts/`.
+Repository-wide web lint and GitHub default CodeQL autobuild still have existing
+configuration/code issues; do not describe all repository checks as passing.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.
