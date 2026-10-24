@@ -60,7 +60,9 @@ object SmsParser {
         "(?i)\\b(?:has|have)\\s+been\\s+(?:debited|credited|spent|paid|withdrawn|transferred)\\b"
     )
     private val APPLICATION_NOTICE = Pattern.compile(
-        "(?i)\\b(?:app(?:lication)?\\s+(?:no|number|id)|application|bid\\s+(?:no|number|id))\\b"
+        "(?i)\\b(?:app(?:lication)?\\s+(?:no|number|id)\\b|" +
+            "(?:ipo|loan)\\s+application\\b|application\\s+(?:received|acknowledged|accepted)\\b|" +
+            "application\\s+(?:for|of)\\s*(?:rs\\.?|inr|₹)|bid\\s+(?:no|number|id)\\b)"
     )
     private val FUND_BLOCK_NOTICE = Pattern.compile(
         "(?i)\\b(?:blocking\\s+of\\s+funds|" +
