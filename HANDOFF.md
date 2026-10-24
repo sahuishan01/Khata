@@ -1,5 +1,27 @@
 # HANDOFF.md — Khata Project Handoff
 
+**Editable titles (2026-10-24):** `v0.45.18` adds Edit title to expanded
+transactions on Android and web, plus Android's transaction actions menu. Save
+preserves the import identity and source/financial fields, syncs revisions and
+keeps the draft open on failure. SMS rescans preserve the saved title.
+
+Signed CI `40098934956` attempt 2 passed with 62 release tests, versionCode 204,
+and signing continuity with v0.45.17. The minified APK retains required SMS
+metadata, the title request DTO/API and existing shortcut components. Backend/web
+CI `40098383249` attempt 2 passed: 205 backend tests, 1 ignored, Clippy and web
+build. Both verified artifacts are deployed from tag commit `0e4da62`.
+Desktop/mobile browser checks and Android API 35 emulator editing checks passed.
+The browser-tested files match the CI web artifact exactly. Public assets and
+revision, backend executable/PDFium and API authentication were verified.
+
+A 2517-second VPS clock lag caused the first CI artifact upload to fail and
+expired the runner session. Restarting systemd-timesyncd restored correct time;
+the Khata runner registration was refreshed and encrypted credential storage
+verified. Resource caps are unchanged. GitHub default CodeQL's existing unsigned
+Java autobuild failure remains separate from the verified release pipeline.
+Evidence: `~/.local/state/khata-transaction-titles/`, including `comparison.html`.
+Usage: `docs/transaction-titles.md`.
+
 **SMS promotions (2026-10-24):** Android `v0.45.17` rejects the reported Kotak
 loan offer while preserving genuine credits, loan disbursements and alerts with
 offer footers. Install as an update, then **Add Data → Scan SMS inbox** with the
@@ -131,7 +153,7 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.17
+**Current Version:** v0.45.18
 
 **Last Updated:** 2026-10-24
 

@@ -326,3 +326,36 @@ financial data was modified during development. The existing backend email
 extractor already rejects the example; no backend or web deployment is needed.
 See `docs/sms-promotion-filtering.md`. Evidence:
 `~/.local/state/khata-sms-promotions/`.
+
+## Editable transaction titles (2026-10-24)
+
+Android v0.45.18 is the verified signed update from run `40098934956`, attempt 2:
+62 release unit tests passed, versionCode 204, and its signing certificate matches
+v0.45.17. APK archive integrity, the GitHub asset digest, all nine SMS metadata
+fields, the title update DTO/API, HTTPS-only policy and retained shortcut
+components were verified. Local release lint passed.
+
+Backend/web run `40098383249`, attempt 2, succeeded on `heaven`: 205 backend tests,
+1 ignored, Clippy and web build. Both artifacts use tag commit
+`0e4da62ab2dc08e2b34657348d7a5f01de335a2a`. The browser-tested web files match the
+CI artifact. The backend executable and PDFium match verified artifact checksums;
+health and the new endpoint's authentication check passed. Caddy origin/public
+revision, public asset bytes and installed file checksums were verified.
+
+Backend release: `/usr/local/lib/khata/releases/v0.45.18-titles-20261024T150021Z`.
+Web release: `/srv/khata/releases/v0.45.18-titles-20261024T150021Z`.
+APK SHA-256: `16edf00e976f092c50a57c337dd8e6f405f3ed3cec0ea9b434492e0e6e3c14a6`.
+
+Open Transactions, expand a row, then choose **Edit title**. Android also exposes
+it under transaction actions. Install the signed APK as an update. Saved titles
+sync and survive later SMS rescans. No database migration or direct edit to live
+user transactions was needed. API 35 emulator and desktop/mobile browser checks
+covered editing, cancellation, validation, failed-save drafts, retry and reopen.
+Security Scan `40098383337` passed. The existing default CodeQL Java autobuild
+signing configuration issue remains separate from signed release CI.
+
+The first attempt failed to upload its otherwise successful backend build because
+the VPS clock lagged NTP/GitHub by about 42 minutes. Time synchronization was
+refreshed, the Khata runner registration restored, and encrypted runtime credential
+handling verified before successful CI retries. Resource caps were retained.
+Evidence and screenshot comparison: `~/.local/state/khata-transaction-titles/`.
