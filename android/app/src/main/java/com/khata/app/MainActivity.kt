@@ -1,5 +1,6 @@
 package com.khata.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,11 +24,25 @@ import com.khata.app.ui.navigation.KhataNavHost
 import com.khata.app.ui.theme.KhataTheme
 import com.khata.app.ui.theme.ThemeManager
 import com.khata.app.util.CrashLogWriter
+import com.khata.app.shortcuts.ShortcutAction
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private var pendingShortcut by mutableStateOf<ShortcutAction?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ShortcutAction.fromIntentAction(intent.action)?.let { pendingShortcut = it }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("pending_shortcut", pendingShortcut?.intentAction)
+        super.onSaveInstanceState(outState)
+    }
 
     @Inject
     lateinit var themeManager: ThemeManager
@@ -44,6 +59,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingShortcut = ShortcutAction.fromIntentAction(
+            if (savedInstanceState != null) savedInstanceState.getString("pending_shortcut") else intent.action
+        )
         enableEdgeToEdge()
         requestSmsPermissions()
 
@@ -91,7 +109,8 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    KhataNavHost(themeManager = themeManager)
+                    KhataNavHost(themeManager = themeManager, pendingShortcut = pendingShortcut,
+                        onShortcutConsumed = { pendingShortcut = null })
                 }
             }
         }

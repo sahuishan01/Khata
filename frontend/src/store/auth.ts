@@ -49,6 +49,8 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   resetPassword: async (currentPassword, newPassword) => {
     await api.post('/auth/reset-password', { current_password: currentPassword, new_password: newPassword })
+    set({ mustResetPassword: false })
+    await get().fetchMe()
   },
 
   fetchMe: async () => {

@@ -1,0 +1,22 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="add_transaction" android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add" android:shortcutShortLabel="@string/shortcut_add_transaction">
+        <intent android:action="com.khata.app.shortcut.ADD_TRANSACTION"
+            android:targetPackage="com.khata.app" android:targetClass="com.khata.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="transactions" android:enabled="true"
+        android:icon="@drawable/ic_shortcut_history" android:shortcutShortLabel="@string/shortcut_transactions">
+        <intent android:action="com.khata.app.shortcut.TRANSACTIONS"
+            android:targetPackage="com.khata.app" android:targetClass="com.khata.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="chat" android:enabled="true"
+        android:icon="@drawable/ic_shortcut_chat" android:shortcutShortLabel="@string/shortcut_chat">
+        <intent android:action="com.khata.app.shortcut.CHAT"
+            android:targetPackage="com.khata.app" android:targetClass="com.khata.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="add_data" android:enabled="true"
+        android:icon="@drawable/ic_shortcut_upload" android:shortcutShortLabel="@string/shortcut_add_data">
+        <intent android:action="com.khata.app.shortcut.ADD_DATA"
+            android:targetPackage="com.khata.app" android:targetClass="com.khata.app.MainActivity" />
+    </shortcut>
+</shortcuts>

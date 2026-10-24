@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_add_transaction">Add transaction</string>
+    <string name="shortcut_transactions">Transaction history</string>
+    <string name="shortcut_chat">Chat with agent</string>
+    <string name="shortcut_add_data">Add data</string>
+    <string name="tile_add_transaction">Khata: Add</string>
+    <string name="tile_transactions">Khata: History</string>
+    <string name="tile_chat">Khata: Chat</string>
+    <string name="tile_add_data">Khata: Add data</string>
+    <string name="widget_shortcuts_name">Khata quick actions</string>
+    <string name="widget_shortcuts_description">Open transaction entry, history, agent chat or Add Data.</string>
+    <string name="widget_single_name">Khata single shortcut</string>
+    <string name="widget_single_description">Choose one Khata action for a compact shortcut widget.</string>
+    <string name="widget_choose_shortcut">Choose your shortcut</string>
+    <string name="shortcut_back">Back</string>
+    <string name="shortcut_settings_title">Widgets &amp; shortcuts</string>
+    <string name="shortcut_privacy">Shortcuts open the app. Sign in when asked; your financial details stay inside Khata.</string>
+    <string name="shortcut_home_screen">Home screen</string>
+    <string name="shortcut_widget_help">Long-press your home screen, open Widgets and choose Khata. Add the resizable quick-actions widget, or choose a single shortcut. Long-press the Khata app icon for launcher shortcuts.</string>
+    <string name="shortcut_pin_widget">Add quick-actions widget</string>
+    <string name="shortcut_widget_requested">Confirm placement in your launcher.</string>
+    <string name="shortcut_widget_manual">Add the widget from your home screen’s Widgets menu.</string>
+    <string name="shortcut_quick_settings">Quick Settings</string>
+    <string name="shortcut_tile_help">Add the shortcuts you use most. You can also swipe down twice, tap Edit and drag a Khata tile into your Quick Settings panel.</string>
+    <string name="shortcut_add_tile">Add tile: %1$s</string>
+    <string name="shortcut_tile_added">Tile added to Quick Settings.</string>
+    <string name="shortcut_tile_already_added">This tile is already in Quick Settings.</string>
+    <string name="shortcut_tile_not_added">Tile was not added. You can try again whenever you like.</string>
+    <string name="shortcut_tile_manual">Open Quick Settings, tap Edit and drag the Khata tile into the panel.</string>
+    <color name="widget_surface">#17171F</color>
+    <color name="widget_action">#1F1F2A</color>
+    <color name="widget_brand">#8479F2</color>
+    <color name="widget_text">#F2F2F5</color>
+    <style name="WidgetShortcut">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:padding">8dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@color/widget_text</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:background">@drawable/widget_action_background</item>
+    </style>
+</resources>

@@ -8,6 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,16 +24,18 @@ fun AddTransactionScreen(
     isLoading: Boolean, error: String?, onAdd: (CreateTxnReq) -> Unit, onBack: () -> Unit
 ) {
     val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-    var desc by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var direction by remember { mutableStateOf("debit") }
-    var txnDate by remember { mutableStateOf(today) }
-    var valueDate by remember { mutableStateOf(today) }
-    var category by remember { mutableStateOf("") }
-    var bankRef by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var desc by rememberSaveable { mutableStateOf("") }
+    var amount by rememberSaveable { mutableStateOf("") }
+    var direction by rememberSaveable { mutableStateOf("debit") }
+    var txnDate by rememberSaveable { mutableStateOf(today) }
+    var valueDate by rememberSaveable { mutableStateOf(today) }
+    var category by rememberSaveable { mutableStateOf("") }
+    var bankRef by rememberSaveable { mutableStateOf("") }
+    var notes by rememberSaveable { mutableStateOf("") }
+    val validAmount = amount.toDoubleOrNull()?.let { it.isFinite() && it > 0 } == true
 
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+        TextButton(onClick = onBack, enabled = !isLoading) { Text("Back") }
         Text("Add Transaction", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
 
@@ -38,7 +43,7 @@ fun AddTransactionScreen(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
                     Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                         Row(Modifier.padding(4.dp)) {
                             FilterChip(selected = direction == "debit", onClick = { direction = "debit" }, label = { Text("Expense", fontSize = 12.sp) })
@@ -59,7 +64,7 @@ fun AddTransactionScreen(
 
                 Button(onClick = {
                     onAdd(CreateTxnReq(txnDate, valueDate, desc, amount.toDoubleOrNull() ?: 0.0, direction, category, bankRef.ifBlank { null }, notes.ifBlank { null }))
-                }, enabled = !isLoading && desc.isNotBlank() && amount.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp)) {
+                }, enabled = !isLoading && desc.isNotBlank() && validAmount, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp)) {
                     if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else { Icon(Icons.Default.Check, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Add Transaction") }
                 }
             }

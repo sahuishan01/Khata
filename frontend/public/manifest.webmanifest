@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Khata",
+  "short_name": "Khata",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0E0E13",
+  "theme_color": "#8479F2",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }],
+  "shortcuts": [
+    { "name": "Add transaction", "url": "/add" },
+    { "name": "Transaction history", "url": "/transactions" },
+    { "name": "Chat with agent", "url": "/chat" },
+    { "name": "Add data", "url": "/upload" }
+  ]
+}

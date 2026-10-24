@@ -166,7 +166,7 @@ fun DebugScreen(onBack: () -> Unit) {
                         Text("Device Info", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         val appVersion = try {
                             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                            "${pInfo.versionName} (${pInfo.longVersionCode})"
+                            "${pInfo.versionName} (${androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pInfo)})"
                         } catch (_: Exception) { "unknown" }
                         DebugInfoRow("App Version", appVersion)
                         DebugInfoRow("Package", context.packageName)

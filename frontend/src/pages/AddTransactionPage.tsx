@@ -42,7 +42,7 @@ export function AddTransactionPage() {
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="form-group" style={{ flex: 1 }}>
               <label className="form-label">Amount (₹)</label>
-              <input className="form-input" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
+              <input className="form-input" type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label className="form-label">Type</label>
