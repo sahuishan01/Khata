@@ -54,6 +54,16 @@ class SmsIpoNoticeTest {
         }
     }
 
+    @Test fun aMobileApplicationFooterDoesNotHideARealReceipt() {
+        for (footer in listOf("Download the Kotak mobile application.",
+            "Use the Kotak application for more details.")) {
+            val body = "Rs 500.00 received. $footer"
+            val parsed = SmsParser.parse(body, "AD-KOTAKB")!!
+            assertEquals(500.0, parsed.amount, 0.0)
+            assertEquals("credit", parsed.direction)
+        }
+    }
+
     @Test fun aSeparateRealPostingKeepsItsOwnAmount() {
         val credit = "Rs 500.00 credited to Kotak A/c XX1234. Ref 123456789012."
         val receipt = "Received Rs 500.00 in Kotak A/c XX1234."

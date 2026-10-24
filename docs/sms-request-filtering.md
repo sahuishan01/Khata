@@ -43,7 +43,7 @@ title/widget/tile/launcher components were verified. Security Scan `40108105133`
 passed. The existing default CodeQL Java unsigned-autobuild configuration issue
 remains separate from signed release CI. See `DEPLOYMENT.md` for artifact details.
 
-## IPO application receipts (v0.45.20)
+## IPO application receipts (v0.45.21)
 
 The reported Jio Platforms IPO acknowledgement reproduced a false credit of
 Rs 107424.00 in v0.45.19: the application amount was followed by “received”,
@@ -69,10 +69,16 @@ reported wording; no backend/web deployment or migration is needed.
 
 Evidence: `~/.local/state/khata-sms-ipo/`.
 
-All 76 Android release unit tests and release lint pass locally. Seven new tests
+All 77 Android release unit tests and release lint pass locally. Eight new tests
 cover the reported wording, application/currency/line-wrap variants, fund blocks,
 completed IPO payments/refunds, mixed messages, guarded rescan exclusion,
 idempotence and edited/unverifiable row protection. The pre-fix baseline had six
-failures in the seven new tests. A private direct JVM check also rejects the
+failures in the seven initial tests. A private direct JVM check also rejects the
 exact unmodified user-provided SMS for three sender cases. All 16 backend
 email-parser parity tests pass using a neutral alert subject.
+
+A separate regression preserves genuine receipts with a “download/use our mobile
+application” footer. The context guard recognizes application identifiers and
+acknowledgements rather than the generic word “application”. The extra regression
+failed before narrowing the pattern. The unpublished v0.45.20 CI build was
+cancelled; v0.45.21 contains the complete fix.
