@@ -12,9 +12,9 @@ enum class SmsSaveResult { CREATED, UPDATED, UNCHANGED }
 
 /** Live capture and historical rescans use exactly the same date/transfer policy. */
 object SmsImport {
-    /** Exclude only an unchanged auto-import proven to come from this rejected offer. */
-    suspend fun excludePromotion(dao: TransactionDao, body: String, sender: String, timestamp: Long, queuedAt: Long): Boolean {
-        val parsed = SmsParser.previouslyImportedPromotion(body, sender) ?: return false
+    /** Exclude only an unchanged auto-import proven to come from this rejected non-transaction SMS. */
+    suspend fun excludeNonTransaction(dao: TransactionDao, body: String, sender: String, timestamp: Long, queuedAt: Long): Boolean {
+        val parsed = SmsParser.previouslyImportedNonTransaction(body, sender) ?: return false
         // Referenced/repayment records need review rather than automatic cleanup.
         if (parsed.refNo != null || parsed.isTransfer) return false
         val old = dao.getByClientId(SmsParser.clientId(parsed, body, sender, timestamp)) ?: return false

@@ -24,7 +24,7 @@ class SyncOutboxTest {
         val old = com.khata.app.sms.SmsImport.transaction(parsed, body, "AD-KOTAKB", timestamp, timestamp)
             .copy(rev = 7, baseRev = 7, dirty = false, pendingOp = null)
         val dao = MemoryDao(listOf(old))
-        assertTrue(com.khata.app.sms.SmsImport.excludePromotion(dao, body, "AD-KOTAKB", timestamp, timestamp))
+        assertTrue(com.khata.app.sms.SmsImport.excludeNonTransaction(dao, body, "AD-KOTAKB", timestamp, timestamp))
         val remote = api { ops ->
             val op = ops.single()
             assertEquals(old.clientId, op.clientId)

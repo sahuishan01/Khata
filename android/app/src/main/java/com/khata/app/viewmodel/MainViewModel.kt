@@ -113,7 +113,7 @@ class MainViewModel @Inject constructor(
             val detail = (syncEngine.state.value as? com.khata.app.data.SyncUiState.Error)?.message
                 ?: "Resolve sync conflicts and retry."
             "Server sync failed: $detail Saved transactions remain queued on this device."
-        }) + (if (progress.excludedPromotions > 0) " ${progress.excludedPromotions} unchanged promotional SMS imports excluded." else "") +
+        }) + (if (progress.excludedNonTransactions > 0) " ${progress.excludedNonTransactions} unchanged non-transaction SMS imports excluded." else "") +
             if (progress.serverCheckFailed) " Server history could not be checked before scanning. Scan again when connected to check previously imported SMS." else ""
         _smsProgress.value = progress.copy(running = false, phase = if (synced) "Complete" else "Upload needs attention", message = message, failed = !synced)
         return message
@@ -377,8 +377,8 @@ class MainViewModel @Inject constructor(
                                 SmsSaveResult.UPDATED -> progress.copy(saved = progress.saved + 1, updated = progress.updated + 1)
                                 SmsSaveResult.UNCHANGED -> progress.copy(alreadySaved = progress.alreadySaved + 1)
                             }
-                        } else if (SmsImport.excludePromotion(db.transactionDao(), body, sender, timestamp, System.currentTimeMillis())) {
-                            progress = progress.copy(excludedPromotions = progress.excludedPromotions + 1)
+                        } else if (SmsImport.excludeNonTransaction(db.transactionDao(), body, sender, timestamp, System.currentTimeMillis())) {
+                            progress = progress.copy(excludedNonTransactions = progress.excludedNonTransactions + 1)
                         }
                         if (progress.scanned % 25 == 0 || progress.scanned == progress.total) _smsProgress.value = progress
                     }

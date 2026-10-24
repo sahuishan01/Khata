@@ -29,7 +29,7 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.18` (verified).
+Current release version: `v0.45.19` (signed CI verification pending).
 Last verified signed APK: `v0.45.18`
 (GitHub Actions run `40098934956`, attempt 2, 62 release unit tests passed). Its signing
 certificate matches `v0.45.17`; versionCode 204 supports updating the existing
@@ -62,6 +62,13 @@ Backend/web CI `40098383249` attempt 2 passed (205 backend tests, 1 ignored,
 Clippy and web build); both artifacts are deployed. Browser and API 35 emulator
 editing flows passed. APK signature continuity, metadata and title DTO/API were
 verified. Evidence: `~/.local/state/khata-transaction-titles/`.
+
+`v0.45.19` explicitly rejects pending UPI/mandate requests, request receipts and
+future debits by clause. Keep completed mandate payments/refunds and real posting
+clauses in the same message. Rescans exclude only proven unchanged false imports;
+preserve edited or unverifiable records. The reported HP Telecom wording was
+already rejected in v0.45.18; its stored-entry origin remains unconfirmed.
+See `docs/sms-request-filtering.md`.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use the latest verified signed release; the Gson DTO is retained explicitly
