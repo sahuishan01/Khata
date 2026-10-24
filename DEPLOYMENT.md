@@ -382,3 +382,25 @@ found by read-only provenance/company/amount lookup on this server. No live user
 transaction was modified. Do not claim the particular saved entry is removed.
 Usage and scope: `docs/sms-request-filtering.md`. Evidence:
 `~/.local/state/khata-sms-requests/`.
+
+## IPO application receipt filtering (2026-10-24)
+
+Android `v0.45.21` is the verified signed update from run `40114558787` on `heaven`:
+77 release tests passed, versionCode 207, matching v0.45.19's signing certificate.
+The downloaded APK retains application/fund-block guards, required SMS metadata,
+title editing and all existing widgets/tiles/launcher shortcuts. ZIP integrity,
+GitHub asset digest and HTTPS-only configuration were verified. Local release
+lint, 16 email-parser parity tests and Security Scan `40114558309` passed.
+
+APK SHA-256: `fae5aeddc76aba616785554104ef2a81fd27eb9ea467d01625ba2e76852996ea`.
+
+[Download APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.21/khata_0.45.21-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.21).
+
+Install as an update and run **Add Data → Scan SMS inbox** with the original SMS
+present. The existing guarded correction excludes only proven unchanged false
+imports through normal sync, preserving edited/unverifiable entries. The exact
+reported SMS was rejected by a direct JVM check, and neutral-identifier fixtures
+cover equivalent wording and variants. No live user transactions were modified
+in development. Backend/web source is unchanged; no deployment or migration is
+needed. Usage: `docs/sms-request-filtering.md`. Evidence:
+`~/.local/state/khata-sms-ipo/`.
