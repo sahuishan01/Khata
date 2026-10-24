@@ -29,10 +29,10 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.18` (signed CI verification pending).
-Last verified signed APK: `v0.45.17`
-(GitHub Actions run `40085238240`, 61 release unit tests passed). Its signing
-certificate matches `v0.45.16`; versionCode 203 supports updating the existing
+Current release version: `v0.45.18` (verified).
+Last verified signed APK: `v0.45.18`
+(GitHub Actions run `40098934956`, attempt 2, 62 release unit tests passed). Its signing
+certificate matches `v0.45.17`; versionCode 204 supports updating the existing
 app. Required SMS metadata fields, including card confirmation role and card
 fingerprint, were verified in the minified APK before publication.
 
@@ -58,19 +58,24 @@ Evidence: `~/.local/state/khata-sms-promotions/`.
 the Android transaction actions menu. Titles use the existing description field;
 keep import identities/source text stable, and preserve custom titles on SMS
 repairs. See `docs/transaction-titles.md` for the API and validation checks.
+Backend/web CI `40098383249` attempt 2 passed (205 backend tests, 1 ignored,
+Clippy and web build); both artifacts are deployed. Browser and API 35 emulator
+editing flows passed. APK signature continuity, metadata and title DTO/API were
+verified. Evidence: `~/.local/state/khata-transaction-titles/`.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
-R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.
+R8. Use the latest verified signed release; the Gson DTO is retained explicitly
+in the ProGuard rules.
 
-Backend artifact from run `39597159197` (commit `35ee2c3`) is deployed
-with migration 0038 (202 backend tests passed, 1 ignored; Clippy and the
+Backend artifact from run `40098383249` (commit `0e4da62`) is deployed
+with migration 0038 (205 backend tests passed, 1 ignored; Clippy and the
 workflow's web build passed). Identical upload retries now acknowledge saved rows
 and refresh the device's canonical cache. Automatic transfer/duplicate flags are
 preserved; genuine stale edits still require review. Push and resolution return
 revisions after deferred reconciliation. This recovery works in Android v0.45.15.
 
-The unchanged web assets remain from run `39582103790`; desktop and phone browser
-checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
+The current web assets are from run `40098383249`. Earlier desktop and phone
+browser checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
 Whole-history reconciliation handles CRED and direct bill payments, older
 confirmation metadata, separate upload batches and date differences. Explicit
 restores survive later rescans. Live replay checks acknowledged 228 saved records
