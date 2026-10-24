@@ -29,10 +29,10 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.17` (signed CI verification pending).
-Last verified signed APK: `v0.45.16`
-(GitHub Actions run `40068680696`, 51 release unit tests passed). Its signing
-certificate matches `v0.45.15`; versionCode 202 supports updating the existing
+Current release version: `v0.45.17` (verified).
+Last verified signed APK: `v0.45.17`
+(GitHub Actions run `40085238240`, 61 release unit tests passed). Its signing
+certificate matches `v0.45.16`; versionCode 203 supports updating the existing
 app. Required SMS metadata fields, including card confirmation role and card
 fingerprint, were verified in the minified APK before publication.
 
@@ -50,6 +50,9 @@ credits and genuine alerts with promotional footers. Explicit **Scan SMS inbox**
 can exclude unchanged false imports only when the original SMS hash, timestamp,
 identity and financial fields match. Preserve edited or unverifiable records.
 See `docs/sms-promotion-filtering.md` for safeguards and regression checks.
+Release lint and Security Scan `40085238241` passed. Signed APK integrity,
+signature continuity, metadata and retained shortcut components were verified.
+Evidence: `~/.local/state/khata-sms-promotions/`.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.

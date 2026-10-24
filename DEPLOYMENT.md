@@ -305,3 +305,24 @@ were checked separately. The browser-tested production output matches the CI
 artifact. Backend binaries and database migrations are unchanged.
 
 Release/deployment evidence is under `~/.local/state/khata-shortcuts/`.
+
+## SMS loan promotion correction (2026-10-24)
+
+Android `v0.45.17` was built and signed by successful CI run `40085238240` on
+`heaven` (61 release unit tests). The downloaded APK is versionCode 203 and its
+signing certificate matches v0.45.16, supporting an in-place update. Its SHA-256
+is `2519d73fbd4446cbd1f9bea5d7bc3996472071c715e146003057296351048ad9`, matching
+the GitHub release asset digest. Archive integrity, all nine SMS metadata fields,
+HTTPS-only configuration and retained shortcut components were verified. Local
+release lint and Security Scan `40085238241` passed. GitHub default CodeQL's
+existing unsigned Java autobuild issue remains separate from signed release CI.
+
+Install [the APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.17/khata_0.45.17-release.apk)
+as an update, then use **Add Data → Scan SMS inbox** with the original SMS present
+and let sync finish. The parser ignores instructional loan offers, and the rescan
+can exclude a proven unchanged false import without replacing its financial
+fields. Edited or unverifiable entries remain for manual review. No live
+financial data was modified during development. The existing backend email
+extractor already rejects the example; no backend or web deployment is needed.
+See `docs/sms-promotion-filtering.md`. Evidence:
+`~/.local/state/khata-sms-promotions/`.

@@ -1,5 +1,21 @@
 # HANDOFF.md — Khata Project Handoff
 
+**SMS promotions (2026-10-24):** Android `v0.45.17` rejects the reported Kotak
+loan offer while preserving genuine credits, loan disbursements and alerts with
+offer footers. Install as an update, then **Add Data → Scan SMS inbox** with the
+original SMS present. The rescan excludes only a proven unchanged false import;
+edited or unverifiable entries require manual review. Exclusions preserve fields
+and sync through the existing revision-protected path. No live financial data
+was changed during development, and no backend/web deployment is required.
+
+Signed CI `40085238240` succeeded on `heaven` with 61 release tests. The downloaded
+APK has versionCode 203, matches v0.45.16's signing certificate and retains all
+nine required SMS metadata fields and the existing widgets/tiles/shortcuts.
+Local release lint and Security Scan `40085238241` passed. The existing GitHub
+default CodeQL Java autobuild failure remains separate from signed release CI.
+Evidence: `~/.local/state/khata-sms-promotions/`.
+Usage and safeguards: `docs/sms-promotion-filtering.md`.
+
 **Widgets and shortcuts (2026-10-24):** Android `v0.45.16` is verified from
 GitHub Actions run `40068680696`: 51 release tests passed, versionCode 202, and
 the signing certificate matches `v0.45.15`. The APK retains required SMS metadata.
@@ -115,7 +131,7 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.16
+**Current Version:** v0.45.17
 
 **Last Updated:** 2026-10-24
 
