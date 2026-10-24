@@ -1,6 +1,6 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="160dp" android:minHeight="180dp"
-    android:minResizeWidth="160dp" android:minResizeHeight="180dp"
+    android:minWidth="160dp" android:minHeight="140dp"
+    android:minResizeWidth="160dp" android:minResizeHeight="140dp"
     android:targetCellWidth="2" android:targetCellHeight="2"
     android:initialLayout="@layout/widget_shortcuts" android:previewLayout="@layout/widget_shortcuts"
     android:description="@string/widget_shortcuts_description"

@@ -1,5 +1,11 @@
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/shortcut_single" style="@style/WidgetShortcut"
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:text="@string/shortcut_add_transaction" android:drawableTop="@drawable/ic_shortcut_add" />
+    android:contentDescription="@string/shortcut_add_transaction">
+    <ImageView android:id="@+id/shortcut_single_icon" android:layout_width="24dp"
+        android:layout_height="24dp" android:src="@drawable/ic_shortcut_add"
+        android:importantForAccessibility="no" />
+    <TextView android:id="@+id/shortcut_single_label" style="@style/WidgetShortcutLabel"
+        android:text="@string/widget_label_add" />
+</LinearLayout>

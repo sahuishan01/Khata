@@ -13,6 +13,10 @@
     <string name="widget_single_name">Khata single shortcut</string>
     <string name="widget_single_description">Choose one Khata action for a compact shortcut widget.</string>
     <string name="widget_choose_shortcut">Choose your shortcut</string>
+    <string name="widget_brand_name">Khata</string>
+    <string name="widget_label_add">Quick add</string>
+    <string name="widget_label_history">History</string>
+    <string name="widget_label_chat">Chat</string>
     <string name="shortcut_back">Back</string>
     <string name="shortcut_settings_title">Widgets &amp; shortcuts</string>
     <string name="shortcut_privacy">Shortcuts open the app. Sign in when asked; your financial details stay inside Khata.</string>
@@ -40,11 +44,18 @@
         <item name="android:padding">8dp</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:gravity">center</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@drawable/widget_action_background</item>
+    </style>
+    <style name="WidgetShortcutLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:gravity">center</item>
         <item name="android:textColor">@color/widget_text</item>
         <item name="android:textSize">12sp</item>
         <item name="android:maxLines">2</item>
         <item name="android:ellipsize">end</item>
-        <item name="android:drawablePadding">4dp</item>
-        <item name="android:background">@drawable/widget_action_background</item>
+        <item name="android:importantForAccessibility">no</item>
     </style>
 </resources>
