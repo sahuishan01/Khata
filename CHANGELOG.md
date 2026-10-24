@@ -5,6 +5,21 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-24] — Editable transaction titles (v0.45.18)
+
+- Add **Edit title** to expanded transactions on web and Android, and the Android
+  transaction actions menu. Prefill the current title and support Save/Cancel.
+- Reject blank or overlong titles; trim surrounding whitespace. Failed saves
+  retain the draft and display a retryable error. Disable duplicate submissions.
+- Add an authenticated, owner-scoped title update endpoint using the existing
+  description field. Retain transaction identity, source text and financial
+  fields, and advance sync revisions so devices receive the edit.
+- Preserve saved titles when later SMS rescans repair dates or card evidence.
+- Add backend ownership, validation, sync and field-preservation tests plus an
+  Android SMS rescan regression. See `docs/transaction-titles.md`.
+
+---
+
 ## [2026-10-24] — Ignore SMS loan offers (v0.45.17)
 
 - Reject promotional instructions such as “Get Rs.276000 credited in minutes”

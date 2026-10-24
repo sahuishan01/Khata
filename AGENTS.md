@@ -29,7 +29,7 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.17` (verified).
+Current release version: `v0.45.18` (signed CI verification pending).
 Last verified signed APK: `v0.45.17`
 (GitHub Actions run `40085238240`, 61 release unit tests passed). Its signing
 certificate matches `v0.45.16`; versionCode 203 supports updating the existing
@@ -53,6 +53,11 @@ See `docs/sms-promotion-filtering.md` for safeguards and regression checks.
 Release lint and Security Scan `40085238241` passed. Signed APK integrity,
 signature continuity, metadata and retained shortcut components were verified.
 Evidence: `~/.local/state/khata-sms-promotions/`.
+
+`v0.45.18` adds **Edit title** to expanded transactions on Android and web, and
+the Android transaction actions menu. Titles use the existing description field;
+keep import identities/source text stable, and preserve custom titles on SMS
+repairs. See `docs/transaction-titles.md` for the API and validation checks.
 
 `v0.45.13` was withdrawn after artifact checks found SMS metadata stripped by
 R8. Use `v0.45.15`; its Gson DTO is retained explicitly in the ProGuard rules.

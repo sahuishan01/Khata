@@ -687,6 +687,32 @@ pub async fn get_txn(
     }
 }
 
+/// Edit the displayed title without changing the import identity or source text.
+pub async fn update_description(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Path(txn_id): Path<Uuid>,
+    Json(req): Json<UpdateDescriptionReq>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let description = req.description.trim();
+    if description.is_empty() || description.chars().count() > 500 {
+        return Err(AppError::BadRequest("Title must contain 1–500 characters".into()));
+    }
+    let mut tx = state.db.begin().await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
+    let result = sqlx::query(
+        "UPDATE transactions SET description = $1, version = version + 1, rev = rev + 1, updated_at = NOW() \
+         WHERE id = $2 AND user_id = $3 AND NOT deleted"
+    )
+    .bind(description).bind(txn_id).bind(user_id)
+    .execute(&mut *tx).await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    tx.commit().await?;
+    Ok(Json(serde_json::json!({ "message": "Title updated" })))
+}
+
 pub async fn update_notes(
     State(state): State<AppState>,
     CurrentUser(user_id): CurrentUser,

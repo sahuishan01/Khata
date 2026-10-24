@@ -39,6 +39,7 @@ interface KhataApi {
     @POST("api/txns/{id}/duplicate") suspend fun excludeDuplicate(@Path("id") id: String): MessageResponse
     @POST("api/txns/{id}/restore") suspend fun restoreDuplicate(@Path("id") id: String): MessageResponse
     @PATCH("api/txns/{id}/notes") suspend fun updateNotes(@Path("id") id: String, @Body body: UpdateNotesReq): MessageResponse
+    @PATCH("api/txns/{id}/description") suspend fun updateDescription(@Path("id") id: String, @Body body: UpdateDescriptionReq): MessageResponse
     @PUT("api/txns/{id}/category") suspend fun updateCategory(@Path("id") id: String, @Body body: Map<String, String>): Map<String, Any>
 
     @GET("api/accounts") suspend fun listAccounts(): List<UserAccount>

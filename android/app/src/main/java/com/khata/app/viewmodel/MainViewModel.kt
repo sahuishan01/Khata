@@ -204,6 +204,18 @@ class MainViewModel @Inject constructor(
         repository.toggleTransfer(id, v);
         val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
     } catch (_: Exception) {} }}
+    suspend fun updateTitle(id: String, title: String): String? {
+        val clean = title.trim()
+        if (clean.isEmpty() || clean.length > 500) return "Title must contain 1–500 characters."
+        return try {
+            repository.updateTitle(id, clean)
+            val f = _txnFilterState.value
+            loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+            refreshDashboard()
+            null
+        } catch (e: CancellationException) { throw e
+        } catch (_: Exception) { "Could not save the title. Check your connection and retry." }
+    }
     fun updateNotes(id: String, notes: String) { viewModelScope.launch { try {
         repository.updateNotes(id, notes);
         val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)

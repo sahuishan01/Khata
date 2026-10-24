@@ -26,4 +26,5 @@ pub fn router() -> Router<AppState> {
         .route("/:id/category", put(handlers::update_category))
         .route("/:id/transfer", patch(handlers::toggle_transfer))
         .route("/:id/notes", patch(handlers::update_notes))
+        .route("/:id/description", patch(handlers::update_description))
 }
