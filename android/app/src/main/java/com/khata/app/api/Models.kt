@@ -99,6 +99,7 @@ data class CreateTxnReq(
 // Transfer / Investment toggles
 data class ToggleTransferReq(@SerializedName("is_transfer") val isTransfer: Boolean)
 data class UpdateNotesReq(val notes: String)
+data class UpdateDescriptionReq(val description: String)
 
 // Sync models
 data class SyncPullResponse(

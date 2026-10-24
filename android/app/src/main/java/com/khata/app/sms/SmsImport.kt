@@ -87,7 +87,8 @@ object SmsImport {
                 previousValueDate = previousSource?.previousValueDate)),
             isTransfer = old.isTransfer || newTransfer,
             category = if (newTransfer) "Transfer" else old.category,
-            description = if (newTransfer) "Credit card ${if (parsed.direction == "credit") "payment received" else "bill payment"}" else old.description,
+            // A rescan may repair evidence/classification, but a saved title wins.
+            description = old.description,
         )
         return if (changed == old) old else changed.copy(dirty = true, pendingOp = if (old.baseRev > 0) "UPDATE" else "CREATE")
     }

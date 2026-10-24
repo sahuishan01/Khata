@@ -64,6 +64,12 @@ pub struct UpdateNotesReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateDescriptionReq {
+    pub description: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateTxnReq {
     pub txn_date: String,
     pub value_date: String,

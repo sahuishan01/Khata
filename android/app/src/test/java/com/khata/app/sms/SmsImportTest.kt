@@ -61,6 +61,24 @@ class SmsImportTest {
         assertEquals("2026-10-16", SmsImport.repair(edited, parsed, body, timestamp).txnDate)
     }
 
+    @Test fun rescanKeepsACustomTitleWhileRepairingCardEvidence() = kotlinx.coroutines.runBlocking {
+        val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
+        val original = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued).copy(
+            description = "My October card repayment", isTransfer = false,
+            category = "Uncategorized", txnDate = "2026-10-20", valueDate = "2026-10-20",
+            rev = 9, baseRev = 9, dirty = false, pendingOp = null,
+        )
+        val dao = com.khata.app.data.SyncOutboxTest.MemoryDao(listOf(original))
+        assertEquals(SmsSaveResult.UPDATED, SmsImport.queue(dao, parsed, body, "VM-HDFCBK", timestamp, queued))
+        val repaired = dao.rows.values.single()
+        assertEquals(original.description, repaired.description)
+        assertEquals(original.clientId, repaired.clientId)
+        assertEquals(original.amount, repaired.amount, 0.0)
+        assertTrue(repaired.isTransfer)
+        assertEquals("2026-10-18", repaired.valueDate)
+        assertEquals(SmsSaveResult.UNCHANGED, SmsImport.queue(dao, parsed, body, "VM-HDFCBK", timestamp, queued))
+    }
+
     @Test fun rescanRepairsOldFutureDatesAndServerQueueFallbacks() {
         val text = "INR 500 credited to Canara account on 02/12/26. Ref 123456789012"
         val parsed = SmsParser.parse(text, "AD-CANBNK")!!
