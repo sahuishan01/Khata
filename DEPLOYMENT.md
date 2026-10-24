@@ -13,7 +13,7 @@ origin's Let's Encrypt certificate and renews through HTTP-01.
   `/srv/khata/current` selects the active build. SPA routes fall back to
   `index.html`; API routes retain their original paths.
 - `khata-backend.service` runs the release binary at
-  `/usr/local/lib/khata/current/khata` with `/root/Khata/.env`.
+  `/usr/local/lib/khata/current/khata` with `~/projects/khata/.env`.
 - PostgreSQL stays on `127.0.0.1:5433`. Caddy administration stays on
   `127.0.0.1:2019`.
 - The Vite development service is disabled. No public application port is needed.
@@ -286,3 +286,22 @@ The encrypted backup, artifact/deployment manifest and private verification
 reports are under `~/.local/state/khata-sync-conflicts/` (the manifest references
 the encrypted archive in `~/.local/state/khata-ingest-fix/backup/`). Previously
 cleared history was not restored. The frontend assets remain unchanged.
+
+
+## Widgets and installed-web shortcuts (2026-10-24)
+
+Android `v0.45.16` is the verified signed update from run `40068680696` (51 release
+unit tests; versionCode 202; same signing certificate as `v0.45.15`). It adds two
+widgets, four launcher shortcuts and four Quick Settings tiles. Install as an
+update and open More → Widgets & shortcuts; see `docs/android-shortcuts.md`.
+
+The web build from successful run `40068081552` (revision `93bb1a9`) is active at
+`/srv/khata/releases/v0.45.16-shortcuts-20261024T061240Z`. Its frontend source is
+identical to the `v0.45.16` tag. It adds the authenticated `/add` route, return-to
+navigation through sign-in/password reset, and four installed-web-app shortcuts.
+Origin files and public JavaScript/CSS, manifest and revision match the CI
+artifact. Cloudflare injects analytics into public HTML, whose asset references
+were checked separately. The browser-tested production output matches the CI
+artifact. Backend binaries and database migrations are unchanged.
+
+Release/deployment evidence is under `~/.local/state/khata-shortcuts/`.

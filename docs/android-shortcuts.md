@@ -45,3 +45,13 @@ sign-in, forced password reset, warm launches and logout. UI checks use syntheti
 local data, including failed and successful manual saves. Android widgets and
 tiles use explicit immutable activity PendingIntents, with the API 34 tile
 launch overload and a guarded fallback for Android 8–13.
+
+
+Verified release: `v0.45.16`, GitHub Actions run `40068680696`, versionCode 202,
+signed by the same certificate as `v0.45.15`. All 51 release unit tests and Android
+release lint passed. Native checks covered cold/warm navigation, draft retention
+on failed saves, successful entry, rotation, widget placement/configuration and
+widget actions, including retaining a single widget selection across an update.
+Seven browser checks cover all four authenticated destinations, save failure and
+success, and required password reset. The matching CI web artifact is deployed.
+Physical-phone and manufacturer-specific launcher behavior remain unverified.

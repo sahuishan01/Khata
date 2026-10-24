@@ -1,5 +1,33 @@
 # HANDOFF.md — Khata Project Handoff
 
+**Widgets and shortcuts (2026-10-24):** Android `v0.45.16` is verified from
+GitHub Actions run `40068680696`: 51 release tests passed, versionCode 202, and
+the signing certificate matches `v0.45.15`. The APK retains required SMS metadata.
+Two widgets, four launcher shortcuts and four Quick Settings tiles open manual
+entry, history, agent chat and Add Data. More → Widgets & shortcuts offers widget
+pinning and tile placement. Authentication and required password reset preserve
+the requested destination. Manual-save failures retain the form and show errors.
+
+The web artifact from successful run `40068081552` is deployed, including the
+`/add` route and installed-web-app manifest shortcuts. Its frontend source matches
+the Android release tag. All origin files and public assets/manifest/revision
+were verified; Cloudflare adds its analytics script to public HTML. Seven browser
+checks and native widget/navigation checks used synthetic data. Android release
+lint and Security Scan passed; existing repository-wide web lint and the GitHub
+default CodeQL unsigned-release autobuild failure remain separate follow-ups.
+Evidence: `~/.local/state/khata-shortcuts/`. Usage: `docs/android-shortcuts.md`.
+
+**Workspace relocation (2026-10-24):** The current checkout is
+`~/projects/khata` (`/root/projects/khata`). This is the canonical development
+repository. The complete Git history, local files and protected environment
+were moved together. Backend and disabled frontend systemd paths now use this
+location; the compiled production release paths are unchanged. The Codex
+project points here, and conversation `01a16c49-ef42-7591-9db1-d99bb70f7114`
+continues here with its history retained in `~/.codex`.
+The older uppercase `~/projects/Khata` checkout was archived during relocation
+and deleted at the user's request on 2026-10-24. Relocation evidence and protected
+rollback configuration remain under `~/.local/state/khata-relocation/latest/`.
+
 **SMS HTTP 422 follow-up (2026-10-20):** The `v0.45.3` live receiver wrote
 `valueDate` but left `txnDate` empty. `v0.45.6` repaired IDs but still serialized
 that empty date. A read-only API contract probe on the VPS reproduced HTTP 422
@@ -87,9 +115,9 @@ explicit build configuration. The dependency security fixes in the repository
 have passed CI but have not been redeployed to the VPS backend/static frontend;
 the deployed ingestion functionality is still the releases documented above.
 
-**Current Version:** v0.45.8
+**Current Version:** v0.45.16
 
-**Last Updated:** 2026-10-20
+**Last Updated:** 2026-10-24
 
 **Status:** SMS/email ingestion recovery; signed APKs use the existing GitHub Actions release workflow
 
