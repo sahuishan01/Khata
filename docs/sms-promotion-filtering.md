@@ -34,3 +34,12 @@ cover the reported offer, nearby wording, real loan disbursements, mixed alert a
 offer messages, protected edits, missing provenance, repeated scans, concurrent
 edits and revision-preserving sync. The existing backend email extractor already
 rejects the reported message; its 15 parser tests pass without backend changes.
+
+Signed release CI [40085238240](https://github.com/sahuishan01/Khata/actions/runs/40085238240)
+completed successfully on `heaven`, including all 61 release tests. The downloaded
+APK is version 0.45.17 / versionCode 203, with the same signing certificate as
+v0.45.16. ZIP integrity, the GitHub asset digest, HTTPS-only configuration, all
+nine SMS metadata fields and existing widget/tile/launcher components were
+verified. Security Scan `40085238241` passed. The existing GitHub default CodeQL
+Java autobuild signing failure remains separate from the signed release build.
+Evidence is stored at `~/.local/state/khata-sms-promotions/`.
