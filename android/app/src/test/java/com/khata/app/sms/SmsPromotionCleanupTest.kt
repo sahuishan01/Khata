@@ -22,17 +22,17 @@ class SmsPromotionCleanupTest {
     @Test fun rescanExcludesOnlyTheProvenUnchangedImportAndRetainsItsIdentityAndFields() = runBlocking {
         val old = imported()
         val dao = SyncOutboxTest.MemoryDao(listOf(old))
-        assertTrue(SmsImport.excludePromotion(dao, body, sender, timestamp, queued))
+        assertTrue(SmsImport.excludeNonTransaction(dao, body, sender, timestamp, queued))
         assertEquals(old.copy(deleted = true, dirty = true, pendingOp = "DELETE"), dao.rows.values.single())
         assertEquals(7L, dao.getOutbox().single().baseRev)
-        assertFalse(SmsImport.excludePromotion(dao, body, sender, timestamp, queued))
+        assertFalse(SmsImport.excludeNonTransaction(dao, body, sender, timestamp, queued))
         assertEquals(1, dao.rows.size)
     }
 
     @Test fun aFalseImportStillQueuedForItsFirstUploadBecomesATombstone() = runBlocking {
         val old = imported().copy(rev = 0, baseRev = 0, dirty = true, pendingOp = "CREATE")
         val dao = SyncOutboxTest.MemoryDao(listOf(old))
-        assertTrue(SmsImport.excludePromotion(dao, body, sender, timestamp, queued))
+        assertTrue(SmsImport.excludeNonTransaction(dao, body, sender, timestamp, queued))
         assertEquals(old.clientId, dao.getOutbox().single().clientId)
         assertTrue(dao.getOutbox().single().deleted)
         assertEquals(0L, dao.getOutbox().single().baseRev)
@@ -54,7 +54,7 @@ class SmsPromotionCleanupTest {
         )
         for (row in protected) {
             val dao = SyncOutboxTest.MemoryDao(listOf(row))
-            assertFalse(row.toString(), SmsImport.excludePromotion(dao, body, sender, timestamp, queued))
+            assertFalse(row.toString(), SmsImport.excludeNonTransaction(dao, body, sender, timestamp, queued))
             assertEquals(row, dao.rows.values.single())
         }
     }
@@ -64,8 +64,8 @@ class SmsPromotionCleanupTest {
         val parsed = SmsParser.parse(real, sender)!!
         val row = SmsImport.transaction(parsed, real, sender, timestamp, queued)
         val dao = SyncOutboxTest.MemoryDao(listOf(row))
-        assertFalse(SmsImport.excludePromotion(dao, real, sender, timestamp, queued))
-        assertFalse(SmsImport.excludePromotion(dao, body, sender, timestamp, queued))
+        assertFalse(SmsImport.excludeNonTransaction(dao, real, sender, timestamp, queued))
+        assertFalse(SmsImport.excludeNonTransaction(dao, body, sender, timestamp, queued))
         assertEquals(row, dao.rows.values.single())
     }
 

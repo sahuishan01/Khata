@@ -43,6 +43,46 @@ object SmsParser {
             "(?:you\\s+are\\s+)?eligible\\s+for)\\b[^.!?;]{0,100}$"
     )
 
+    private val CLAUSE_BOUNDARY = Pattern.compile("[!?;]\\s*|\\.\\s+|[\\r\\n]+")
+    private val CURRENCY_ABBREVIATION = Pattern.compile("(?i)\\b(?:rs|inr)$")
+    private val REQUEST_NOTICE = Pattern.compile(
+        "(?i)\\b(?:has|have)\\s+requested\\b|" +
+            "\\b(?:upi|collect|payment|mandate)\\s+request\\b|" +
+            "\\brequest\\s+(?:(?:has\\s+been|was|is)\\s+)?received\\b|" +
+            "\\brequest\\s+(?:for|of)\\b"
+    )
+    private val UNCOMPLETED_NOTICE = Pattern.compile(
+        "(?i)\\b(?:pending|awaiting)\\s+(?:(?:to|your|for)\\s+)?(?:approv(?:e|al)|authori[sz](?:e|ation))\\b|" +
+            "\\b(?:approval|authori[sz]ation)\\s+(?:is\\s+)?pending\\b|" +
+            "\\b(?:will|would|shall)\\s+be\\s+(?:debited|credited|paid|sent|withdrawn|transferred)\\b"
+    )
+    private val CONFIRMED_POSTING = Pattern.compile(
+        "(?i)\\b(?:has|have)\\s+been\\s+(?:debited|credited|spent|paid|withdrawn|transferred)\\b"
+    )
+
+    /** "Request received" is not money received; keep other completed alert clauses. */
+    private fun nonPostingClauses(body: String): List<IntRange> {
+        val excluded = mutableListOf<IntRange>()
+        var start = 0
+        fun consider(end: Int) {
+            val clause = body.substring(start, end)
+            if (UNCOMPLETED_NOTICE.matcher(clause).find() ||
+                (REQUEST_NOTICE.matcher(clause).find() && !CONFIRMED_POSTING.matcher(clause).find())) {
+                excluded += start until end
+            }
+            start = end
+        }
+        val boundary = CLAUSE_BOUNDARY.matcher(body)
+        while (boundary.find()) {
+            // The dot in "Rs. 129600" must stay with the request and its amount.
+            if (body[boundary.start()] == '.' &&
+                CURRENCY_ABBREVIATION.matcher(body.substring(0, boundary.start())).find()) continue
+            consider(boundary.end())
+        }
+        consider(body.length)
+        return excluded
+    }
+
     private val BANK_PATTERN = Pattern.compile("(?i)\\b(HDFC|ICICI|SBI|AXIS|KOTAK|PNB|BOB|CANARA|PAYTM|IDFC|YES|INDUSIND)\\b")
     // \b matters: without it the "to" inside ordinary prose ("...wish to inform
     // you that Rs 514...") matches and the payee becomes "inform you that Rs".
@@ -75,16 +115,18 @@ object SmsParser {
         return if (matcher.find()) matcher.group(1)?.takeIf { value -> value.any { it.isDigit() } } else null
     }
 
-    fun parse(body: String, sender: String = ""): ParsedSmsTxn? = parseCandidate(body, sender, rejectOffers = true)
+    fun parse(body: String, sender: String = ""): ParsedSmsTxn? = parseCandidate(body, sender, rejectNonTransactions = true)
 
     /** Used only to identify a proven, untouched false import during an explicit inbox rescan. */
-    internal fun previouslyImportedPromotion(body: String, sender: String): ParsedSmsTxn? {
-        val previous = parseCandidate(body, sender, rejectOffers = false) ?: return null
+    internal fun previouslyImportedNonTransaction(body: String, sender: String): ParsedSmsTxn? {
+        val previous = parseCandidate(body, sender, rejectNonTransactions = false) ?: return null
         return previous.takeIf { parse(body, sender) == null }
     }
 
-    private fun parseCandidate(body: String, sender: String, rejectOffers: Boolean): ParsedSmsTxn? {
-        val cleanBody = body.replace("\n", " ").trim()
+    private fun parseCandidate(body: String, sender: String, rejectNonTransactions: Boolean): ParsedSmsTxn? {
+        val original = body.trim()
+        val cleanBody = original.replace("\n", " ")
+        val excluded = if (rejectNonTransactions) nonPostingClauses(original) else emptyList()
         val lowerSender = sender.lowercase(Locale.ROOT)
 
         // Ignore non-transactional OTP / promo SMSes
@@ -96,7 +138,8 @@ object SmsParser {
             for (pattern in patterns) {
                 val matcher = pattern.matcher(cleanBody)
                 while (matcher.find()) {
-                    if (rejectOffers && OFFER_PREFIX.matcher(cleanBody.substring(0, matcher.start())).find()) continue
+                    if (rejectNonTransactions && OFFER_PREFIX.matcher(cleanBody.substring(0, matcher.start())).find()) continue
+                    if (excluded.any { matcher.start() <= it.last && matcher.end() > it.first }) continue
                     val amount = matcher.group(1)?.replace(",", "")?.toDoubleOrNull()
                     if (amount != null && amount.isFinite() && amount > 0) return amount
                 }

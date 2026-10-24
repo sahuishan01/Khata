@@ -5,6 +5,23 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-10-24] — Ignore pending UPI requests (v0.45.19)
+
+- Distinguish a payment or mandate request being received from money received.
+  Reject pending approvals and future debits instead of recording them as posted
+  transactions.
+- Check individual clauses, preserving real completed postings elsewhere in the
+  SMS. Keep the dot in “Rs. 129600” with its request and amount.
+- Preserve completed mandate debits, payments, refunds and custom titles.
+- Extend the existing guarded rescan exclusion to newly rejected request variants
+  and report non-transaction imports excluded. Retain edited, referenced and
+  unverifiable records for review; corrections use the existing sync path.
+- Add seven Android regression tests. The exact reported HP Telecom wording was
+  already rejected; related request-received/future-debit variants reproduced
+  false imports before this change. See `docs/sms-request-filtering.md`.
+
+---
+
 ## [2026-10-24] — Editable transaction titles (v0.45.18)
 
 - Add **Edit title** to expanded transactions on web and Android, and the Android
