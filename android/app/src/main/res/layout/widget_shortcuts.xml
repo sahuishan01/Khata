@@ -2,18 +2,34 @@
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:padding="8dp" android:background="@drawable/widget_background">
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="@string/widget_shortcuts_name" android:textColor="@color/widget_text"
+        android:text="@string/widget_brand_name" android:textColor="@color/widget_text"
         android:textSize="14sp" android:textStyle="bold" android:padding="4dp" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <TextView android:id="@+id/shortcut_add" style="@style/WidgetShortcut"
-            android:text="@string/shortcut_add_transaction" android:drawableTop="@drawable/ic_shortcut_add" />
-        <TextView android:id="@+id/shortcut_history" style="@style/WidgetShortcut"
-            android:text="@string/shortcut_transactions" android:drawableTop="@drawable/ic_shortcut_history" />
+        <LinearLayout android:id="@+id/shortcut_add" style="@style/WidgetShortcut"
+            android:contentDescription="@string/shortcut_add_transaction">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_shortcut_add" android:importantForAccessibility="no" />
+            <TextView style="@style/WidgetShortcutLabel" android:text="@string/widget_label_add" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/shortcut_history" style="@style/WidgetShortcut"
+            android:contentDescription="@string/shortcut_transactions">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_shortcut_history" android:importantForAccessibility="no" />
+            <TextView style="@style/WidgetShortcutLabel" android:text="@string/widget_label_history" />
+        </LinearLayout>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <TextView android:id="@+id/shortcut_chat" style="@style/WidgetShortcut"
-            android:text="@string/shortcut_chat" android:drawableTop="@drawable/ic_shortcut_chat" />
-        <TextView android:id="@+id/shortcut_upload" style="@style/WidgetShortcut"
-            android:text="@string/shortcut_add_data" android:drawableTop="@drawable/ic_shortcut_upload" />
+        <LinearLayout android:id="@+id/shortcut_chat" style="@style/WidgetShortcut"
+            android:contentDescription="@string/shortcut_chat">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_shortcut_chat" android:importantForAccessibility="no" />
+            <TextView style="@style/WidgetShortcutLabel" android:text="@string/widget_label_chat" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/shortcut_upload" style="@style/WidgetShortcut"
+            android:contentDescription="@string/shortcut_add_data">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_shortcut_upload" android:importantForAccessibility="no" />
+            <TextView style="@style/WidgetShortcutLabel" android:text="@string/shortcut_add_data" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

@@ -20,6 +20,13 @@ val ShortcutAction.iconRes: Int get() = when (this) {
     ShortcutAction.ADD_DATA -> R.drawable.ic_shortcut_upload
 }
 
+val ShortcutAction.widgetLabelRes: Int get() = when (this) {
+    ShortcutAction.ADD_TRANSACTION -> R.string.widget_label_add
+    ShortcutAction.TRANSACTIONS -> R.string.widget_label_history
+    ShortcutAction.CHAT -> R.string.widget_label_chat
+    ShortcutAction.ADD_DATA -> R.string.shortcut_add_data
+}
+
 fun ShortcutAction.launchIntent(context: Context): Intent = Intent(context, MainActivity::class.java)
     .setAction(intentAction)
     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)

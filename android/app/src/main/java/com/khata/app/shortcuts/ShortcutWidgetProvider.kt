@@ -46,8 +46,9 @@ class SingleShortcutWidgetProvider : AppWidgetProvider() {
             val stored = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(id.toString(), null)
             val action = ShortcutAction.entries.firstOrNull { it.name == stored } ?: ShortcutAction.ADD_TRANSACTION
             val views = RemoteViews(context.packageName, R.layout.widget_single_shortcut)
-            views.setTextViewText(R.id.shortcut_single, context.getString(action.labelRes))
-            views.setTextViewCompoundDrawables(R.id.shortcut_single, 0, action.iconRes, 0, 0)
+            views.setTextViewText(R.id.shortcut_single_label, context.getString(action.widgetLabelRes))
+            views.setImageViewResource(R.id.shortcut_single_icon, action.iconRes)
+            views.setContentDescription(R.id.shortcut_single, context.getString(action.labelRes))
             views.setOnClickPendingIntent(R.id.shortcut_single, action.pendingIntent(context))
             manager.updateAppWidget(id, views)
         }
