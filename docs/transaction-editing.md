@@ -15,6 +15,9 @@ generated title. Custom descriptions and unverified legacy descriptions remain
 unchanged. Full transaction edits survive subsequent scans, including dates,
 references, categorization and explicit transfer choices.
 
+Changes through existing inline category, notes and transfer controls also
+advance revisions. An already-open full editor cannot overwrite those changes.
+
 The authenticated `PUT /api/txns/:id` accepts the complete editable field set
 and `base_rev` from the opened transaction. Ownership is enforced with RLS and
 explicit tenant scoping. Missing/excluded records return 404; changed revisions

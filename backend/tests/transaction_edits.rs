@@ -358,6 +358,87 @@ async fn non_sms_transactions_can_reverse_existing_manual_transfer_choices(pool:
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn inline_edits_invalidate_an_open_full_transaction_editor(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let _ = handlers::sync_push(
+        State(app.clone()),
+        CurrentUser(owner),
+        Json(vec![op("Original", "debit", 10.0)]),
+    )
+    .await
+    .unwrap();
+    let original = handlers::sync_pull(
+        State(app.clone()),
+        CurrentUser(owner),
+        Query(SyncPullQuery {
+            since_rev: Some(0),
+            limit: Some(50),
+            cursor_version: Some(2),
+        }),
+    )
+    .await
+    .unwrap()
+    .0
+    .txns
+    .remove(0);
+    let _ = handlers::update_notes(
+        State(app.clone()),
+        CurrentUser(owner),
+        Path(original.id),
+        Json(khata::txns::models::UpdateNotesReq {
+            notes: "Changed on another device".into(),
+        }),
+    )
+    .await
+    .unwrap();
+    let after_notes = handlers::get_txn(State(app.clone()), CurrentUser(owner), Path(original.id))
+        .await
+        .unwrap()
+        .0;
+    assert_eq!(after_notes.rev, original.rev + 1);
+    assert!(matches!(
+        handlers::update_txn(
+            State(app.clone()),
+            CurrentUser(owner),
+            Path(original.id),
+            Json(edit(&original))
+        )
+        .await,
+        Err(khata::error::AppError::Conflict(_))
+    ));
+    let _ = handlers::update_category(
+        State(app.clone()),
+        CurrentUser(owner),
+        Path(original.id),
+        Json(
+            serde_json::from_value(serde_json::json!({"category":"Food", "scope":"single"}))
+                .unwrap(),
+        ),
+    )
+    .await
+    .unwrap();
+    let after_category =
+        handlers::get_txn(State(app.clone()), CurrentUser(owner), Path(original.id))
+            .await
+            .unwrap()
+            .0;
+    assert_eq!(after_category.rev, after_notes.rev + 1);
+    assert!(matches!(
+        handlers::update_txn(
+            State(app),
+            CurrentUser(owner),
+            Path(original.id),
+            Json(edit(&after_notes))
+        )
+        .await,
+        Err(khata::error::AppError::Conflict(_))
+    ));
+    assert_eq!(after_category.notes, "Changed on another device");
+    assert_eq!(after_category.category, "Food");
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn exact_sms_descriptions_retain_cred_card_reconciliation(pool: PgPool) {
     let app = state(&pool);
     let owner = user(&pool).await;
