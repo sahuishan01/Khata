@@ -725,12 +725,18 @@ pub async fn update_txn(
     if revision != req.base_rev {
         return Err(AppError::Conflict("This transaction changed. Reopen it to review the latest values before saving.".into()));
     }
+    // Mark SMS provenance first. The legacy UPDATE OF sms_source trigger keeps
+    // old transfer choices during evidence repairs, so the user-field update
+    // below deliberately leaves that column out. Both writes commit atomically.
+    sqlx::query(
+        "UPDATE transactions SET sms_source=CASE WHEN sms_source IS NOT NULL \
+             THEN sms_source || '{\"user_edited\":true}'::jsonb ELSE jsonb_build_object('parser_version',0, \
+                 'date_source','queue','parsed_date',txn_date,'user_edited',true) END \
+         WHERE id=$1 AND user_id=$2 AND (sms_source IS NOT NULL OR notes LIKE 'Auto-captured via SMS%')"
+    ).bind(txn_id).bind(user_id).execute(&mut *tx).await?;
     sqlx::query(
         "UPDATE transactions SET description=$1, amount=$2, direction=$3, category=$4, \
          txn_date=$5, value_date=$6, bank=$7, bank_ref=$8, balance=$9, is_transfer=$10, notes=$11, \
-         sms_source=CASE WHEN sms_source IS NOT NULL THEN sms_source || '{\"user_edited\":true}'::jsonb \
-             WHEN notes LIKE 'Auto-captured via SMS%' THEN jsonb_build_object('parser_version',0, \
-                 'date_source','queue','parsed_date',txn_date,'user_edited',true) ELSE NULL END, \
          transfer_override=true, duplicate_override=true, version=version+1, base_rev=rev, rev=rev+1, updated_at=NOW() \
          WHERE id=$12 AND user_id=$13"
     ).bind(&req.description).bind(req.amount).bind(&req.direction).bind(req.category.trim())

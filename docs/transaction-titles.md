@@ -1,6 +1,6 @@
 # Transaction titles
 
-The full **Edit transaction** editor supersedes **Edit title** in v0.45.22.
+The full **Edit transaction** editor supersedes **Edit title** in v0.45.23.
 See [transaction-editing.md](transaction-editing.md). The title-only API below
 remains available for older clients; the following records its original release.
 

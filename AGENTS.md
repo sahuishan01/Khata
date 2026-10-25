@@ -29,12 +29,16 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.22` (verification pending).
+Current release version: `v0.45.23` (verification pending).
 Last verified signed APK: `v0.45.21`
 (GitHub Actions run `40114558787`, 77 release unit tests passed). Its signing
 certificate matches `v0.45.19`; versionCode 207 supports updating the existing
 app. Required SMS metadata fields, including card confirmation role and card
 fingerprint, were verified in the minified APK before publication.
+
+`v0.45.22` was cancelled before publication while transfer-override coverage was
+completed. It has no release APK. The Android workflow compares against the last
+successful signed release with an APK, so cancelled tags cannot mask app changes.
 
 `v0.45.16` adds two home-screen widgets, four Quick Settings tiles and four
 launcher shortcuts. Open **More → Widgets & shortcuts** for placement controls.

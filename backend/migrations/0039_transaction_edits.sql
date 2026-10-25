@@ -10,13 +10,6 @@ CREATE OR REPLACE FUNCTION is_card_receipt(t transactions) RETURNS boolean LANGU
            OR t.sms_source->>'payment_role' IN ('card_receipt','card_confirmation'));
 $$;
 
-CREATE OR REPLACE FUNCTION preserve_manual_transfer() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    IF OLD.transfer_override AND coalesce(NEW.sms_source->>'user_edited','false') <> 'true' THEN NEW.is_transfer := OLD.is_transfer; END IF;
-    RETURN NEW;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION protect_sms_evidence() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
     latest date := (now() AT TIME ZONE 'Asia/Kolkata')::date;
