@@ -56,6 +56,7 @@ class SyncEngine @Inject constructor(
         api.clearAllData()
         db.withTransaction {
             db.transactionDao().clearAll()
+            db.smsDecisionDao().clearAll()
             db.syncStateDao().set(SyncState())
         }
         _state.value = SyncUiState.Idle

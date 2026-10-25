@@ -34,6 +34,20 @@ object SmsImport {
     }
 
     suspend fun queue(dao: TransactionDao, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): SmsSaveResult {
+        val (old, row) = prepare(dao, parsed, body, sender, timestamp, queuedAt)
+        if (row == old) return SmsSaveResult.UNCHANGED
+        if (!dao.saveSmsIfUnchanged(old, row)) return SmsSaveResult.UNCHANGED
+        return if (old == null) SmsSaveResult.CREATED else SmsSaveResult.UPDATED
+    }
+
+    /** A model worker uploads with its captured owner before adopting the canonical row locally. */
+    suspend fun prepare(dao: TransactionDao, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): Pair<LocalTransaction?, LocalTransaction> {
+        return prepareWithLookup(parsed,body,sender,timestamp,queuedAt,dao::getByClientId)
+    }
+
+    /** Lookup can use an owner-scoped server snapshot instead of a shared device cache. */
+    suspend fun prepareWithLookup(parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long,
+        lookup: suspend (String) -> LocalTransaction?): Pair<LocalTransaction?,LocalTransaction> {
         val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
         val legacyParsed = parsed.copy(refNo = SmsParser.legacyReference(body))
         val previousClientId = SmsParser.clientId(legacyParsed, body, sender, timestamp)
@@ -45,14 +59,14 @@ object SmsImport {
         val repairedId = UUID.nameUUIDFromBytes(("legacy:" + legacyId).toByteArray(Charsets.UTF_8)).toString()
         // Prefer this message's old identity, even if another alert already owns
         // the new reference-based ID. Otherwise its old duplicate is never repaired.
-        val old = dao.getByClientId(legacyId) ?: dao.getByClientId(repairedId)
-            ?: dao.getByClientId(previousClientId) ?: dao.getByClientId(clientId)
+        val old = lookup(legacyId) ?: lookup(repairedId)
+            ?: lookup(previousClientId) ?: lookup(clientId)
             ?: run {
                 // Learning an issuer alias must not duplicate an older record
                 // whose issuer was unknown. Require the exact original receipt.
                 val original = SmsSource.from(body, timestamp, queuedAt)
                 listOf(parsed, legacyParsed).firstNotNullOfOrNull { previous ->
-                    dao.getByClientId(SmsParser.clientId(previous.copy(bank = "Bank"), body, sender, timestamp))
+                    lookup(SmsParser.clientId(previous.copy(bank = "Bank"), body, sender, timestamp))
                         ?.takeIf { row ->
                             val source = SmsSource.decode(row.smsSource)
                             source?.bodyHash == original.bodyHash && source?.receivedAt == timestamp
@@ -61,9 +75,7 @@ object SmsImport {
             }
         val row = old?.let { repair(it, parsed, body, timestamp) }
             ?: transaction(parsed, body, sender, timestamp, queuedAt)
-        if (row == old) return SmsSaveResult.UNCHANGED
-        if (!dao.saveSmsIfUnchanged(old, row)) return SmsSaveResult.UNCHANGED
-        return if (old == null) SmsSaveResult.CREATED else SmsSaveResult.UPDATED
+        return old to row
     }
 
     fun transaction(parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): LocalTransaction {
@@ -76,7 +88,8 @@ object SmsImport {
             bank = parsed.bank, bankRef = parsed.refNo.orEmpty(), txnDate = date, valueDate = date,
             isTransfer = parsed.isTransfer, notes = body,
             updatedAt = queuedAt, dirty = true, pendingOp = "CREATE",
-            smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt, parsed.direction, parsed.bank).copy(parsedPayee = parsed.payee)),
+            smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt, parsed.direction, parsed.bank).copy(
+                parsedPayee = parsed.payee, paymentMethod = parsed.paymentMethod, classifierVersion = parsed.classifierVersion)),
         )
     }
 
@@ -113,6 +126,8 @@ object SmsImport {
                 bodyHash = source.bodyHash.takeIf { previousSource?.bodyHash != null },
                 eventKey = source.eventKey.takeIf { previousSource?.bodyHash != null },
                 previousTxnDate = previousSource?.previousTxnDate,
+                paymentMethod = parsed.paymentMethod ?: previousSource?.paymentMethod,
+                classifierVersion = parsed.classifierVersion ?: previousSource?.classifierVersion,
                 previousValueDate = previousSource?.previousValueDate)),
             isTransfer = old.isTransfer || newTransfer,
             category = if (newTransfer) "Transfer" else old.category,

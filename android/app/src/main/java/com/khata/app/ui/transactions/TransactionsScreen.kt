@@ -548,6 +548,7 @@ private fun TransactionCard(
                         DetailRow("Transaction date", formatDate(txn.txnDate))
                         DetailRow("Value date", formatDate(txn.valueDate))
                         DetailRow("Bank", txn.bank)
+                        txn.smsSource?.paymentMethod?.let { DetailRow("Payment method", it) }
                         txn.bankRef?.takeIf { it.isNotBlank() }?.let { DetailRow("Bank reference", it) }
                         txn.balance?.let { DetailRow("Balance", formatINR(it)) }
 

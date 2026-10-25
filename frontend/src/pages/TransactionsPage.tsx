@@ -433,6 +433,7 @@ export function TransactionsPage() {
                             <div><span style={{ color: 'var(--text-muted)' }}>Value date: </span><span>{formatDate(t.value_date)}</span></div>
                             {t.balance != null && <div><span style={{ color: 'var(--text-muted)' }}>Balance: </span><span>{formatINR(t.balance)}</span></div>}
                             <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
+                            {t.sms_source?.payment_method && <div><span style={{ color: 'var(--text-muted)' }}>Payment method: </span><span>{t.sms_source.payment_method}</span></div>}
                             {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
                             {t.notes && <div style={{ gridColumn: '1 / -1', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
                           </div>
@@ -504,7 +505,8 @@ export function TransactionsPage() {
                     <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
-                    {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
+                    {t.sms_source?.payment_method && <div><span style={{ color: 'var(--text-muted)' }}>Payment method: </span><span>{t.sms_source.payment_method}</span></div>}
+                            {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
                     {t.notes && <div style={{ gridColumn: '1 / -1', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
                   </div>
                 )}

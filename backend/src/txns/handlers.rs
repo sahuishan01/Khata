@@ -707,6 +707,9 @@ pub async fn update_txn(
     if !matches!(req.direction.as_str(), "debit" | "credit") {
         return Err(AppError::BadRequest("Direction must be debit or credit".into()));
     }
+    if req.payment_method.as_deref().is_some_and(|method| !matches!(method,""|"IMPS"|"NEFT"|"RTGS"|"UPI"|"ATM"|"CARD"|"CHEQUE"|"CASH")) {
+        return Err(AppError::BadRequest("Choose a supported payment method".into()));
+    }
     if req.category.trim().is_empty() || req.category.chars().count() > 100
         || req.bank.trim().is_empty() || req.bank.chars().count() > 100
         || req.bank_ref.as_ref().is_some_and(|r| r.chars().count() > 500)
@@ -734,6 +737,10 @@ pub async fn update_txn(
                  'date_source','queue','parsed_date',txn_date,'user_edited',true) END \
          WHERE id=$1 AND user_id=$2 AND (sms_source IS NOT NULL OR notes LIKE 'Auto-captured via SMS%')"
     ).bind(txn_id).bind(user_id).execute(&mut *tx).await?;
+    if let Some(method) = &req.payment_method {
+        sqlx::query("UPDATE transactions SET sms_source=jsonb_set(sms_source,'{payment_method}',COALESCE(to_jsonb(NULLIF($3::text,'')),'null'::jsonb)) WHERE id=$1 AND user_id=$2 AND sms_source IS NOT NULL")
+            .bind(txn_id).bind(user_id).bind(method).execute(&mut *tx).await?;
+    }
     sqlx::query(
         "UPDATE transactions SET description=$1, amount=$2, direction=$3, category=$4, \
          txn_date=$5, value_date=$6, bank=$7, bank_ref=$8, balance=$9, is_transfer=$10, notes=$11, \
@@ -1053,6 +1060,8 @@ fn is_sync_replay(op: &SyncPushOp, stored: &SyncStoredTransaction) -> bool {
         if requested.parsed_payee.is_none() {
             requested.parsed_payee = current.parsed_payee.clone();
         }
+        if requested.payment_method.is_none() { requested.payment_method = current.payment_method.clone(); }
+        if requested.classifier_version.is_none() { requested.classifier_version = current.classifier_version.clone(); }
         requested == *current
     }
     let row = &stored.txn;

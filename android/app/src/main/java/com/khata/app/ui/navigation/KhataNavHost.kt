@@ -102,6 +102,10 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
     val pendingSyncCount by viewModel.pendingSyncCount.collectAsState()
     val lastDeviceSync by viewModel.lastDeviceSync.collectAsState()
     val smsProgress by viewModel.smsProgress.collectAsState()
+    val smsDecisionJobs by viewModel.smsDecisionJobs.collectAsState()
+    val smsDecisionStatus: @Composable () -> Unit = {
+        com.khata.app.ui.upload.SmsDecisionReview(smsDecisionJobs,viewModel::retrySmsReview,viewModel::ignoreSmsReview,viewModel::resolveSmsReview)
+    }
     val serverUrl by viewModel.serverUrl.collectAsState()
     val deviceSyncStatus: @Composable () -> Unit = {
         DeviceSyncStatus(pendingSyncCount, deviceSyncState, serverUrl, lastDeviceSync, smsProgress.running) { viewModel.retryDeviceSync() }
@@ -237,7 +241,7 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
                 navController.navigate(Screen.Transactions.route)
             }) }
 
-            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult?.takeUnless { it.startsWith("PASSWORD_") }, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }, onScanSms = { cb -> viewModel.scanSmsInbox(context, cb) }, smsProgress = smsProgress, deviceSyncStatus = deviceSyncStatus) }
+            composable(Screen.Upload.route) { CombinedUploadScreen(resultMessage = uploadResult?.takeUnless { it.startsWith("PASSWORD_") }, onPickFile = { filePickerLauncher.launch("*/*") }, onClearResult = { uploadResult = null }, onClearAllData = { viewModel.clearAllData { msg -> uploadResult = msg } }, onAddTxn = { viewModel.createTxn(it) }, onSaveGmail = { req, cb -> viewModel.saveEmailConfig(req, cb) }, onLoadGmailConfig = { cb -> viewModel.loadEmailConfig(cb) }, onLoadLatestRun = { cb -> viewModel.latestEmailRun(cb) }, onSyncNow = { cb -> viewModel.startEmailSync(cb) }, onScanSms = { cb -> viewModel.scanSmsInbox(context, cb) }, smsProgress = smsProgress, deviceSyncStatus = deviceSyncStatus, smsDecisionStatus = smsDecisionStatus) }
 
             composable(Screen.Transactions.route) {
                 val filterState by viewModel.txnFilterState.collectAsState()

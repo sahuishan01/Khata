@@ -49,6 +49,7 @@ fun CombinedUploadScreen(
     onScanSms: ((String) -> Unit) -> Unit = { it("Error: not wired") },
     smsProgress: SmsImportProgress = SmsImportProgress(),
     deviceSyncStatus: @Composable () -> Unit = {},
+    smsDecisionStatus: @Composable () -> Unit = {},
 ) {
     var tab by remember { mutableStateOf(2) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -102,7 +103,8 @@ fun CombinedUploadScreen(
 
                     Spacer(Modifier.height(20.dp))
                     Text("From SMS", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Text("New bank SMS is captured automatically. Scan your inbox to backfill past ones.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("SMS is checked in the background before importing. OTP messages are skipped. Scan your inbox to process past messages.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    smsDecisionStatus()
                     deviceSyncStatus()
                     Spacer(Modifier.height(6.dp))
                     OutlinedButton(

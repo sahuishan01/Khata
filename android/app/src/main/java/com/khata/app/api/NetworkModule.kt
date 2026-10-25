@@ -71,7 +71,7 @@ object NetworkModule {
             redactHeader("Authorization")
             redactHeader("Cookie")
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }

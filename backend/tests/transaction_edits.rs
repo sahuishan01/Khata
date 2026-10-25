@@ -958,3 +958,87 @@ async fn sms_notes_keep_future_date_and_full_edit_protection(pool: PgPool) {
     assert_eq!(saved.notes, "My edited notes".repeat(1000));
     assert_eq!(saved.sms_source.unwrap().user_edited, Some(true));
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn payment_method_edits_can_correct_clear_and_preserve_older_clients(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let mut original = op("Original SMS", "debit", 500.0);
+    original.notes = Some("INR 500 sent via IMPS".into());
+    original.sms_source=Some(sqlx::types::Json(serde_json::from_value(serde_json::json!({
+        "parser_version":1,"date_source":"body","parsed_date":"2026-10-20","payment_method":"IMPS",
+        "classifier_version":"laya:test:sms-choice-v1"
+    })).unwrap()));
+    let client_id = original.client_id;
+    let _ = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![original]))
+        .await
+        .unwrap();
+    let row = handlers::sync_pull(
+        State(app.clone()),
+        CurrentUser(owner),
+        Query(SyncPullQuery {
+            since_rev: Some(0),
+            limit: None,
+            cursor_version: None,
+        }),
+    )
+    .await
+    .unwrap()
+    .0
+    .txns
+    .into_iter()
+    .find(|row| row.client_id == Some(client_id))
+    .unwrap();
+    let mut update = edit(&row);
+    update.payment_method = Some("NEFT".into());
+    let saved = handlers::update_txn(
+        State(app.clone()),
+        CurrentUser(owner),
+        Path(row.id),
+        Json(update),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert_eq!(
+        saved.sms_source.as_ref().unwrap().payment_method.as_deref(),
+        Some("NEFT")
+    );
+    assert_eq!(
+        saved
+            .sms_source
+            .as_ref()
+            .unwrap()
+            .classifier_version
+            .as_deref(),
+        Some("laya:test:sms-choice-v1")
+    );
+    assert_eq!(saved.sms_source.as_ref().unwrap().user_edited, Some(true));
+    let mut older = edit(&saved);
+    older.payment_method = None;
+    let saved = handlers::update_txn(
+        State(app.clone()),
+        CurrentUser(owner),
+        Path(row.id),
+        Json(older),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert_eq!(
+        saved.sms_source.as_ref().unwrap().payment_method.as_deref(),
+        Some("NEFT")
+    );
+    let mut clear = edit(&saved);
+    clear.payment_method = Some(String::new());
+    let saved = handlers::update_txn(
+        State(app.clone()),
+        CurrentUser(owner),
+        Path(row.id),
+        Json(clear),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert!(saved.sms_source.as_ref().unwrap().payment_method.is_none());
+}
