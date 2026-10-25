@@ -20,7 +20,7 @@ abstract class KhataDatabase : RoomDatabase() {
     companion object {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("CREATE TABLE IF NOT EXISTS sms_decision_jobs (id TEXT NOT NULL PRIMARY KEY, owner TEXT NOT NULL, sender TEXT NOT NULL, body TEXT, receivedAt INTEGER NOT NULL, queuedAt INTEGER NOT NULL, status TEXT NOT NULL, reason TEXT NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS sms_decision_jobs (id TEXT NOT NULL PRIMARY KEY, owner TEXT NOT NULL, sender TEXT NOT NULL, body TEXT, receivedAt INTEGER NOT NULL, queuedAt INTEGER NOT NULL, status TEXT NOT NULL, reason TEXT NOT NULL, legacyReceivedAt INTEGER)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sms_decision_jobs_owner_status ON sms_decision_jobs(owner,status)")
             }
         }

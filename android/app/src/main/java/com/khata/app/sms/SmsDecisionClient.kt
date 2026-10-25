@@ -68,9 +68,9 @@ class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
     private suspend fun <T> post(session: SmsSession, path: String, payload: Any, type: Class<T>): T =
         postOrNull(session,path,payload,type) ?: throw SmsDecisionFailure(true)
 
-    suspend fun prepare(session: SmsSession, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): Pair<LocalTransaction?,LocalTransaction> {
+    suspend fun prepare(session: SmsSession, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long, legacyTimestamp: Long? = null): Pair<LocalTransaction?,LocalTransaction> {
         val found=mutableMapOf<String,LocalTransaction?>()
-        return SmsImport.prepareWithLookup(parsed,body,sender,timestamp,queuedAt) { id ->
+        return SmsImport.prepareWithLookup(parsed,body,sender,timestamp,queuedAt,alternateTimestamp=legacyTimestamp) { id ->
             if (runCatching { UUID.fromString(id) }.isFailure) null
             else {
                 if (!found.containsKey(id)) found[id]=postOrNull(session,"/api/sms/lookup",mapOf("owner_id" to session.ownerId,"client_id" to id),TxnRow::class.java)?.toLocal()

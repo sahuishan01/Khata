@@ -13,6 +13,7 @@ data class SmsDecisionJob(
     val queuedAt: Long,
     val status: String = "pending",
     val reason: String = "",
+    val legacyReceivedAt: Long? = null,
 )
 
 @Dao

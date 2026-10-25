@@ -44,12 +44,12 @@ class SmsDecisionPipeline @Inject constructor(
 
     fun resume() { client.session()?.let { schedule(it.owner) } }
 
-    suspend fun enqueue(body: String, sender: String, timestamp: Long, scheduleNow: Boolean = true): Boolean {
+    suspend fun enqueue(body: String, sender: String, timestamp: Long, scheduleNow: Boolean = true, legacyTimestamp: Long? = null): Boolean {
         // No OTP is persisted in the decision queue or placed in WorkManager input.
         if (SmsPrivacy.containsOtp(body) || body.isBlank() || body.length > 16000) return false
         val session = client.session() ?: return false
         val id = smsDigest("${session.owner}|sms-choice-v1|${sender.uppercase(Locale.ROOT)}|$timestamp|$body")
-        val created = dao.insert(SmsDecisionJob(id,session.owner,sender,body,timestamp,System.currentTimeMillis())) != -1L
+        val created = dao.insert(SmsDecisionJob(id,session.owner,sender,body,timestamp,System.currentTimeMillis(),legacyReceivedAt=legacyTimestamp?.takeIf { it != timestamp })) != -1L
         if (created && scheduleNow) schedule(session.owner)
         return created
     }
@@ -70,7 +70,7 @@ class SmsDecisionPipeline @Inject constructor(
         val body = job.body ?: return@withLock "The original SMS is unavailable."
         val parsed = SmsParser.forManualReview(body,job.sender,amount,direction) ?: return@withLock "Enter a valid amount and direction."
         try {
-            val (previous,draft) = client.prepare(session,parsed,body,job.sender,job.receivedAt,job.queuedAt)
+            val (previous,draft) = client.prepare(session,parsed,body,job.sender,job.receivedAt,job.queuedAt,job.legacyReceivedAt)
             if (draft == previous) { dao.finish(id,"done"); return@withLock null }
             val localBefore = database.transactionDao().getByClientId(draft.clientId)
             val source = SmsSource.decode(draft.smsSource) ?: return@withLock "SMS source could not be verified."
@@ -112,7 +112,7 @@ class SmsDecisionPipeline @Inject constructor(
                     dao.finish(job.id,"review","The amount, direction or completed status needs checking.",true); continue
                 }
                 val txnDao = database.transactionDao()
-                val (previous,row) = client.prepare(session,parsed,body,job.sender,job.receivedAt,job.queuedAt)
+                val (previous,row) = client.prepare(session,parsed,body,job.sender,job.receivedAt,job.queuedAt,job.legacyReceivedAt)
                 if (row == previous) { dao.finish(job.id,"done"); continue }
                 if (client.session()?.owner != owner) return@withLock SmsWorkOutcome.DONE
                 val localBefore = txnDao.getByClientId(row.clientId)
@@ -123,6 +123,9 @@ class SmsDecisionPipeline @Inject constructor(
                     dao.finish(job.id,"done")
                 }
             } catch (e: CancellationException) { throw e }
+            catch (_: SmsIdentityConflict) {
+                dao.finish(job.id,"review","The older saved SMS transaction needs checking.",true)
+            }
             catch (e: SmsDecisionFailure) {
                 if (e.retry) return@withLock SmsWorkOutcome.RETRY
                 dao.finish(job.id,"review","Sign in again or review the saved transaction before retrying.",true)

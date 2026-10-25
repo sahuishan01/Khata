@@ -393,7 +393,7 @@ class MainViewModel @Inject constructor(
                 }
                 val cursor = context.contentResolver.query(
                     android.provider.Telephony.Sms.Inbox.CONTENT_URI,
-                    arrayOf(android.provider.Telephony.Sms.ADDRESS, android.provider.Telephony.Sms.BODY, android.provider.Telephony.Sms.DATE),
+                    arrayOf(android.provider.Telephony.Sms.ADDRESS, android.provider.Telephony.Sms.BODY, android.provider.Telephony.Sms.DATE, android.provider.Telephony.Sms.DATE_SENT),
                     null, null, "${android.provider.Telephony.Sms.DATE} DESC",
                 ) ?: error("Cannot read SMS inbox")
                 cursor.use {
@@ -402,14 +402,16 @@ class MainViewModel @Inject constructor(
                     val aI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.ADDRESS)
                     val bI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.BODY)
                     val dI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.DATE)
+                    val sI = it.getColumnIndexOrThrow(android.provider.Telephony.Sms.DATE_SENT)
                     while (it.moveToNext()) {
                         kotlinx.coroutines.currentCoroutineContext().ensureActive()
                         progress = progress.copy(scanned = progress.scanned + 1)
                         val body = it.getString(bI).orEmpty()
                         if (com.khata.app.sms.SmsPrivacy.containsOtp(body)) continue
                         val sender = it.getString(aI).orEmpty()
-                        val timestamp = it.getLong(dI)
-                        if (smsDecisions.enqueue(body, sender, timestamp, scheduleNow=false)) {
+                        val arrival = it.getLong(dI)
+                        val timestamp = com.khata.app.sms.SmsTimestamps.fromInbox(arrival,it.getLong(sI))
+                        if (smsDecisions.enqueue(body, sender, timestamp, scheduleNow=false,legacyTimestamp=arrival)) {
                             progress = progress.copy(matched = progress.matched + 1)
                         } else progress = progress.copy(alreadySaved = progress.alreadySaved + 1)
                         if (progress.scanned % 25 == 0 || progress.scanned == progress.total) _smsProgress.value = progress
