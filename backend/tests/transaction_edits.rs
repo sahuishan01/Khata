@@ -602,6 +602,95 @@ async fn exact_sms_descriptions_retain_cred_card_reconciliation(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_descriptions(
+    pool: PgPool,
+) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z")
+        .unwrap()
+        .timestamp_millis();
+    let mut operations = vec![];
+    let mut confirmations = vec![];
+    for (amount, role, transfer) in [
+        (701.0, None, false),
+        (702.0, Some("card_confirmation"), true),
+    ] {
+        for (index, text, direction, payee, payment_role, is_transfer) in [
+            (
+                0,
+                "INR debited from HDFC A/c XX1234 to CRED Club.",
+                "debit",
+                "CRED Club",
+                None,
+                false,
+            ),
+            (
+                1,
+                "Payment received towards HDFC credit card.",
+                "credit",
+                "Transaction",
+                Some("card_receipt"),
+                true,
+            ),
+            (
+                2,
+                "INR credited to HDFC account on 20/10/26.",
+                "credit",
+                "Transaction",
+                role,
+                transfer,
+            ),
+        ] {
+            let mut operation = op(&format!("{text} Amount {amount}"), direction, amount);
+            operation.is_transfer = Some(is_transfer);
+            operation.sms_source = Some(sqlx::types::Json(
+                serde_json::from_value(serde_json::json!({
+                    "parser_version":1,"date_source":"body","parsed_date":"2026-10-20",
+                    "received_at":time + if index == 2 { 86_400_000 } else { index * 3000 },
+                    "parsed_payee":payee,"payment_role":payment_role,
+                }))
+                .unwrap(),
+            ));
+            if index == 2 {
+                confirmations.push(operation.client_id);
+            }
+            operations.push(operation);
+        }
+    }
+    let _ = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(operations))
+        .await
+        .unwrap();
+    let rows = handlers::sync_pull(
+        State(app),
+        CurrentUser(owner),
+        Query(SyncPullQuery {
+            since_rev: Some(0),
+            limit: Some(50),
+            cursor_version: Some(2),
+        }),
+    )
+    .await
+    .unwrap()
+    .0
+    .txns;
+    assert!(
+        rows.iter()
+            .find(|row| row.client_id == Some(confirmations[0]))
+            .unwrap()
+            .deleted
+    );
+    // Parsed payee alone must not loosen the stricter policy for known card confirmations without a card key.
+    assert!(
+        !rows
+            .iter()
+            .find(|row| row.client_id == Some(confirmations[1]))
+            .unwrap()
+            .deleted
+    );
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn editing_legacy_sms_creates_rescan_protection_and_keeps_matching_reference_visible(
     pool: PgPool,
 ) {
