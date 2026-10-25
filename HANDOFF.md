@@ -1,5 +1,37 @@
 # HANDOFF.md — Khata Project Handoff
 
+**Exact SMS and full editing (2026-10-25):** Android `v0.45.23` and web now
+provide **Edit transaction** for description, amount, direction, both dates,
+category, bank/reference, optional balance, transfer status and notes. SMS imports
+retain the exact message. Install as an update and scan the inbox to backfill
+proven automatic titles; retain original SMS messages and app data. Custom and
+unverified descriptions remain unchanged.
+
+The API saves the complete editable field set atomically with revision checks.
+Migration 0039 protects full edits from rescans and older scanner uploads, makes
+legacy inline edits advance revisions, and retains card/CRED matching using
+verified original-message hashes. Explicit edits and prior custom titles keep
+their protections. IDs, raw source descriptions, fingerprints and creation time
+remain stable. All pre-deployment financial/source records were preserved;
+an encrypted database backup was roundtrip-verified. RLS, authentication and
+loopback-only bindings remain enforced.
+
+Signed run `40155432187` passed 81 release tests on `heaven`; versionCode 209 and
+the signing certificate support updating v0.45.21. ZIP/digest/signature, retained
+metadata/edit DTO, production URL, HTTPS-only policy and shortcut components were
+verified. Release lint, 214 backend tests (1 ignored), Clippy, web build and
+Security Scan `40161566635` passed. Backend/web CI `40161566580` (revision `860395d`)
+is deployed. Its web bytes match browser-tested files and public edge assets.
+Android source is identical to tag v0.45.23. Desktop/mobile browser and API 35
+emulator checks passed; physical-phone UI testing remains unavailable. Existing
+default CodeQL unsigned Java autobuild configuration remains separate.
+
+`v0.45.22` was cancelled before APK publication after a non-SMS transfer-override
+regression was found. The release workflow now uses the last successful release
+with an APK as its comparison point (v0.45.21 for this build).
+See `docs/transaction-editing.md`; evidence and side-by-side screenshots:
+`~/.local/state/khata-transaction-edit/comparison.html`.
+
 **IPO application receipts (2026-10-24):** Android `v0.45.21` fixes the reported
 Jio Platforms application acknowledgement being parsed as a credit. Collect and
 fund-block context can appear in the following sentence. A receipt clause now

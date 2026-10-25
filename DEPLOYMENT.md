@@ -404,3 +404,29 @@ cover equivalent wording and variants. No live user transactions were modified
 in development. Backend/web source is unchanged; no deployment or migration is
 needed. Usage: `docs/sms-request-filtering.md`. Evidence:
 `~/.local/state/khata-sms-ipo/`.
+
+
+## Exact SMS and complete transaction editing (2026-10-25)
+
+Android [v0.45.23](https://github.com/sahuishan01/Khata/releases/tag/v0.45.23) is the verified signed update from
+run `40155432187` (81 release tests, versionCode 209, signing continuity with
+v0.45.21). [Download APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.23/khata_0.45.23-release.apk).
+Install as an update, expand a transaction and choose **Edit transaction**.
+**Add Data → Scan SMS inbox** backfills proven automatic descriptions while the
+original SMS remains present; saved custom descriptions and full edits survive.
+
+Backend/web CI `40161566580` at `860395d4d7d42acbeb388d39d0345d1fab5adc44` passed 214 backend tests
+(1 ignored), Clippy and the web build. Both artifacts are deployed:
+
+- Backend: `/usr/local/lib/khata/releases/v0.45.23-transactions-20261025T043328Z`.
+- Web: `/srv/khata/releases/v0.45.23-transactions-20261025T043328Z`.
+- Database migration: 0039, function/trigger updates with no financial backfill.
+
+The Android tree matches the signed tag. Backend/web include the server-side
+legacy-client, inline-edit and source-matching safeguards. Local release lint,
+Security Scan `40161566635`, browser flows and API 35 emulator flows passed.
+Verified CI checksums, public assets/revision, service health, authentication,
+forced RLS and loopback bindings match the deployment. All original financial
+and source fields remained unchanged; sync delivery cursors may advance normally.
+The encrypted database backup and verification manifests are referenced under
+`~/.local/state/khata-transaction-edit/`. See `docs/transaction-editing.md`.

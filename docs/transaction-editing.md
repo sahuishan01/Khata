@@ -54,3 +54,10 @@ Regression checks cover field preservation, owner isolation, exclusions, stale
 revisions, malformed input, exact long/multiline SMS text, guarded backfill,
 rescan protection, card reconciliation and monetary validation. Browser and
 emulator evidence is under `~/.local/state/khata-transaction-edit/`.
+
+
+Verified release: [APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.23/khata_0.45.23-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.23).
+Android CI `40155432187` passed 81 release tests; backend/web CI `40161566580` passed
+214 tests (1 ignored), Clippy and the web build. Release lint, browser flows,
+API 35 emulator flows, APK signature/metadata and production deployment checks
+passed. The existing default CodeQL unsigned Java autobuild issue remains separate.
