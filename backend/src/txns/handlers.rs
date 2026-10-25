@@ -1045,10 +1045,22 @@ fn is_sync_replay(op: &SyncPushOp, stored: &SyncStoredTransaction) -> bool {
     fn unchanged<T: PartialEq>(requested: &Option<T>, current: &T) -> bool {
         requested.as_ref().is_none_or(|value| value == current)
     }
+    fn same_source(requested: &SmsSource, current: &SmsSource) -> bool {
+        let mut requested = requested.clone();
+        // Older Gson DTOs omit additive keys. The replay still needs identical
+        // original provenance and financial fields, and never replaces metadata.
+        requested.user_edited = current.user_edited;
+        if requested.parsed_payee.is_none() {
+            requested.parsed_payee = current.parsed_payee.clone();
+        }
+        requested == *current
+    }
     let row = &stored.txn;
+    let unchanged_source = op.sms_source.as_ref().is_none_or(|source|
+        row.sms_source.as_ref().is_some_and(|current| same_source(source, current)));
     let same_sms = op.sms_source.as_ref().is_some_and(|source|
         source.body_hash.is_some() && source.received_at.is_some()
-        && row.sms_source.as_ref() == Some(source)
+        && unchanged_source
         && op.notes.as_deref().is_some_and(|notes| notes.starts_with("Auto-captured via SMS"))
         && row.notes == op.notes.as_deref().unwrap_or_default());
     unchanged(&op.amount, &row.amount)
@@ -1060,7 +1072,7 @@ fn is_sync_replay(op: &SyncPushOp, stored: &SyncStoredTransaction) -> bool {
         && unchanged(&op.txn_date, &row.txn_date)
         && unchanged(&op.value_date, &row.value_date)
         && unchanged(&op.notes, &row.notes)
-        && op.sms_source.as_ref().is_none_or(|source| row.sms_source.as_ref() == Some(source))
+        && unchanged_source
         && (unchanged(&op.is_transfer, &row.is_transfer)
             || (same_sms && op.is_transfer == Some(false) && row.is_transfer && !stored.transfer_override))
         && (unchanged(&op.deleted, &row.deleted)
@@ -1148,7 +1160,8 @@ pub async fn sync_push(
                     .bind(op.client_id).bind(user_id).execute(&mut *tx).await?;
                 accepted.push(SyncAccepted { client_id: op.client_id, server_rev: stored.txn.rev });
             }
-            Some(stored) if stored.txn.rev == op.base_rev => {
+            Some(stored) if stored.txn.rev == op.base_rev
+                && !stored.txn.sms_source.as_ref().is_some_and(|source| source.user_edited == Some(true)) => {
                 let server_rev = stored.txn.rev;
                 let new_rev = server_rev + 1;
                 sqlx::query(
@@ -1221,7 +1234,8 @@ pub async fn sync_resolve(
                  category = COALESCE($6, category), notes = COALESCE($7, notes), \
                  is_transfer = COALESCE($8, is_transfer), deleted = COALESCE($9, deleted), \
                  txn_date = COALESCE($11, txn_date), value_date = COALESCE($12, value_date), \
-                 bank = COALESCE($13, bank), bank_ref = COALESCE($14, bank_ref), sms_source = COALESCE($15, sms_source), \
+                 bank = COALESCE($13, bank), bank_ref = COALESCE($14, bank_ref), \
+                 sms_source = CASE WHEN sms_source->>'user_edited'='true' THEN sms_source ELSE COALESCE($15, sms_source) END, \
                  updated_at = NOW() WHERE client_id = $2 AND user_id = $10"
             )
             .bind(new_rev).bind(op.client_id)

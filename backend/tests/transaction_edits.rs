@@ -439,6 +439,103 @@ async fn inline_edits_invalidate_an_open_full_transaction_editor(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn older_sms_scanners_cannot_replace_full_edits_and_unchanged_replays_still_work(
+    pool: PgPool,
+) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let mut imported = op("Original SMS", "debit", 500.0);
+    imported.notes = Some("Auto-captured via SMS (HDFC)".into());
+    imported.sms_source = Some(sqlx::types::Json(
+        serde_json::from_value(serde_json::json!({
+            "parser_version":1,"date_source":"body","parsed_date":"2026-10-20",
+            "body_hash":"a".repeat(64),"received_at":1792477800000_i64,"parsed_payee":"SHOP"
+        }))
+        .unwrap(),
+    ));
+    let client = imported.client_id;
+    let _ = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![imported]))
+        .await
+        .unwrap();
+    let row = handlers::sync_pull(
+        State(app.clone()),
+        CurrentUser(owner),
+        Query(SyncPullQuery {
+            since_rev: Some(0),
+            limit: Some(50),
+            cursor_version: Some(2),
+        }),
+    )
+    .await
+    .unwrap()
+    .0
+    .txns
+    .remove(0);
+    let mut request = edit(&row);
+    request.notes = row.notes.clone();
+    let saved = handlers::update_txn(
+        State(app.clone()),
+        CurrentUser(owner),
+        Path(row.id),
+        Json(request),
+    )
+    .await
+    .unwrap()
+    .0;
+    let mut old_metadata = saved.sms_source.as_ref().unwrap().clone();
+    old_metadata.user_edited = None;
+    old_metadata.parsed_payee = None;
+    // An older app can pull the latest revision but drop unknown metadata keys.
+    let mut legacy = op(&saved.description, &saved.direction, saved.amount);
+    legacy.client_id = client;
+    legacy.base_rev = saved.rev;
+    legacy.bank = Some(saved.bank.clone());
+    legacy.category = Some(saved.category.clone());
+    legacy.notes = Some(saved.notes.clone());
+    legacy.is_transfer = Some(saved.is_transfer);
+    legacy.sms_source = Some(old_metadata);
+    legacy.bank_ref = Some("123456789012".into());
+    let before = snapshot(&pool, owner, saved.id).await;
+    let result = handlers::sync_push(
+        State(app.clone()),
+        CurrentUser(owner),
+        Json(vec![serde_json::from_value(
+            serde_json::to_value(&legacy).unwrap(),
+        )
+        .unwrap()]),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert!(result.accepted.is_empty());
+    assert_eq!(result.conflicts.len(), 1);
+    assert_eq!(before, snapshot(&pool, owner, saved.id).await);
+    // Omitting additive metadata alone must not revive the old lost-ACK conflict.
+    legacy.bank_ref = saved.bank_ref.clone();
+    legacy.txn_date = Some(saved.txn_date);
+    legacy.value_date = Some(saved.value_date);
+    let resolution = serde_json::from_value(serde_json::to_value(&legacy).unwrap()).unwrap();
+    let result = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(vec![legacy]))
+        .await
+        .unwrap()
+        .0;
+    assert_eq!(result.accepted.len(), 1);
+    assert!(result.conflicts.is_empty());
+    let after = snapshot(&pool, owner, saved.id).await;
+    assert_eq!(after["sms_source"]["user_edited"], true);
+    assert_eq!(after["sms_source"]["parsed_payee"], "SHOP");
+    assert_eq!(after["rev"], before["rev"]);
+    let resolved = handlers::sync_resolve(State(app), CurrentUser(owner), Json(vec![resolution]))
+        .await
+        .unwrap()
+        .0;
+    assert_eq!(resolved.len(), 1);
+    let after_resolution = snapshot(&pool, owner, saved.id).await;
+    assert_eq!(after_resolution["sms_source"]["user_edited"], true);
+    assert_eq!(after_resolution["sms_source"]["parsed_payee"], "SHOP");
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn exact_sms_descriptions_retain_cred_card_reconciliation(pool: PgPool) {
     let app = state(&pool);
     let owner = user(&pool).await;
