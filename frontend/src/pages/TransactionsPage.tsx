@@ -3,15 +3,11 @@ import { useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, ArrowUpDown, X, Calendar, Repeat, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { CategoryEditor } from '../components/CategoryEditor'
-import { TransactionTitleEditor } from '../components/TransactionTitleEditor'
+import { TransactionEditor, type EditableTransaction } from '../components/TransactionEditor'
 import { formatINR, formatDate } from '../utils/format'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 
-interface TxnRow {
-  id: string; value_date: string; description: string
-  amount: number; direction: string; bank: string; category: string
-  is_transfer: boolean; possible_duplicate?: boolean; notes: string; bank_ref?: string
-}
+type TxnRow = EditableTransaction
 interface TxnList { data: TxnRow[]; total: number; page: number; per_page: number }
 
 type SortBy    = 'date' | 'amount' | 'description' | 'category'
@@ -77,7 +73,7 @@ export function TransactionsPage() {
   const [duplicatesOnly, setDuplicatesOnly] = useState(false)
   const [undoDuplicateId, setUndoDuplicateId] = useState<string | null>(null)
   const [duplicateBusy, setDuplicateBusy] = useState(false)
-  const [editingTitle, setEditingTitle] = useState<{ id: string; title: string } | null>(null)
+  const [editingTransaction, setEditingTransaction] = useState<TxnRow | null>(null)
 
   const categoryFilter = searchParams.get('category') ?? ''
 
@@ -221,17 +217,18 @@ export function TransactionsPage() {
       onClick={e => { e.stopPropagation(); void excludeDuplicate(t) }}>Exclude duplicate…</button>
   )
 
-  const editTitleAction = (t: TxnRow) => (
+  const editTransactionAction = (t: TxnRow) => (
     <button className="btn btn-secondary" style={{ minHeight: 44, marginBottom: 8 }}
-      onClick={event => { event.stopPropagation(); setEditingTitle({ id: t.id, title: t.description }) }}>Edit title</button>
+      onClick={event => { event.stopPropagation(); setEditingTransaction(t) }}>Edit transaction</button>
   )
 
 
   return (
     <div>
-      {editingTitle && <TransactionTitleEditor key={editingTitle.id} {...editingTitle}
-        onClose={() => setEditingTitle(null)} onSaved={(id, title) => {
-          setList(previous => previous ? { ...previous, data: previous.data.map(t => t.id === id ? { ...t, description: title } : t) } : previous)
+      {editingTransaction && <TransactionEditor key={editingTransaction.id} transaction={editingTransaction} categories={categories}
+        onClose={() => setEditingTransaction(null)} onSaved={saved => {
+          setList(previous => previous ? { ...previous, data: previous.data.map(t => t.id === saved.id ? saved : t) } : previous)
+          setCategories(previous => [...new Set([...previous, saved.category])].sort())
           void fetchPage(loadedPage.current)
         }} />}
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -424,12 +421,15 @@ export function TransactionsPage() {
                       <tr className="txn-expanded">
                         <td colSpan={5} style={{ padding: '10px 12px', background: 'var(--surface-2)' }}>
                           {duplicateAction(t)}
-                          {editTitleAction(t)}
+                          {editTransactionAction(t)}
+                          <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginBottom: 12 }}>{t.description}</div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
                             <div><span style={{ color: 'var(--text-muted)' }}>Amount: </span><span style={{ fontWeight: 600, color: t.direction === 'debit' ? 'var(--expense)' : 'var(--income)' }}>{formatINR(t.direction === 'debit' ? -t.amount : t.amount, { sign: true })}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
                             <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
-                            <div><span style={{ color: 'var(--text-muted)' }}>Date: </span><span>{formatDate(t.value_date)}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Transaction date: </span><span>{formatDate(t.txn_date)}</span></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Value date: </span><span>{formatDate(t.value_date)}</span></div>
+                            {t.balance != null && <div><span style={{ color: 'var(--text-muted)' }}>Balance: </span><span>{formatINR(t.balance)}</span></div>}
                             <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
                             {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
                             {t.notes && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
@@ -494,7 +494,11 @@ export function TransactionsPage() {
                 {expandedId === t.id && (
                   <div style={{ padding: '8px 14px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12 }}>
                     {duplicateAction(t)}
-                    <div style={{ gridColumn: '1 / -1' }}>{editTitleAction(t)}</div>
+                    <div style={{ gridColumn: '1 / -1' }}>{editTransactionAction(t)}</div>
+                    <div style={{ gridColumn: '1 / -1', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{t.description}</div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Transaction date: </span><span>{formatDate(t.txn_date)}</span></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Value date: </span><span>{formatDate(t.value_date)}</span></div>
+                    {t.balance != null && <div><span style={{ color: 'var(--text-muted)' }}>Balance: </span><span>{formatINR(t.balance)}</span></div>}
                     <div><span style={{ color: 'var(--text-muted)' }}>Direction: </span><span>{t.direction}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>

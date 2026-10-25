@@ -71,8 +71,10 @@ the original dates and identifies this queue fallback. An inbox rescan replaces
 that fallback with the message date, or a valid transaction date from the SMS.
 Ordinary past manual edits and deleted aliases are preserved.
 
-The app retains message receipt time, date provenance and SHA-256 hashes, without
-uploading raw SMS text, sender or account identifiers. Automatic no-reference
+SMS imports now use the exact message as their description, including whitespace
+and line breaks. This text syncs to the server and web like other descriptions.
+The separate provenance retains receipt time, dates, hashes and parsed payee;
+it does not duplicate the SMS text. Automatic no-reference
 matching requires identical normalized text containing an account plus balance
 or transaction date/time, the same bank/amount/direction/day, and receipt within
 two minutes. Different known references and generic SMS lookalikes stay separate.

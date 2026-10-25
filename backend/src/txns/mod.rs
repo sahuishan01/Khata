@@ -22,7 +22,7 @@ pub fn router() -> Router<AppState> {
         .route("/categories", get(handlers::list_categories))
         .route("/:id/duplicate", post(handlers::exclude_duplicate))
         .route("/:id/restore", post(handlers::restore_duplicate))
-        .route("/:id", get(handlers::get_txn))
+        .route("/:id", get(handlers::get_txn).put(handlers::update_txn))
         .route("/:id/category", put(handlers::update_category))
         .route("/:id/transfer", patch(handlers::toggle_transfer))
         .route("/:id/notes", patch(handlers::update_notes))

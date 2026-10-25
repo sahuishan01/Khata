@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.TxnListResponse
 import com.khata.app.api.TxnRow
+import com.khata.app.api.UpdateTxnReq
 import com.khata.app.viewmodel.TxnFilter
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -83,7 +84,7 @@ fun TransactionsScreen(
     onLoad: (sortBy: String, sortDir: String, category: String?, from: String?, to: String?, preset: Int) -> Unit,
     onToggleTransfer: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateNotes: (String, String) -> Unit = { _, _ -> },
-    onUpdateTitle: suspend (String, String) -> String? = { _, _ -> "Could not save the title." },
+    onUpdateTransaction: suspend (String, UpdateTxnReq) -> String? = { _, _ -> "Could not save the transaction." },
     onUpdateCategory: ((String, String) -> Unit)? = null,
     lastExcludedDuplicateId: String? = null,
     onExcludeDuplicate: (String) -> Unit = {},
@@ -358,7 +359,7 @@ fun TransactionsScreen(
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onUpdateNotes = onUpdateNotes, onUpdateTitle = onUpdateTitle, onUpdateCategory = onUpdateCategory, onExcludeDuplicate = onExcludeDuplicate) }
+                    items(txns, key = { it.id }) { txn -> TransactionCard(txn = txn, allCategories = categories, onToggleTransfer = onToggleTransfer, onUpdateNotes = onUpdateNotes, onUpdateTransaction = onUpdateTransaction, onUpdateCategory = onUpdateCategory, onExcludeDuplicate = onExcludeDuplicate) }
                     item(key = "pagination") {
                         when {
                             isLoadingMore -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp)) }
@@ -396,7 +397,7 @@ private fun TransactionCard(
     allCategories: List<String> = emptyList(),
     onToggleTransfer: (String, Boolean) -> Unit,
     onUpdateNotes: (String, String) -> Unit,
-    onUpdateTitle: suspend (String, String) -> String?,
+    onUpdateTransaction: suspend (String, UpdateTxnReq) -> String?,
     onUpdateCategory: ((String, String) -> Unit)? = null,
     onExcludeDuplicate: (String) -> Unit = {}
 ) {
@@ -407,48 +408,9 @@ private fun TransactionCard(
     var showOverflow by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
     var confirmDuplicate by remember { mutableStateOf(false) }
-    var editingTitle by rememberSaveable(txn.id) { mutableStateOf(false) }
-    var titleText by rememberSaveable(txn.id) { mutableStateOf(txn.description) }
-    var titleError by remember { mutableStateOf<String?>(null) }
-    var savingTitle by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    fun editTitle() {
-        titleText = txn.description
-        titleError = null
-        editingTitle = true
-    }
-    if (editingTitle) {
-        AlertDialog(
-            onDismissRequest = { if (!savingTitle) editingTitle = false },
-            title = { Text("Edit title") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = titleText,
-                        onValueChange = { titleText = it; titleError = null },
-                        label = { Text("Title") },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !savingTitle,
-                        isError = titleError != null || titleText.length > 500,
-                        minLines = 2, maxLines = 4,
-                    )
-                    if (titleText.length > 500) Text("Use 500 characters or fewer.", color = MaterialTheme.colorScheme.error)
-                    titleError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = !savingTitle && titleText.isNotBlank() && titleText.length <= 500, onClick = {
-                    savingTitle = true
-                    scope.launch {
-                        try {
-                            titleError = onUpdateTitle(txn.id, titleText.trim())
-                            if (titleError == null) editingTitle = false
-                        } finally { savingTitle = false }
-                    }
-                }) { Text(if (savingTitle) "Saving…" else "Save") }
-            },
-            dismissButton = { TextButton(enabled = !savingTitle, onClick = { editingTitle = false }) { Text("Cancel") } },
-        )
+    var editingTransaction by rememberSaveable(txn.id) { mutableStateOf(false) }
+    if (editingTransaction) {
+        TransactionEditor(txn, onSave = onUpdateTransaction, onClose = { editingTransaction = false })
     }
     if (confirmDuplicate) {
         AlertDialog(
@@ -524,8 +486,8 @@ private fun TransactionCard(
                         IconButton(onClick = { showOverflow = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "Transaction actions", modifier = Modifier.size(20.dp)) }
                         DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
                             DropdownMenuItem(
-                                text = { Text("Edit title") },
-                                onClick = { showOverflow = false; editTitle() },
+                                text = { Text("Edit transaction") },
+                                onClick = { showOverflow = false; run { editingTransaction = true } },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                             )
                             if (txn.possibleDuplicate) {
@@ -579,12 +541,15 @@ private fun TransactionCard(
                     Spacer(Modifier.height(8.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(txn.description, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        TextButton(onClick = { editTitle() }) { Text("Edit title") }
+                        TextButton(onClick = { run { editingTransaction = true } }) { Text("Edit transaction") }
                         DetailRow("Amount", formatINR(if (txn.direction == "debit") -txn.amount else txn.amount, sign = true))
                         DetailRow("Direction", txn.direction)
                         DetailRow("Category", txn.category)
-                        DetailRow("Date", formatDate(txn.valueDate))
+                        DetailRow("Transaction date", formatDate(txn.txnDate))
+                        DetailRow("Value date", formatDate(txn.valueDate))
                         DetailRow("Bank", txn.bank)
+                        txn.bankRef?.takeIf { it.isNotBlank() }?.let { DetailRow("Bank reference", it) }
+                        txn.balance?.let { DetailRow("Balance", formatINR(it)) }
 
                         if (txn.isTransfer) DetailRow("Transfer", "Yes")
                         if (txn.notes.isNotBlank()) DetailRow("Notes", txn.notes)

@@ -44,8 +44,7 @@ class SmsReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    if (db.transactionDao().getByClientId(txn.clientId) != null) return@launch
-                    db.transactionDao().upsert(txn)
+                    if (!db.transactionDao().saveSmsIfUnchanged(null, txn)) return@launch
                     syncEngine.sync()
                 } catch (e: Exception) {
                     Log.e("SmsReceiver", "Failed to save SMS txn", e)

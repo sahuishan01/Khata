@@ -139,7 +139,7 @@ jobs:
           apk = 'app/build/outputs/apk/release/app-release.apk'
           with zipfile.ZipFile(apk) as archive:
               dex = [archive.read(name) for name in archive.namelist() if name.endswith('.dex')]
-          for field in ('sms_source', 'parser_version', 'received_at', 'body_hash', 'event_key', 'date_source', 'parsed_date', 'payment_role', 'card_account_key'):
+          for field in ('sms_source', 'parser_version', 'received_at', 'body_hash', 'event_key', 'date_source', 'parsed_date', 'payment_role', 'card_account_key', 'user_edited', 'parsed_payee'):
               assert any(field.encode() in content for content in dex), f'Release APK lost SMS field: {field}'
           print('Minified APK retains all required SMS metadata fields.')
           PY

@@ -101,6 +101,22 @@ data class ToggleTransferReq(@SerializedName("is_transfer") val isTransfer: Bool
 data class UpdateNotesReq(val notes: String)
 data class UpdateDescriptionReq(val description: String)
 
+data class UpdateTxnReq(
+    @SerializedName("base_rev") val baseRev: Long,
+    @SerializedName("txn_date") val txnDate: String,
+    @SerializedName("value_date") val valueDate: String,
+    val description: String,
+    val amount: Double,
+    val direction: String,
+    val category: String,
+    val bank: String,
+    // Empty clears the reference; Gson deliberately omits null fields.
+    @SerializedName("bank_ref") val bankRef: String,
+    val balance: Double?,
+    @SerializedName("is_transfer") val isTransfer: Boolean,
+    val notes: String,
+)
+
 // Sync models
 data class SyncPullResponse(
     val txns: List<TxnRow>,
