@@ -454,3 +454,25 @@ forced RLS and loopback bindings were verified. Release lint, Security Scan
 `40176342018`, desktop/mobile browser checks and Android API 35 emulator checks
 passed. The Android tree matches the signed tag. Evidence and backup manifest:
 `~/.local/state/khata-sms-title-notes/`. See `docs/transaction-editing.md`.
+
+
+## Generic SMS postings (2026-10-25)
+
+Android [v0.45.26](https://github.com/sahuishan01/Khata/releases/tag/v0.45.26) is the verified signed update from
+run `40194289828` (88 release tests, versionCode 212, signing continuity
+with v0.45.24). [Download APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.26/khata_0.45.26-release.apk). A shared grammar recognizes
+account Dr/Cr postings across issuers, with generic payee delimiters, UPI
+reference whitespace and bank-name suffix normalization. Unknown issuers do not
+prevent a posting from being recognized. See `docs/sms-posting-grammar.md`.
+
+The exact reported debit/receipt and Android-to-server repayment/retry replay
+passed in isolation. Release lint, Security Scan `40194289598`, desktop/mobile
+browser checks and API 35 real SMS receive/upload/display checks passed.
+Install as an update, then **Add Data → Scan SMS inbox** with originals present.
+The receipt keeps its credit direction and transfer flag. Custom edits and
+verified prior identities remain protected.
+
+Backend/web remain deployed from run `40176342020` at `7fdcb20`, with migration
+0040. Their source is unchanged; no server build, deployment or data backfill is
+needed. Production health/revision were rechecked. Exact fixtures/replay records
+remain private under `~/.local/state/khata-generic-sms/`.
