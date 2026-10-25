@@ -29,10 +29,10 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.26` (verification pending).
-Last verified signed APK: `v0.45.24`
-(GitHub Actions run `40176026574`, 82 release unit tests passed). Its signing
-certificate matches `v0.45.23`; versionCode 210 supports updating the existing
+Current release version: `v0.45.26` (verified).
+Last verified signed APK: `v0.45.26`
+(GitHub Actions run `40194289828`, 88 release unit tests passed). Its signing
+certificate matches `v0.45.24`; versionCode 212 supports updating the existing
 app. ZIP/digest/signature, retained SMS/editing metadata, production API URL,
 HTTPS-only networking and shortcut components were verified.
 
@@ -40,7 +40,13 @@ HTTPS-only networking and shortcut components were verified.
 with generic payee field boundaries, spaced UPI references and issuer suffixes.
 Issuer names do not control transaction recognition. Requests, offers, balances
 and future debits retain their guards; verified legacy identities and custom
-edits remain protected. See `docs/sms-posting-grammar.md`. Verification pending.
+edits remain protected. See `docs/sms-posting-grammar.md`. Signed CI `40194289828`,
+release lint and Security Scan `40194289598` passed. Exact reported SMS regression,
+isolated Android-to-server repayment/retry replay, desktop/mobile browser checks
+and Android API 35 receive/upload/display checks passed. Private exact-message
+fixtures remain outside the repository. Backend/web are unchanged from deployed
+run `40176342020`, with migration 0040; no server deployment is required.
+Evidence: `~/.local/state/khata-generic-sms/`.
 
 `v0.45.25` was cancelled before APK publication after device checks found
 an unsupported regex flag accepted by JVM tests. The flag is removed in

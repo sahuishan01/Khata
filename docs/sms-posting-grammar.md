@@ -42,3 +42,10 @@ idempotence and prior identities. Exact reported messages and their Android-to-
 server replay checks are kept in the protected local evidence directory rather
 than published with account/card details. No production transactions are inserted
 or changed by development tests.
+
+
+Verified signed release: [v0.45.26 APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.26/khata_0.45.26-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.26).
+CI `40194289828` passed 88 release tests; release lint, exact-message regressions,
+isolated server repayment/retry replay, Security Scan `40194289598`, browser
+checks and API 35 SMS receive/upload/display checks passed. Production API/web
+source remains unchanged from verified run `40176342020`.

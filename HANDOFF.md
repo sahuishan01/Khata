@@ -1,5 +1,30 @@
 # HANDOFF.md — Khata Project Handoff
 
+**Generic SMS posting grammar (2026-10-25):** Verified Android `v0.45.26`
+recognizes account-qualified Dr/Cr postings across issuers, using one grammar
+rather than bank-specific transaction conditions. Optional marker punctuation,
+amount ordering, account labels and rupee tokens are shared. Payees stop at
+ledger delimiters; UPI reference separators allow whitespace. A catalog labels
+issuers and their sender aliases without gating transaction recognition.
+Unknown issuers still parse; verified old unknown-issuer identities are retained.
+
+The exact reported debit and card receipt passed a protected local regression.
+Android-generated records also passed the deployed server's repayment rules in
+an isolated database: both stayed visible as transfers, totals stayed unchanged,
+and identical retries were acknowledged. Public tests use neutralized variants.
+Existing request/offer/future-posting guards, exact Notes and saved edits remain.
+Install as an update, then **Add Data → Scan SMS inbox** with originals present.
+
+Signed CI `40194289828` passed 88 tests on `heaven`; versionCode 212 and
+signing continuity support updating v0.45.24. APK ZIP/digest/signature, metadata,
+production URL/HTTPS-only policy and shortcut components were verified. Release
+lint, Security Scan `40194289598`, desktop/mobile browser flows and API 35 SMS
+receive/upload/display checks passed. Android source matches the signed tag.
+Backend/web source and production are unchanged from run `40176342020` with
+migration 0040. No live financial data was modified by testing. Evidence:
+`~/.local/state/khata-generic-sms/`. Physical-phone UI verification remains
+unavailable; the existing default CodeQL unsigned Java issue is separate.
+
 **SMS title/notes swap (2026-10-25):** Verified Android `v0.45.24` uses
 **Auto-captured via SMS (bank)** as the title and retains the exact SMS in Notes.
 Install as an update; **Add Data → Scan SMS inbox** swaps verified automatic
