@@ -29,12 +29,20 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.23` (verified).
+Current release version: `v0.45.24` (verification pending).
 Last verified signed APK: `v0.45.23`
 (GitHub Actions run `40155432187`, 81 release unit tests passed). Its signing
 certificate matches `v0.45.21`; versionCode 209 supports updating the existing
 app. APK integrity, GitHub asset digest, required SMS/editing metadata,
 production API URL, HTTPS-only networking and shortcut components were verified.
+
+`v0.45.24` swaps SMS-generated title and notes: the title is
+**Auto-captured via SMS (bank)** and Notes retains the exact original message.
+Inbox rescans swap only verified automatic fields, preserving custom notes/titles
+and full edits. Migration 0040 preserves repayment matching from verified Notes
+and legacy descriptions, future-date safeguards and retry acknowledgements.
+Notes accept 16000 characters on both clients and the API. No data backfill.
+See `docs/transaction-editing.md`; verification is in progress.
 
 `v0.45.23` uses exact SMS text as the description and adds **Edit transaction**
 to Android and web. All user-facing fields can be edited atomically. Saved edits

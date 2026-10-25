@@ -12,23 +12,29 @@ class SmsImportTest {
     private val queued = timestamp + 3 * 86_400_000
     private val body = "Rs.500 debited from HDFC account towards HDFC credit card on 18/10/26. Ref 1234567890"
 
-    @Test fun descriptionRetainsTheExactSmsIncludingWhitespaceAndLongMessages() {
+    @Test fun titleAndNotesAreSwappedWithoutChangingTheExactSms() {
         val message = "  INR 500 debited from HDFC A/c XX1234 to SHOP.\n" + "Bank information. ".repeat(40) + "  "
         val parsed = SmsParser.parse(message, "VM-HDFCBK")!!
         val row = SmsImport.transaction(parsed, message, "VM-HDFCBK", timestamp, queued)
-        assertEquals(message, row.description)
-        assertTrue(row.description.length > 500)
+        assertEquals("Auto-captured via SMS (${parsed.bank})", row.description)
+        assertEquals(message, row.notes)
+        assertTrue(row.notes.length > 500)
         assertEquals(parsed.payee, SmsSource.decode(row.smsSource)!!.parsedPayee)
-        assertEquals(message, Gson().fromJson(Gson().toJson(row), com.khata.app.data.LocalTransaction::class.java).description)
+        assertEquals(message, Gson().fromJson(Gson().toJson(row), com.khata.app.data.LocalTransaction::class.java).notes)
     }
 
     @Test fun rescanBackfillsProvenGeneratedDescriptionsAndPreservesFullUserEdits() {
         val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
         val fresh = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued)
-        val legacy = fresh.copy(description = "Credit card bill payment", rev = 1, baseRev = 1, dirty = false, pendingOp = null)
-        assertEquals(body, SmsImport.repair(legacy, parsed, body, timestamp).description)
+        val legacy = fresh.copy(description = "Credit card bill payment", notes = "Auto-captured via SMS (${parsed.bank})",
+            rev = 1, baseRev = 1, dirty = false, pendingOp = null)
+        val repaired = SmsImport.repair(legacy, parsed, body, timestamp)
+        assertEquals(fresh.description, repaired.description)
+        assertEquals(body, repaired.notes)
         val unverified = legacy.copy(smsSource = null)
-        assertEquals(unverified.description, SmsImport.repair(unverified, parsed, body, timestamp).description)
+        val unverifiedRepair = SmsImport.repair(unverified, parsed, body, timestamp)
+        assertEquals(unverified.description, unverifiedRepair.description)
+        assertEquals(unverifiedRepair, SmsImport.repair(unverifiedRepair, parsed, body, timestamp))
         val edited = legacy.copy(description = "My title", amount = 321.0, direction = "credit", bank = "AXIS",
             bankRef = "", balance = -100.0, category = "Refund", isTransfer = false,
             txnDate = "2026-10-21", valueDate = "2026-10-22",
@@ -104,6 +110,7 @@ class SmsImportTest {
         val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
         val original = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued).copy(
             description = "My October card repayment", isTransfer = false,
+            notes = "Auto-captured via SMS (${parsed.bank})",
             category = "Uncategorized", txnDate = "2026-10-20", valueDate = "2026-10-20",
             rev = 9, baseRev = 9, dirty = false, pendingOp = null,
         )
@@ -118,11 +125,31 @@ class SmsImportTest {
         assertEquals(SmsSaveResult.UNCHANGED, SmsImport.queue(dao, parsed, body, "VM-HDFCBK", timestamp, queued))
     }
 
+    @Test fun rescanSwapsV23FieldsOnceAndPreservesCustomNotesAndTitles() {
+        val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
+        val current = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued)
+        val v23 = current.copy(description = body, notes = "Auto-captured via SMS (${parsed.bank})")
+        val repaired = SmsImport.repair(v23, parsed, body, timestamp)
+        assertEquals(current.description, repaired.description)
+        assertEquals(body, repaired.notes)
+        assertEquals(v23.clientId, repaired.clientId)
+        assertEquals(v23.amount, repaired.amount, 0.0)
+        assertEquals(repaired, SmsImport.repair(repaired, parsed, body, timestamp))
+        for (edited in listOf(v23.copy(description = "My purchase"),
+            v23.copy(notes = "My notes"), current.copy(notes = "My notes"),
+            current.copy(description = "My title"), v23.copy(smsSource = null))) {
+            val after = SmsImport.repair(edited, parsed, body, timestamp)
+            assertEquals(edited.description, after.description)
+            assertEquals(edited.notes, after.notes)
+        }
+    }
+
     @Test fun rescanRepairsOldFutureDatesAndServerQueueFallbacks() {
         val text = "INR 500 credited to Canara account on 02/12/26. Ref 123456789012"
         val parsed = SmsParser.parse(text, "AD-CANBNK")!!
         val old = SmsImport.transaction(parsed, text, "AD-CANBNK", timestamp, queued).copy(
             txnDate = "2026-12-02", valueDate = "2026-12-02", smsSource = null,
+            description = text, notes = "Auto-captured via SMS (${parsed.bank})",
             rev = 1, baseRev = 1, dirty = false, pendingOp = null)
         val repaired = SmsImport.repair(old, parsed, text, timestamp)
         assertEquals("2026-10-20", repaired.txnDate)
@@ -142,7 +169,8 @@ class SmsImportTest {
             assertEquals("123456789012", parsed.refNo)
             val oldParsed = parsed.copy(refNo = null)
             val old = SmsImport.transaction(oldParsed, text, "AD-KOTAKB", timestamp, queued).copy(
-                rev = 1, baseRev = 1, dirty = false, pendingOp = null, smsSource = null)
+                rev = 1, baseRev = 1, dirty = false, pendingOp = null, smsSource = null,
+                description = text, notes = "Auto-captured via SMS (${parsed.bank})")
             val dao = SyncOutboxTest.MemoryDao(listOf(old))
             assertEquals(SmsSaveResult.UPDATED, SmsImport.queue(dao, parsed, text, "AD-KOTAKB", timestamp, queued))
             val row = dao.rows.values.single()
@@ -182,7 +210,8 @@ class SmsImportTest {
         val text = "INR 500 debited from Kotak A/c XX1234 to SHOP. UTR: 123456789012"
         val parsed = SmsParser.parse(text, "AD-KOTAKB")!!
         val old = SmsImport.transaction(parsed.copy(refNo = null), text, "AD-KOTAKB", timestamp, queued)
-            .copy(rev = 1, baseRev = 1, smsSource = null, dirty = false, pendingOp = null)
+            .copy(rev = 1, baseRev = 1, smsSource = null, dirty = false, pendingOp = null,
+                description = text, notes = "Auto-captured via SMS (${parsed.bank})")
         val canonical = SmsImport.transaction(parsed, text, "VM-KOTAKB", timestamp, queued)
             .copy(rev = 1, baseRev = 1, dirty = false, pendingOp = null)
         val dao = SyncOutboxTest.MemoryDao(listOf(old, canonical))
