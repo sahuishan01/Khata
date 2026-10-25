@@ -33,10 +33,11 @@ object SmsParser {
     private fun accountPostings(marker: String): List<Pattern> {
         val posting = "\\b${Pattern.quote(marker)}\\b\\.?"
         val money = "$CURRENCY\\s*$AMOUNT"
+        // Android rejects UNICODE_CHARACTER_CLASS even though JVM tests accept it.
         return listOf(
             "$ACCOUNT_REFERENCE\\s*(?:(?:is|was|has\\s+been)\\s+)?$posting\\s*$money",
             "$ACCOUNT_REFERENCE\\s*$money\\s*$posting",
-        ).map { Pattern.compile(it, Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CHARACTER_CLASS) }
+        ).map { Pattern.compile(it, Pattern.CASE_INSENSITIVE) }
     }
 
     private val DEBIT_PATTERNS = listOf(

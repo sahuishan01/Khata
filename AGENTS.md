@@ -29,18 +29,22 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.25` (verification pending).
+Current release version: `v0.45.26` (verification pending).
 Last verified signed APK: `v0.45.24`
 (GitHub Actions run `40176026574`, 82 release unit tests passed). Its signing
 certificate matches `v0.45.23`; versionCode 210 supports updating the existing
 app. ZIP/digest/signature, retained SMS/editing metadata, production API URL,
 HTTPS-only networking and shortcut components were verified.
 
-`v0.45.25` adds shared account posting grammar for Dr/Cr alerts across banks,
+`v0.45.26` adds shared account posting grammar for Dr/Cr alerts across banks,
 with generic payee field boundaries, spaced UPI references and issuer suffixes.
 Issuer names do not control transaction recognition. Requests, offers, balances
 and future debits retain their guards; verified legacy identities and custom
 edits remain protected. See `docs/sms-posting-grammar.md`. Verification pending.
+
+`v0.45.25` was cancelled before APK publication after device checks found
+an unsupported regex flag accepted by JVM tests. The flag is removed in
+v0.45.26; verify SMS receive/scan on Android, not only host JVM tests.
 
 `v0.45.24` swaps SMS-generated title and notes: the title is
 **Auto-captured via SMS (bank)** and Notes retains the exact original message.
