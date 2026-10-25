@@ -12,7 +12,7 @@ and put the exact original message in **Notes**, preserving line breaks and
 surrounding whitespace. This swaps the v0.45.23 title/notes mapping.
 **Add Data → Scan SMS inbox** swaps existing automatic fields only when the
 original message hash, receipt time and both generated fields match. Custom
-notes/titles, fully edited transactions and unverifiable imports remain unchanged.
+notes/titles and unverifiable title/notes pairs stay unchanged; full edits remain protected.
 Full transaction edits survive later scans, including dates, references,
 categorization and explicit transfer choices.
 
@@ -57,7 +57,7 @@ rescan protection, card reconciliation and monetary validation. Browser and
 emulator evidence is under `~/.local/state/khata-transaction-edit/`.
 
 
-Verified release: [APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.23/khata_0.45.23-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.23).
+Previous release v0.45.23: [APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.23/khata_0.45.23-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.23).
 Android CI `40155432187` passed 81 release tests; backend/web CI `40161566580` passed
 214 tests (1 ignored), Clippy and the web build. Release lint, browser flows,
 API 35 emulator flows, APK signature/metadata and production deployment checks
@@ -66,3 +66,10 @@ passed. The existing default CodeQL unsigned Java autobuild issue remains separa
 Migration 0040 reads repayment evidence from verified SMS notes as well as legacy
 descriptions. It preserves custom-title behavior, economic-credit safeguards and
 retry acknowledgements, without rewriting stored transactions.
+
+
+Current verified release: [v0.45.24 APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.24/khata_0.45.24-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.24).
+Signed CI `40176026574` passed 82 release tests; backend/web CI `40176342020` passed
+216 tests (1 ignored), Clippy and web build. Release lint, browser/API 35 emulator
+flows, signing/metadata and production checks passed. The installed web/API use
+migration 0040; the deployment preserved stored financial/source records.
