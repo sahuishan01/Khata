@@ -29,12 +29,26 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.23` (verification pending).
-Last verified signed APK: `v0.45.21`
-(GitHub Actions run `40114558787`, 77 release unit tests passed). Its signing
-certificate matches `v0.45.19`; versionCode 207 supports updating the existing
-app. Required SMS metadata fields, including card confirmation role and card
-fingerprint, were verified in the minified APK before publication.
+Current release version: `v0.45.23` (verified).
+Last verified signed APK: `v0.45.23`
+(GitHub Actions run `40155432187`, 81 release unit tests passed). Its signing
+certificate matches `v0.45.21`; versionCode 209 supports updating the existing
+app. APK integrity, GitHub asset digest, required SMS/editing metadata,
+production API URL, HTTPS-only networking and shortcut components were verified.
+
+`v0.45.23` uses exact SMS text as the description and adds **Edit transaction**
+to Android and web. All user-facing fields can be edited atomically. Saved edits
+survive rescans, including older scanners; unchanged upload retries still work.
+Legacy inline changes advance revisions, preventing stale whole-form saves.
+Original message hashes preserve card matching without replacing prior custom
+title behavior. Existing automatic titles can be backfilled through **Scan SMS
+inbox** with the original message present; customized/unverified descriptions stay.
+See `docs/transaction-editing.md`. Signed CI `40155432187`, release lint, 214
+backend tests (1 ignored), Clippy, web build and Security Scan `40161566635`
+passed. Browser and Android API 35 emulator flows passed. Backend/web run `40161566580`
+(revision `860395d`) is deployed with migration 0039. The Android source tree is
+identical to the signed tag. Financial/source records, forced RLS and loopback
+bindings were verified. Evidence: `~/.local/state/khata-transaction-edit/`.
 
 `v0.45.22` was cancelled before publication while transfer-override coverage was
 completed. It has no release APK. The Android workflow compares against the last
@@ -91,14 +105,14 @@ fund-block guards and required metadata were verified. Evidence:
 R8. Use the latest verified signed release; the Gson DTO is retained explicitly
 in the ProGuard rules.
 
-Backend artifact from run `40098383249` (commit `0e4da62`) is deployed
-with migration 0038 (205 backend tests passed, 1 ignored; Clippy and the
+Backend artifact from run `40161566580` (commit `860395d`) is deployed
+with migration 0039 (214 backend tests passed, 1 ignored; Clippy and the
 workflow's web build passed). Identical upload retries now acknowledge saved rows
 and refresh the device's canonical cache. Automatic transfer/duplicate flags are
 preserved; genuine stale edits still require review. Push and resolution return
 revisions after deferred reconciliation. This recovery works in Android v0.45.15.
 
-The current web assets are from run `40098383249`. Earlier desktop and phone
+The current web assets are from run `40161566580`. Earlier desktop and phone
 browser checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
 Whole-history reconciliation handles CRED and direct bill payments, older
 confirmation metadata, separate upload batches and date differences. Explicit
