@@ -4,6 +4,9 @@ set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 revision=7b928d828b7b0e022f929d9bd2e44165aa270148
 getent passwd khata-laya >/dev/null || useradd --system --home-dir /var/lib/khata-laya --shell /usr/sbin/nologin khata-laya
+if systemctl is-active --quiet khata-laya.service; then
+    systemctl stop khata-laya.service
+fi
 install -d -m 755 /opt/khata-laya
 uv venv --allow-existing --python /usr/bin/python3.13 /opt/khata-laya/venv
 uv pip install --python /opt/khata-laya/venv/bin/python --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match -r "$here/requirements.txt"
