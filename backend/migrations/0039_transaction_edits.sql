@@ -116,3 +116,104 @@ $$;
 -- Run after the existing BEFORE triggers so their final field choices count.
 CREATE TRIGGER transaction_zz_edit_revision BEFORE UPDATE ON transactions
 FOR EACH ROW EXECUTE FUNCTION advance_transaction_edit_revision();
+
+-- Preserve the old generated-title signal for new exact-message descriptions.
+-- Known card confirmations without a key retain their stricter proof policy.
+CREATE FUNCTION is_generic_sms_confirmation(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT coalesce(t.sms_source->>'user_edited','false') <> 'true' AND (
+        lower(trim(t.description))='transaction' OR (t.sms_source->>'payment_role' IS NULL
+            AND lower(trim(t.sms_source->>'parsed_payee'))='transaction'));
+$$;
+CREATE OR REPLACE FUNCTION is_card_confirmation_candidate(a transactions,b transactions) RETURNS boolean LANGUAGE plpgsql STABLE AS $$
+DECLARE delta bigint;
+BEGIN
+    IF a.user_id<>b.user_id OR a.id=b.id OR a.deleted OR b.deleted OR a.duplicate_override
+        OR a.direction<>'credit' OR b.direction<>'credit' OR a.amount<>b.amount OR a.amount<=0
+        OR upper(a.bank)<>upper(b.bank) OR abs(a.value_date-b.value_date)>2
+        OR is_card_receipt(b) IS NOT TRUE OR b.sms_source->>'payment_role'='card_confirmation'
+        OR (is_generic_sms_confirmation(a) OR is_card_receipt(a)) IS NOT TRUE
+        OR a.sms_source->>'received_at' IS NULL OR b.sms_source->>'received_at' IS NULL THEN RETURN false; END IF;
+    IF a.sms_source->>'card_account_key' IS NOT NULL AND b.sms_source->>'card_account_key' IS NOT NULL
+        AND lower(a.sms_source->>'card_account_key')<>lower(b.sms_source->>'card_account_key') THEN RETURN false; END IF;
+    delta := (a.sms_source->>'received_at')::bigint-(b.sms_source->>'received_at')::bigint;
+    RETURN delta<=172800000 AND (delta>=600000 OR
+        (a.sms_source->>'payment_role'='card_confirmation' AND delta>=-120000));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION reconcile_card_repayments(owner_id uuid,paid numeric,dated date) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE pair record; root transactions; confirmation transactions;
+    funding transactions; funding_count integer; debit_count integer;
+    receipt_count integer; candidate_count integer; near_count integer; keyed_count integer;
+    complete_chain boolean; keyed_confirmation boolean;
+BEGIN
+    PERFORM id FROM users WHERE id=owner_id FOR UPDATE;
+    FOR pair IN
+        SELECT f.id FROM transactions f JOIN transactions r ON is_card_funding_pair(f,r)
+        WHERE f.user_id=owner_id AND f.amount=paid AND abs(f.value_date-dated)<=2
+            AND NOT f.is_transfer AND NOT f.transfer_override
+            AND NOT EXISTS (SELECT 1 FROM transactions other WHERE other.user_id=owner_id
+                AND other.id<>f.id AND other.amount=paid AND is_card_funding_pair(other,r))
+        GROUP BY f.id HAVING count(*)=1
+    LOOP
+        UPDATE transactions SET is_transfer=true,rev=rev+1,version=version+1,updated_at=now() WHERE id=pair.id;
+    END LOOP;
+
+    FOR root IN SELECT t.* FROM transactions t WHERE t.user_id=owner_id AND t.amount=paid
+        AND abs(t.value_date-dated)<=2 AND is_card_receipt(t) AND NOT t.transfer_override
+        AND t.sms_source->>'payment_role' IS DISTINCT FROM 'card_confirmation'
+        ORDER BY (t.sms_source->>'received_at')::bigint,t.id
+    LOOP
+        IF NOT EXISTS (SELECT 1 FROM transactions t WHERE t.id=root.id AND NOT t.deleted) THEN CONTINUE; END IF;
+        SELECT count(*) INTO funding_count FROM transactions f WHERE f.user_id=owner_id AND f.amount=paid AND is_card_funding_pair(f,root);
+        SELECT count(*) INTO debit_count FROM transactions f WHERE f.user_id=owner_id AND NOT f.deleted
+            AND f.direction='debit' AND f.amount=paid AND abs(f.value_date-root.value_date)<=2;
+        SELECT count(*) INTO receipt_count FROM transactions r WHERE r.user_id=owner_id
+            AND upper(r.bank)=upper(root.bank) AND r.amount=paid AND abs(r.value_date-root.value_date)<=2
+            AND is_card_receipt(r) AND r.sms_source->>'payment_role' IS DISTINCT FROM 'card_confirmation';
+        SELECT count(*) INTO candidate_count FROM transactions c WHERE c.user_id=owner_id
+            AND c.amount=paid AND is_card_confirmation_candidate(c,root);
+        near_count:=0;
+        IF funding_count=1 THEN
+            SELECT f.* INTO funding FROM transactions f WHERE f.user_id=owner_id AND f.amount=paid AND is_card_funding_pair(f,root);
+            SELECT count(*) INTO near_count FROM transactions r WHERE r.user_id=owner_id AND r.amount=paid AND is_card_funding_pair(funding,r);
+        END IF;
+        SELECT count(*) INTO keyed_count FROM transactions r WHERE r.user_id=owner_id
+            AND upper(r.bank)=upper(root.bank) AND r.amount=paid AND abs(r.value_date-root.value_date)<=2
+            AND is_card_receipt(r) AND r.sms_source->>'payment_role'='card_receipt'
+            AND lower(r.sms_source->>'card_account_key')=lower(root.sms_source->>'card_account_key');
+
+        FOR confirmation IN SELECT c.* FROM transactions c WHERE c.user_id=owner_id AND c.amount=paid
+            AND NOT c.transfer_override AND NOT c.duplicate_override AND is_card_confirmation_candidate(c,root)
+        LOOP
+            -- Distinct known references can describe separate payments.
+            IF nullif(btrim(root.bank_ref),'') IS NOT NULL AND nullif(btrim(confirmation.bank_ref),'') IS NOT NULL
+                AND upper(btrim(root.bank_ref))<>upper(btrim(confirmation.bank_ref)) THEN CONTINUE; END IF;
+            complete_chain := funding_count=1 AND debit_count=1 AND near_count=1 AND NOT funding.transfer_override AND (
+                -- Older imports have no card fingerprint. Require one receipt,
+                -- one later generic alert and valid body dates on both messages.
+                (receipt_count=1 AND candidate_count=1 AND is_generic_sms_confirmation(confirmation)
+                    AND root.sms_source->>'date_source'='body' AND confirmation.sms_source->>'date_source'='body')
+                OR (length(root.sms_source->>'card_account_key')=64
+                    AND lower(root.sms_source->>'card_account_key')=lower(confirmation.sms_source->>'card_account_key'))
+            );
+            -- An explicit receipt/confirmation pair can be identified even when
+            -- the account used to pay the bill is not present in this history.
+            keyed_confirmation := root.sms_source->>'payment_role'='card_receipt'
+                AND confirmation.sms_source->>'payment_role'='card_confirmation'
+                AND length(root.sms_source->>'card_account_key')=64
+                AND lower(root.sms_source->>'card_account_key')=lower(confirmation.sms_source->>'card_account_key')
+                AND keyed_count=1 AND debit_count<=1 AND (debit_count=0 OR (funding_count=1 AND near_count=1 AND NOT funding.transfer_override));
+            IF NOT coalesce(complete_chain,false) AND NOT coalesce(keyed_confirmation,false) THEN CONTINUE; END IF;
+            UPDATE transactions SET duplicate_of=root.id,rev=rev+1,version=version+1,updated_at=now() WHERE duplicate_of=confirmation.id;
+            UPDATE transactions SET duplicate_of=root.id,deleted=true,duplicate_reason='card_confirmation',
+                rev=rev+1,version=version+1,updated_at=now() WHERE id=confirmation.id;
+        END LOOP;
+    END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION is_card_evidence(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT NOT t.deleted AND (is_card_funding(t) OR is_card_receipt(t) OR
+        (t.direction='credit' AND is_generic_sms_confirmation(t) AND t.sms_source->>'received_at' IS NOT NULL));
+$$;
