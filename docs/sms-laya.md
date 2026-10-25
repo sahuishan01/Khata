@@ -23,7 +23,12 @@ The Rust gateway and local model service independently repeat that check for
 older or custom clients. Debug networking logs only request metadata.
 
 Queue identities include the signed-in user and server, original sender,
-timestamp, full message hash and decision policy. WorkManager input contains
+timestamp, full message hash and decision policy. Inbox scans use `date_sent`, the same SMS-centre timestamp
+as live capture, rather than the often slightly later inbox arrival time.
+Missing or invalid sent times fall back to arrival. Older arrival-based imports
+are reused only when their original body hash and receipt timestamp verify;
+custom edits stay intact, and unverified identity conflicts require review.
+WorkManager input contains
 only the owner hash. Network work captures its original server and bearer token
 together, and every endpoint verifies that the requested owner matches the
 authenticated user. The worker reads existing transaction candidates through an

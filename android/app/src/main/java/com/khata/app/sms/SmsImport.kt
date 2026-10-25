@@ -9,6 +9,7 @@ import java.util.UUID
 import com.google.gson.Gson
 
 enum class SmsSaveResult { CREATED, UPDATED, UNCHANGED }
+class SmsIdentityConflict : Exception("Review the saved SMS transaction")
 
 /** Live capture and historical rescans use exactly the same date/transfer policy. */
 object SmsImport {
@@ -42,11 +43,12 @@ object SmsImport {
 
     /** A model worker uploads with its captured owner before adopting the canonical row locally. */
     suspend fun prepare(dao: TransactionDao, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): Pair<LocalTransaction?, LocalTransaction> {
-        return prepareWithLookup(parsed,body,sender,timestamp,queuedAt,dao::getByClientId)
+        return prepareWithLookup(parsed,body,sender,timestamp,queuedAt,lookup=dao::getByClientId)
     }
 
     /** Lookup can use an owner-scoped server snapshot instead of a shared device cache. */
     suspend fun prepareWithLookup(parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long,
+        alternateTimestamp: Long? = null,
         lookup: suspend (String) -> LocalTransaction?): Pair<LocalTransaction?,LocalTransaction> {
         val clientId = SmsParser.clientId(parsed, body, sender, timestamp)
         val legacyParsed = parsed.copy(refNo = SmsParser.legacyReference(body))
@@ -75,6 +77,15 @@ object SmsImport {
             }
         val row = old?.let { repair(it, parsed, body, timestamp) }
             ?: transaction(parsed, body, sender, timestamp, queuedAt)
+        if (old == null && alternateTimestamp != null && alternateTimestamp != timestamp) {
+            val (legacyOld,legacyRow) = prepareWithLookup(parsed,body,sender,alternateTimestamp,queuedAt,lookup=lookup)
+            if (legacyOld != null) {
+                val source=SmsSource.decode(legacyOld.smsSource)
+                if (source?.bodyHash != SmsSource.from(body,alternateTimestamp,queuedAt).bodyHash || source?.receivedAt != alternateTimestamp)
+                    throw SmsIdentityConflict()
+                return legacyOld to legacyRow
+            }
+        }
         return old to row
     }
 
