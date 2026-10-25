@@ -124,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/goals", goals::router())
         .nest("/api/reports", reports::router())
         .nest("/api/txns", txns::router())
+        .nest("/api/sms", khata::sms::router())
         .nest("/api/chat", chat::router())
         .layer(middleware::from_fn(security_headers_mw))
         .layer(cors)

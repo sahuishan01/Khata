@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
-import com.khata.app.data.KhataDatabase
-import com.khata.app.data.SyncEngine
 import com.khata.app.api.TokenManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -18,13 +16,10 @@ import javax.inject.Inject
 class SmsReceiver : BroadcastReceiver() {
 
     @Inject
-    lateinit var db: KhataDatabase
-
-    @Inject
-    lateinit var syncEngine: SyncEngine
-
-    @Inject
     lateinit var tokenManager: TokenManager
+
+    @Inject
+    lateinit var decisions: SmsDecisionPipeline
 
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
@@ -35,19 +30,16 @@ class SmsReceiver : BroadcastReceiver() {
         for (parts in messages.groupBy { it.originatingAddress to it.timestampMillis }.values) {
             val sms = parts.first()
             val body = parts.joinToString("") { it.messageBody.orEmpty() }
+            if (SmsPrivacy.containsOtp(body)) continue
             val sender = sms.originatingAddress ?: ""
 
-            val parsed = SmsParser.parse(body, sender) ?: continue
-            val txn = SmsImport.transaction(parsed, body, sender, sms.timestampMillis, System.currentTimeMillis())
-
-            // Save locally and trigger background sync to server
+            // Persist non-OTP work quickly; model/network work belongs to WorkManager.
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    if (!db.transactionDao().saveSmsIfUnchanged(null, txn)) return@launch
-                    syncEngine.sync()
-                } catch (e: Exception) {
-                    Log.e("SmsReceiver", "Failed to save SMS txn", e)
+                    decisions.enqueue(body, sender, sms.timestampMillis)
+                } catch (_: Exception) {
+                    Log.e("SmsReceiver", "Could not queue SMS for background processing")
                 } finally {
                     pendingResult.finish()
                 }

@@ -115,6 +115,7 @@ data class UpdateTxnReq(
     val balance: Double?,
     @SerializedName("is_transfer") val isTransfer: Boolean,
     val notes: String,
+    @SerializedName("payment_method") val paymentMethod: String? = null,
 )
 
 // Sync models

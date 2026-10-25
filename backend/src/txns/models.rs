@@ -85,6 +85,8 @@ pub struct UpdateTxnReq {
     pub balance: Option<f64>,
     pub is_transfer: bool,
     pub notes: String,
+    /// Missing preserves older clients; empty string explicitly clears the method.
+    pub payment_method: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -323,6 +325,10 @@ pub struct SmsSource {
     pub user_edited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parsed_payee: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payment_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classifier_version: Option<String>,
 }
 
 impl SmsSource {
@@ -333,6 +339,8 @@ impl SmsSource {
             (946684800000..=chrono::Utc::now().timestamp_millis() + 300_000).contains(&t));
         if !(0..=1).contains(&self.parser_version) || !hash_valid || !received_valid
             || self.parsed_payee.as_ref().is_some_and(|payee| payee.chars().count() > 500)
+            || self.payment_method.as_deref().is_some_and(|method| !matches!(method, "IMPS"|"NEFT"|"RTGS"|"UPI"|"ATM"|"CARD"|"CHEQUE"|"CASH"))
+            || self.classifier_version.as_ref().is_some_and(|version| version.len() > 128)
             || self.payment_role.as_deref().is_some_and(|role| !matches!(role, "card_receipt" | "card_confirmation"))
             || self.card_account_key.as_ref().is_some_and(|key| key.len() != 64 || !key.bytes().all(|c| c.is_ascii_hexdigit()))
             || !matches!(self.date_source.as_str(), "body" | "message" | "queue")

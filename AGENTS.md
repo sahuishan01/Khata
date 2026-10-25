@@ -29,7 +29,17 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.26` (verified).
+Current release version: `v0.45.27` (verification pending).
+
+`v0.45.27` adds persistent background Laya SMS decisions, OTP exclusion before
+queueing/networking, owner-scoped imports, uncertain-result review, payment-method
+provenance/display and generic amount-first posting verbs including multiline
+IMPS. Laya runs offline on loopback as `khata-laya.service`; raw messages do not
+go to an external inference provider. Model scores still need deterministic
+amount/completion/direction validation. See `docs/sms-laya.md`. No backend
+migration; Android Room migrates 2 to 3. Release and deployment verification is
+in progress. Evidence: `~/.local/state/khata-laya/`.
+
 Last verified signed APK: `v0.45.26`
 (GitHub Actions run `40194289828`, 88 release unit tests passed). Its signing
 certificate matches `v0.45.24`; versionCode 212 supports updating the existing

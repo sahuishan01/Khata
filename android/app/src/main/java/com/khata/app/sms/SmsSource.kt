@@ -20,6 +20,8 @@ data class SmsSource(
     @SerializedName("card_account_key") val cardAccountKey: String? = null,
     @SerializedName("user_edited") val userEdited: Boolean? = null,
     @SerializedName("parsed_payee") val parsedPayee: String? = null,
+    @SerializedName("payment_method") val paymentMethod: String? = null,
+    @SerializedName("classifier_version") val classifierVersion: String? = null,
 ) {
     companion object {
         /** Older/minified metadata must never prevent the financial row uploading. */

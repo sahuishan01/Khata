@@ -7,6 +7,7 @@ export interface EditableTransaction {
   amount: number; direction: string; bank: string; category: string
   is_transfer: boolean; possible_duplicate?: boolean; notes: string
   bank_ref?: string | null; balance?: number | null
+  sms_source?: { payment_method?: string | null; classifier_version?: string | null } | null
 }
 
 interface Props {
@@ -24,6 +25,7 @@ export function TransactionEditor({ transaction, categories, onSaved, onClose }:
   const [draft, setDraft] = useState(() => ({ ...transaction, amount: String(transaction.amount),
     balance: transaction.balance == null ? '' : String(transaction.balance), bank_ref: transaction.bank_ref ?? '' }))
   const [saving, setSaving] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState(transaction.sms_source?.payment_method ?? '')
   const [error, setError] = useState<string | null>(null)
   const valid = draft.description.trim().length > 0 && draft.description.length <= 16000 &&
     money(draft.amount, true) && (!draft.balance || money(draft.balance, false)) &&
@@ -42,6 +44,7 @@ export function TransactionEditor({ transaction, categories, onSaved, onClose }:
         txn_date: draft.txn_date, value_date: draft.value_date, category: draft.category.trim(), bank: draft.bank.trim(),
         bank_ref: draft.bank_ref, balance: draft.balance ? Number(draft.balance) : null,
         is_transfer: draft.is_transfer, notes: draft.notes,
+        ...(transaction.sms_source ? { payment_method: paymentMethod } : {}),
       })
       onSaved(data); onClose()
     } catch (e) {
@@ -72,6 +75,12 @@ export function TransactionEditor({ transaction, categories, onSaved, onClose }:
               <option value="debit">Expense</option><option value="credit">Income</option>
             </select>
           </label>
+          {transaction.sms_source && <label className="form-label">Payment method
+            <select className="form-input" aria-label="Payment method" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+              <option value="">Unknown</option>
+              {['IMPS','NEFT','RTGS','UPI','ATM','CARD','CHEQUE','CASH'].map(method => <option key={method} value={method}>{method}</option>)}
+            </select>
+          </label>}
           <label className="form-label">Transaction date
             <input className="form-input" type="date" required value={draft.txn_date} onChange={e => setDraft({ ...draft, txn_date: e.target.value })} />
           </label>

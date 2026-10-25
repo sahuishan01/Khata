@@ -36,6 +36,8 @@ fun TransactionEditor(txn: TxnRow, onSave: suspend (String, UpdateTxnReq) -> Str
     var balance by rememberSaveable { mutableStateOf(txn.balance?.let { java.math.BigDecimal.valueOf(it).toPlainString() }.orEmpty()) }
     var transfer by rememberSaveable { mutableStateOf(txn.isTransfer) }
     var notes by rememberSaveable { mutableStateOf(txn.notes) }
+    var paymentMethod by rememberSaveable { mutableStateOf(txn.smsSource?.paymentMethod.orEmpty()) }
+    var methodMenu by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -57,6 +59,14 @@ fun TransactionEditor(txn: TxnRow, onSave: suspend (String, UpdateTxnReq) -> Str
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(direction == "debit", { direction = "debit" }, label = { Text("Expense") }, enabled = !saving)
                     FilterChip(direction == "credit", { direction = "credit" }, label = { Text("Income") }, enabled = !saving)
+                }
+                if (txn.smsSource != null) Box {
+                    OutlinedButton(onClick={methodMenu=true},enabled=!saving) { Text("Payment method: ${paymentMethod.ifBlank { "Unknown" }}") }
+                    DropdownMenu(expanded=methodMenu,onDismissRequest={methodMenu=false}) {
+                        listOf("","IMPS","NEFT","RTGS","UPI","ATM","CARD","CHEQUE","CASH").forEach { method ->
+                            DropdownMenuItem(text={Text(method.ifBlank { "Unknown" })},onClick={paymentMethod=method;methodMenu=false})
+                        }
+                    }
                 }
                 OutlinedTextField(txnDate, { txnDate = it }, label = { Text("Transaction date (YYYY-MM-DD)") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !saving)
@@ -89,7 +99,8 @@ fun TransactionEditor(txn: TxnRow, onSave: suspend (String, UpdateTxnReq) -> Str
                     try {
                         error = onSave(txn.id, UpdateTxnReq(baseRev, txnDate, valueDate, description,
                             validEditMoney(amount, true)!!, direction, category.trim(), bank.trim(), bankRef,
-                            balance.takeIf { it.isNotBlank() }?.let { validEditMoney(it, false) }, transfer, notes))
+                            balance.takeIf { it.isNotBlank() }?.let { validEditMoney(it, false) }, transfer, notes,
+                            paymentMethod.takeIf { txn.smsSource != null }))
                         if (error == null) onClose()
                     } finally { saving = false }
                 }

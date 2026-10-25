@@ -11,6 +11,8 @@ data class ParsedSmsTxn(
     val payee: String,
     val refNo: String? = null,
     val isTransfer: Boolean = false,
+    val paymentMethod: String? = null,
+    val classifierVersion: String? = null,
 )
 
 object SmsParser {
@@ -26,6 +28,7 @@ object SmsParser {
     // reference so a doctor, credit limit or balance cannot become a posting.
     private const val CURRENCY = "(?:rs\\.?|inr|₹)"
     private const val AMOUNT = "([0-9,]+(?:\\.[0-9]{1,2})?)"
+    private val MONEY_TOKEN = Regex("(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+|[0-9]{1,2}(?:,[0-9]{2})+,[0-9]{3})(?:\\.[0-9]{1,2})?")
     private const val ACCOUNT_REFERENCE = "\\b(?:account|acct|acc|a/c|ac)\\s*" +
         "(?:(?:no\\.?|number|ending(?:\\s+(?:in|with))?)\\s*)?[:#.-]?\\s*" +
         "[x*•#0-9][x*•#0-9 -]{0,38}[0-9]{2,}"
@@ -40,16 +43,26 @@ object SmsParser {
         ).map { Pattern.compile(it, Pattern.CASE_INSENSITIVE) }
     }
 
-    private val DEBIT_PATTERNS = listOf(
-        Pattern.compile("(?i)(?:debited|sent|paid|spent|txn of|withdrawn|vpa)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
-        Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:debited|spent|paid|withdrawn|transferred)"),
+    private fun wordPostings(verbs: List<String>, leadingMarkers: List<String> = emptyList()): List<Pattern> {
+        fun vocabulary(words: List<String>) = words.joinToString("|") { word ->
+            word.split(' ').joinToString("\\s+") { Pattern.quote(it) }
+        }
+        val money = "$CURRENCY\\s*$AMOUNT"
+        // Generate both orders together so a verb cannot be supported in only one.
+        return listOf(
+            "\\b(?:${vocabulary(verbs + leadingMarkers)})\\b\\s*(?:by|for|of|with)?\\s*$money",
+            "$money\\s*(?:has\\s+been\\s+|is\\s+)?\\b(?:${vocabulary(verbs)})\\b",
+        ).map { Pattern.compile(it, Pattern.CASE_INSENSITIVE) }
+    }
+
+    private val DEBIT_PATTERNS = wordPostings(
+        listOf("debited", "sent", "paid", "spent", "withdrawn", "transferred"),
+        leadingMarkers = listOf("txn of", "vpa"),
     ) + accountPostings("dr")
 
     private val CREDIT_PATTERNS = listOf(
         Pattern.compile("(?i)payment\\s+(?:of\\s+)?(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?).{0,80}?(?:received|credited|acknowledged)"),
-        Pattern.compile("(?i)(?:credited|received|deposited|added)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
-        Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:credited|received|deposited)"),
-    ) + accountPostings("cr")
+    ) + wordPostings(listOf("credited", "received", "deposited", "added")) + accountPostings("cr")
 
     // "Get Rs ... credited" describes an offer, not money that has arrived.
     // Check the clause governing each amount, rather than banning words such as
@@ -71,10 +84,17 @@ object SmsParser {
     private val UNCOMPLETED_NOTICE = Pattern.compile(
         "(?i)\\b(?:pending|awaiting)\\s+(?:(?:to|your|for)\\s+)?(?:approv(?:e|al)|authori[sz](?:e|ation))\\b|" +
             "\\b(?:approval|authori[sz]ation)\\s+(?:is\\s+)?pending\\b|" +
-            "\\b(?:will|would|shall)\\s+be\\s+(?:debited|credited|paid|sent|withdrawn|transferred)\\b"
+            "\\b(?:will|would|shall)\\s+be\\s+(?:debited|credited|paid|sent|withdrawn|transferred|received|deposited|spent|added|refunded)\\b"
     )
     private val CONFIRMED_POSTING = Pattern.compile(
         "(?i)\\b(?:has|have)\\s+been\\s+(?:debited|credited|spent|paid|withdrawn|transferred)\\b"
+    )
+    private val FAILED_NOTICE = Pattern.compile(
+        "(?i)\\b(?:failed|declined|unsuccessful|cancelled)\\b|" +
+            "\\b(?:no\\s+(?:money|amount|funds?)\\s+(?:was\\s+|has\\s+been\\s+)?|not\\s+)(?:debited|credited|paid|sent|withdrawn|transferred)\\b"
+    )
+    private val COMPLETED_EVIDENCE = Pattern.compile(
+        "(?i)\\b(?:debited|credited|paid|spent|sent|withdrawn|transferred|deposited|refunded|completed|successful|purchased)\\b"
     )
     private val APPLICATION_NOTICE = Pattern.compile(
         "(?i)\\b(?:app(?:lication)?\\s+(?:no|number|id)\\b|" +
@@ -105,7 +125,7 @@ object SmsParser {
         var start = 0
         fun consider(end: Int) {
             val clause = body.substring(start, end)
-            if (UNCOMPLETED_NOTICE.matcher(clause).find() ||
+            if (UNCOMPLETED_NOTICE.matcher(clause).find() || FAILED_NOTICE.matcher(clause).find() ||
                 FUND_BLOCK_NOTICE.matcher(clause).find() ||
                 (REQUEST_NOTICE.matcher(clause).find() && !CONFIRMED_POSTING.matcher(clause).find()) ||
                 (receiptNeedsEvidence && RECEIPT.matcher(clause).find() &&
@@ -137,7 +157,7 @@ object SmsParser {
     private val BANK_PATTERN = Pattern.compile("(?i)\\b(${BANK_ALIASES.keys.joinToString("|") { Pattern.quote(it) }})(?:\\s*BANK)?\\b")
     // \b matters: without it the "to" inside ordinary prose ("...wish to inform
     // you that Rs 514...") matches and the payee becomes "inform you that Rs".
-    private val PAYEE_PATTERN = Pattern.compile("(?i)\\b(?:to|at|info|vpa)\\s+([A-Za-z0-9\\s\\.\\@\\-\\_]+?)(?:\\s+on|\\s+ref|\\s+avail|\\s+bal|[.,;:!?]|$)")
+    private val PAYEE_PATTERN = Pattern.compile("(?i)\\b(?:to|at|info|vpa)\\s+([A-Za-z0-9\\s\\.\\@\\-\\_/]+?)(?:\\s+on|\\s+ref|\\s+avail|\\s+bal|[.,;:!?]|$)")
 
     /** First words that mean the capture is English prose, not a merchant. */
     private val PAYEE_STOP_WORDS = setOf(
@@ -168,6 +188,54 @@ object SmsParser {
 
     fun parse(body: String, sender: String = ""): ParsedSmsTxn? = parseCandidate(body, sender, rejectNonTransactions = true)
 
+    /** Model decisions never manufacture an amount or override contradictory posting evidence. */
+    fun fromDecision(body: String, sender: String, direction: String, modelVersion: String): ParsedSmsTxn? {
+        if (SmsPrivacy.containsOtp(body) || direction !in listOf("debit", "credit")) return null
+        val original = body.trim()
+        val clean = original.replace("\n", " ")
+        val excluded = nonPostingClauses(original)
+        val balance = Pattern.compile("(?i)\\b(?:bal(?:ance)?|limit)\\b[^.!?;]{0,100}$")
+        val matcher = Pattern.compile("(?i)$CURRENCY\\s*$AMOUNT").matcher(clean)
+        val amounts = mutableSetOf<Double>()
+        while (matcher.find()) {
+            if (excluded.any { matcher.start() <= it.last && matcher.end() > it.first }) continue
+            val prefix = clean.substring(0, matcher.start())
+            if (OFFER_PREFIX.matcher(prefix).find()) continue
+            val balancePrefix = balance.matcher(prefix.takeLast(120))
+            if (balancePrefix.find() && !COMPLETED_EVIDENCE.matcher(balancePrefix.group()).find()) continue
+            // A sentence full stop is valid; a third decimal or dangling comma is not.
+            val tail = clean.substring(matcher.end())
+            if (tail.firstOrNull()?.isDigit() == true || tail.startsWith(",") ||
+                (tail.startsWith(".") && tail.getOrNull(1)?.isDigit() == true)) continue
+            val token = matcher.group(1) ?: continue
+            if (!MONEY_TOKEN.matches(token)) continue
+            val value = token.replace(",", "").toDoubleOrNull() ?: continue
+            if (value.isFinite() && value > 0 && value <= 999_999_999_999.99) amounts += value
+        }
+        val known = parse(body, sender)
+        val amount = if (known != null) {
+            if (known.direction != direction || amounts.singleOrNull() != known.amount) return null
+            known.amount
+        } else {
+            // A model score alone cannot make a balance or arbitrary priced text a posting.
+            if (!COMPLETED_EVIDENCE.matcher(clean).find()) return null
+            amounts.singleOrNull() ?: return null
+        }
+        val parsed = known ?: fields(amount, direction, clean, sender.lowercase(Locale.ROOT))
+        return parsed.copy(paymentMethod = paymentMethod(clean), classifierVersion = modelVersion)
+    }
+
+    fun forManualReview(body: String, sender: String, amount: Double, direction: String): ParsedSmsTxn? {
+        if (SmsPrivacy.containsOtp(body) || !amount.isFinite() || amount <= 0 || amount > 999_999_999_999.99 ||
+            direction !in listOf("debit","credit") || kotlin.math.abs(amount * 100 - kotlin.math.round(amount * 100)) > .0001) return null
+        return fields(amount,direction,body.trim().replace("\n"," "),sender.lowercase(Locale.ROOT))
+            .copy(paymentMethod=paymentMethod(body))
+    }
+
+    private fun paymentMethod(body: String): String? =
+        Regex("(?i)\\b(IMPS|NEFT|RTGS|UPI|ATM|CHEQUE|CASH)\\b").find(body)?.value?.uppercase(Locale.ROOT)
+            ?: Regex("(?i)\\bCARD\\b").find(body)?.let { "CARD" }
+
     /** Used only to identify a proven, untouched false import during an explicit inbox rescan. */
     internal fun previouslyImportedNonTransaction(body: String, sender: String): ParsedSmsTxn? {
         val previous = parseCandidate(body, sender, rejectNonTransactions = false) ?: return null
@@ -181,7 +249,7 @@ object SmsParser {
         val lowerSender = sender.lowercase(Locale.ROOT)
 
         // Ignore non-transactional OTP / promo SMSes
-        if (cleanBody.lowercase(Locale.ROOT).contains("otp") || cleanBody.lowercase(Locale.ROOT).contains("login code")) {
+        if (SmsPrivacy.containsOtp(body)) {
             return null
         }
 
@@ -200,6 +268,11 @@ object SmsParser {
         val debit = amountFrom(DEBIT_PATTERNS)
         val amount = debit ?: amountFrom(CREDIT_PATTERNS) ?: return null
         val direction = if (debit != null) "debit" else "credit"
+
+        return fields(amount, direction, cleanBody, lowerSender)
+    }
+
+    private fun fields(amount: Double, direction: String, cleanBody: String, lowerSender: String): ParsedSmsTxn {
 
         // Detect Bank
         val bankMatcher = BANK_PATTERN.matcher(cleanBody.uppercase(Locale.ROOT))

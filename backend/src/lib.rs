@@ -12,6 +12,7 @@ pub mod ingest;
 pub mod portfolio;
 pub mod reports;
 pub mod rules;
+pub mod sms;
 pub mod subscriptions;
 pub mod txns;
 
