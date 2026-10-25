@@ -430,3 +430,27 @@ forced RLS and loopback bindings match the deployment. All original financial
 and source fields remained unchanged; sync delivery cursors may advance normally.
 The encrypted database backup and verification manifests are referenced under
 `~/.local/state/khata-transaction-edit/`. See `docs/transaction-editing.md`.
+
+
+## SMS title and notes swap (2026-10-25)
+
+Android [v0.45.24](https://github.com/sahuishan01/Khata/releases/tag/v0.45.24) is the verified signed update from
+run `40176026574` (82 release tests, versionCode 210, signature continuity
+with v0.45.23). [Download APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.24/khata_0.45.24-release.apk). The title is
+**Auto-captured via SMS (bank)** and Notes holds the exact original SMS.
+Use **Add Data → Scan SMS inbox** to swap verified automatic entries with the
+original message present. Custom and unverifiable title/notes pairs stay; full edits remain protected.
+
+Backend/web CI `40176342020` at `7fdcb20f6e2ad44ab01e55fc623d8236ff0fc870` passed 216 tests
+(1 ignored), Clippy and web build. Deployed artifacts:
+
+- Backend: `/usr/local/lib/khata/releases/v0.45.24-sms-notes-20261025T083753Z`.
+- Web: `/srv/khata/releases/v0.45.24-sms-notes-20261025T083753Z`.
+- Migration 0040 updates SMS evidence functions without rewriting stored rows.
+
+Public revision/assets match verified CI output and browser-tested files.
+Stored financial/source records, encrypted backup roundtrip, authentication,
+forced RLS and loopback bindings were verified. Release lint, Security Scan
+`40176342018`, desktop/mobile browser checks and Android API 35 emulator checks
+passed. The Android tree matches the signed tag. Evidence and backup manifest:
+`~/.local/state/khata-sms-title-notes/`. See `docs/transaction-editing.md`.

@@ -29,12 +29,12 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.24` (verification pending).
-Last verified signed APK: `v0.45.23`
-(GitHub Actions run `40155432187`, 81 release unit tests passed). Its signing
-certificate matches `v0.45.21`; versionCode 209 supports updating the existing
-app. APK integrity, GitHub asset digest, required SMS/editing metadata,
-production API URL, HTTPS-only networking and shortcut components were verified.
+Current release version: `v0.45.24` (verified).
+Last verified signed APK: `v0.45.24`
+(GitHub Actions run `40176026574`, 82 release unit tests passed). Its signing
+certificate matches `v0.45.23`; versionCode 210 supports updating the existing
+app. ZIP/digest/signature, retained SMS/editing metadata, production API URL,
+HTTPS-only networking and shortcut components were verified.
 
 `v0.45.24` swaps SMS-generated title and notes: the title is
 **Auto-captured via SMS (bank)** and Notes retains the exact original message.
@@ -42,7 +42,12 @@ Inbox rescans swap only verified automatic fields, preserving custom notes/title
 and full edits. Migration 0040 preserves repayment matching from verified Notes
 and legacy descriptions, future-date safeguards and retry acknowledgements.
 Notes accept 16000 characters on both clients and the API. No data backfill.
-See `docs/transaction-editing.md`; verification is in progress.
+See `docs/transaction-editing.md`. Release lint, 216 backend tests (1 ignored),
+Clippy, web build, browser/emulator checks and Security Scan `40176342018` passed.
+Backend/web run `40176342020` (revision `7fdcb20`) is deployed with migration 0040.
+The Android tree matches the signed tag. Stored financial/source records,
+authentication, forced RLS and loopback bindings were verified. Evidence:
+`~/.local/state/khata-sms-title-notes/`.
 
 `v0.45.23` uses exact SMS text as the description and adds **Edit transaction**
 to Android and web. All user-facing fields can be edited atomically. Saved edits
@@ -113,14 +118,14 @@ fund-block guards and required metadata were verified. Evidence:
 R8. Use the latest verified signed release; the Gson DTO is retained explicitly
 in the ProGuard rules.
 
-Backend artifact from run `40161566580` (commit `860395d`) is deployed
-with migration 0039 (214 backend tests passed, 1 ignored; Clippy and the
+Backend artifact from run `40176342020` (commit `7fdcb20`) is deployed
+with migration 0040 (216 backend tests passed, 1 ignored; Clippy and the
 workflow's web build passed). Identical upload retries now acknowledge saved rows
 and refresh the device's canonical cache. Automatic transfer/duplicate flags are
 preserved; genuine stale edits still require review. Push and resolution return
 revisions after deferred reconciliation. This recovery works in Android v0.45.15.
 
-The current web assets are from run `40161566580`. Earlier desktop and phone
+The current web assets are from run `40176342020`. Earlier desktop and phone
 browser checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
 Whole-history reconciliation handles CRED and direct bill payments, older
 confirmation metadata, separate upload batches and date differences. Explicit

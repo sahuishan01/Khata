@@ -1,5 +1,27 @@
 # HANDOFF.md — Khata Project Handoff
 
+**SMS title/notes swap (2026-10-25):** Verified Android `v0.45.24` uses
+**Auto-captured via SMS (bank)** as the title and retains the exact SMS in Notes.
+Install as an update; **Add Data → Scan SMS inbox** swaps verified automatic
+entries while their original SMS remains present. Custom titles/notes, full
+edits remain protected through repeat scans; unverifiable title/notes pairs stay. Notes
+support 16000 characters on Android, web and API; expanded web notes retain
+line breaks. Full transaction editing remains available.
+
+Migration 0040 keeps repayment matching, economic-credit guards, future-date
+checks and retry acknowledgements working with both SMS layouts. It only updates
+functions; all stored financial/source records were preserved on deployment.
+Signed CI `40176026574` passed 82 release tests; APK integrity/digest, signature
+continuity with v0.45.23, versionCode 210, metadata, HTTPS-only production
+URL and retained shortcut components were verified. Release lint, 216 backend
+tests (1 ignored), Clippy, browser/emulator checks and Security Scan
+`40176342018` passed. Backend/web CI `40176342020` (`7fdcb20`) is deployed; public assets
+match browser-tested bytes. Auth, forced RLS and loopback bindings remain enforced.
+The self-hosted workflow now reuses its verified installed Rust/Clippy toolchain
+because static.rust-lang.org was unreachable. Hosted PRs retain the installer.
+Evidence: `~/.local/state/khata-sms-title-notes/`. Physical-phone UI verification
+remains unavailable; the existing default CodeQL unsigned Java issue is separate.
+
 **Exact SMS and full editing (2026-10-25):** Android `v0.45.23` and web now
 provide **Edit transaction** for description, amount, direction, both dates,
 category, bank/reference, optional balance, transfer status and notes. SMS imports
