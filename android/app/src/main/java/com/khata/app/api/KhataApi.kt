@@ -35,6 +35,7 @@ interface KhataApi {
     ): TxnListResponse
     @GET("api/txns/categories") suspend fun listCategories(): List<String>
     @POST("api/txns") suspend fun createTxn(@Body body: CreateTxnReq): TxnRow
+    @PUT("api/txns/{id}") suspend fun updateTxn(@Path("id") id: String, @Body body: UpdateTxnReq): TxnRow
     @PATCH("api/txns/{id}/transfer") suspend fun toggleTransfer(@Path("id") id: String, @Body body: ToggleTransferReq): MessageResponse
     @POST("api/txns/{id}/duplicate") suspend fun excludeDuplicate(@Path("id") id: String): MessageResponse
     @POST("api/txns/{id}/restore") suspend fun restoreDuplicate(@Path("id") id: String): MessageResponse

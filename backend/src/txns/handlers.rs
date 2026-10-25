@@ -687,6 +687,67 @@ pub async fn get_txn(
     }
 }
 
+/// Save all editable fields atomically, preserving source identity and raw text.
+pub async fn update_txn(
+    State(state): State<AppState>,
+    CurrentUser(user_id): CurrentUser,
+    Path(txn_id): Path<Uuid>,
+    Json(req): Json<UpdateTxnReq>,
+) -> Result<Json<TxnRow>, AppError> {
+    fn valid_money(value: f64) -> bool {
+        value.is_finite() && value.abs() <= 999_999_999_999.99
+            && (value - (value * 100.0).round() / 100.0).abs() <= f64::EPSILON * value.abs().max(1.0)
+    }
+    if req.base_rev < 0 || req.description.trim().is_empty() || req.description.chars().count() > 16_000 {
+        return Err(AppError::BadRequest("Description must contain 1–16000 characters".into()));
+    }
+    if !valid_money(req.amount) || req.amount <= 0.0 || req.balance.is_some_and(|v| !valid_money(v)) {
+        return Err(AppError::BadRequest("Enter a positive amount and valid balance with at most two decimal places".into()));
+    }
+    if !matches!(req.direction.as_str(), "debit" | "credit") {
+        return Err(AppError::BadRequest("Direction must be debit or credit".into()));
+    }
+    if req.category.trim().is_empty() || req.category.chars().count() > 100
+        || req.bank.trim().is_empty() || req.bank.chars().count() > 100
+        || req.bank_ref.as_ref().is_some_and(|r| r.chars().count() > 500)
+        || req.notes.chars().count() > 10_000 {
+        return Err(AppError::BadRequest("Check category, bank, reference and notes lengths".into()));
+    }
+    let mut tx = state.db.begin().await?;
+    crate::db::set_current_user(&mut *tx, user_id).await?;
+    // Use the same tenant lock order as sync and the identity triggers.
+    sqlx::query("SELECT id FROM users WHERE id=$1 FOR UPDATE")
+        .bind(user_id).execute(&mut *tx).await?;
+    let revision: Option<i64> = sqlx::query_scalar(
+        "SELECT rev FROM transactions WHERE id=$1 AND user_id=$2 AND NOT deleted FOR UPDATE"
+    ).bind(txn_id).bind(user_id).fetch_optional(&mut *tx).await?;
+    let revision = revision.ok_or(AppError::NotFound)?;
+    if revision != req.base_rev {
+        return Err(AppError::Conflict("This transaction changed. Reopen it to review the latest values before saving.".into()));
+    }
+    sqlx::query(
+        "UPDATE transactions SET description=$1, amount=$2, direction=$3, category=$4, \
+         txn_date=$5, value_date=$6, bank=$7, bank_ref=$8, balance=$9, is_transfer=$10, notes=$11, \
+         sms_source=CASE WHEN sms_source IS NOT NULL THEN sms_source || '{\"user_edited\":true}'::jsonb \
+             WHEN notes LIKE 'Auto-captured via SMS%' THEN jsonb_build_object('parser_version',0, \
+                 'date_source','queue','parsed_date',txn_date,'user_edited',true) ELSE NULL END, \
+         transfer_override=true, duplicate_override=true, version=version+1, base_rev=rev, rev=rev+1, updated_at=NOW() \
+         WHERE id=$12 AND user_id=$13"
+    ).bind(&req.description).bind(req.amount).bind(&req.direction).bind(req.category.trim())
+        .bind(req.txn_date).bind(req.value_date).bind(req.bank.trim()).bind(&req.bank_ref)
+        .bind(req.balance).bind(req.is_transfer).bind(&req.notes).bind(txn_id).bind(user_id)
+        .execute(&mut *tx).await?;
+    // Return the committed canonical revision after deferred reconciliation.
+    sqlx::query("SET CONSTRAINTS ALL IMMEDIATE").execute(&mut *tx).await?;
+    let row = sqlx::query_as::<_, TxnRow>(
+        "SELECT id, txn_date, value_date, description, amount::float8, direction, balance::float8, \
+         bank, bank_ref, category, is_transfer, notes, version, rev, base_rev, deleted, updated_at, client_id, sms_source \
+         FROM transactions WHERE id=$1 AND user_id=$2"
+    ).bind(txn_id).bind(user_id).fetch_one(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(Json(row))
+}
+
 /// Edit the displayed title without changing the import identity or source text.
 pub async fn update_description(
     State(state): State<AppState>,

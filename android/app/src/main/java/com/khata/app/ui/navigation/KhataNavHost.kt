@@ -264,7 +264,7 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
                     },
                     onToggleTransfer = { id, v -> viewModel.toggleTransfer(id, v) },
                     onUpdateNotes = { id, n -> viewModel.updateNotes(id, n) },
-                    onUpdateTitle = viewModel::updateTitle,
+                    onUpdateTransaction = viewModel::updateTransaction,
                     onUpdateCategory = { id, cat -> viewModel.updateCategory(id, cat) }
                 )
             }

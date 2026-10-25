@@ -216,6 +216,19 @@ class MainViewModel @Inject constructor(
         } catch (e: CancellationException) { throw e
         } catch (_: Exception) { "Could not save the title. Check your connection and retry." }
     }
+    suspend fun updateTransaction(id: String, req: UpdateTxnReq): String? {
+        return try {
+            repository.updateTxn(id, req)
+            val f = _txnFilterState.value
+            loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
+            refreshDashboard()
+            null
+        } catch (e: CancellationException) { throw e
+        } catch (e: retrofit2.HttpException) {
+            if (e.code() == 409) "This transaction changed. Reopen it to review the latest values before saving."
+            else "Could not save the transaction. Check your connection and retry."
+        } catch (_: Exception) { "Could not save the transaction. Check your connection and retry." }
+    }
     fun updateNotes(id: String, notes: String) { viewModelScope.launch { try {
         repository.updateNotes(id, notes);
         val f = _txnFilterState.value; loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)

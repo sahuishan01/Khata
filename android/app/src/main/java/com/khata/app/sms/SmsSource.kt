@@ -18,6 +18,8 @@ data class SmsSource(
     @SerializedName("previous_value_date") val previousValueDate: String? = null,
     @SerializedName("payment_role") val paymentRole: String? = null,
     @SerializedName("card_account_key") val cardAccountKey: String? = null,
+    @SerializedName("user_edited") val userEdited: Boolean? = null,
+    @SerializedName("parsed_payee") val parsedPayee: String? = null,
 ) {
     companion object {
         /** Older/minified metadata must never prevent the financial row uploading. */

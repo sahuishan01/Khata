@@ -34,6 +34,14 @@ interface TransactionDao {
         return true
     }
 
+    /** Do not replace a transaction edited while the inbox scan was parsing it. */
+    @Transaction
+    suspend fun saveSmsIfUnchanged(expected: LocalTransaction?, row: LocalTransaction): Boolean {
+        if (getByClientId(row.clientId) != expected) return false
+        upsert(row)
+        return true
+    }
+
     @Query("SELECT * FROM transactions WHERE dirty = 1 AND pendingOp IS NOT NULL")
     suspend fun getOutbox(): List<LocalTransaction>
 

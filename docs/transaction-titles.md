@@ -1,5 +1,9 @@
 # Transaction titles
 
+The full **Edit transaction** editor supersedes **Edit title** in v0.45.22.
+See [transaction-editing.md](transaction-editing.md). The title-only API below
+remains available for older clients; the following records its original release.
+
 Open **Transactions**, expand a transaction, then choose **Edit title**. Android
 also offers the action in the transaction's three-dot menu. The editor prefills
 the current title. Save trims surrounding whitespace; Cancel discards the draft.

@@ -1,6 +1,7 @@
 package com.khata.app.data
 
 import com.khata.app.api.*
+import androidx.room.withTransaction
 import okhttp3.MultipartBody
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -8,7 +9,8 @@ import javax.inject.Singleton
 @Singleton
 class KhataRepository @Inject constructor(
     private val api: KhataApi,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val database: KhataDatabase,
 ) {
     suspend fun login(email: String, password: String): AuthResponse {
         val response = api.login(mapOf("email" to email, "password" to password))
@@ -38,6 +40,19 @@ class KhataRepository @Inject constructor(
     suspend fun restoreDuplicate(id: String) = api.restoreDuplicate(id)
     suspend fun listCategories(): List<String> = api.listCategories()
     suspend fun createTxn(req: CreateTxnReq) = api.createTxn(req)
+    suspend fun updateTxn(id: String, req: UpdateTxnReq): TxnRow {
+        val saved = api.updateTxn(id, req)
+        // Make edits visible to inbox rescans immediately; retain pending local work
+        // so normal sync can surface its revision conflict for review.
+        database.withTransaction {
+            val dao = database.transactionDao()
+            val local = dao.getByClientId(saved.clientId ?: saved.id)
+            if (local == null || (!local.dirty && local.rev <= saved.rev)) {
+                dao.upsert(saved.toLocal().let { if (local == null) it else it.copy(id = local.id) })
+            }
+        }
+        return saved
+    }
     suspend fun toggleTransfer(id: String, v: Boolean) = api.toggleTransfer(id, ToggleTransferReq(v))
     suspend fun updateNotes(id: String, notes: String) = api.updateNotes(id, UpdateNotesReq(notes))
     suspend fun updateTitle(id: String, title: String) = api.updateDescription(id, UpdateDescriptionReq(title))

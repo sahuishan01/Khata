@@ -19,10 +19,11 @@ object SmsImport {
         if (parsed.refNo != null || parsed.isTransfer) return false
         val old = dao.getByClientId(SmsParser.clientId(parsed, body, sender, timestamp)) ?: return false
         val source = SmsSource.decode(old.smsSource) ?: return false
+        if (source.userEdited == true) return false
         if (source.bodyHash != SmsSource.from(body, timestamp, queuedAt).bodyHash || source.receivedAt != timestamp) return false
         if (old.deleted || (old.dirty && old.baseRev > 0) ||
             old.amount != parsed.amount || old.direction != parsed.direction || old.bank != parsed.bank ||
-            old.description != parsed.payee || old.category != "Uncategorized" || old.isTransfer ||
+            (old.description != parsed.payee && old.description != body) || old.category != "Uncategorized" || old.isTransfer ||
             old.bankRef.isNotBlank() || old.balance != null ||
             old.notes != "Auto-captured via SMS (${parsed.bank})" ||
             old.txnDate != source.parsedDate || old.valueDate != source.parsedDate) return false
@@ -46,7 +47,7 @@ object SmsImport {
         val row = old?.let { repair(it, parsed, body, timestamp) }
             ?: transaction(parsed, body, sender, timestamp, queuedAt)
         if (row == old) return SmsSaveResult.UNCHANGED
-        dao.upsert(row)
+        if (!dao.saveSmsIfUnchanged(old, row)) return SmsSaveResult.UNCHANGED
         return if (old == null) SmsSaveResult.CREATED else SmsSaveResult.UPDATED
     }
 
@@ -54,13 +55,13 @@ object SmsImport {
         val date = SmsDates.resolve(body, timestamp, queuedAt)
         return LocalTransaction(
             clientId = SmsParser.clientId(parsed, body, sender, timestamp),
-            description = if (parsed.isTransfer) "Credit card ${if (parsed.direction == "credit") "payment received" else "bill payment"}" else parsed.payee,
+            description = body,
             amount = parsed.amount, direction = parsed.direction,
             category = if (parsed.isTransfer) "Transfer" else "Uncategorized",
             bank = parsed.bank, bankRef = parsed.refNo.orEmpty(), txnDate = date, valueDate = date,
             isTransfer = parsed.isTransfer, notes = "Auto-captured via SMS (${parsed.bank})",
             updatedAt = queuedAt, dirty = true, pendingOp = "CREATE",
-            smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt, parsed.direction, parsed.bank)),
+            smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt, parsed.direction, parsed.bank).copy(parsedPayee = parsed.payee)),
         )
     }
 
@@ -69,7 +70,9 @@ object SmsImport {
         if (old.deleted || !old.notes.startsWith("Auto-captured")) return old
         val oldMessageDate = SmsDates.timestampDate(timestamp)
         val previousSource = SmsSource.decode(old.smsSource)
+        if (previousSource?.userEdited == true) return old
         val incomingSource = SmsSource.from(body, timestamp, old.updatedAt, parsed.direction, parsed.bank)
+            .copy(parsedPayee = parsed.payee)
         // Another alert for a referenced payment may omit the transaction date.
         // Its receipt day must not replace a known valid date from the earlier alert.
         val source = if (previousSource?.dateSource == "body" && incomingSource.dateSource != "body" &&
@@ -87,8 +90,10 @@ object SmsImport {
                 previousValueDate = previousSource?.previousValueDate)),
             isTransfer = old.isTransfer || newTransfer,
             category = if (newTransfer) "Transfer" else old.category,
-            // A rescan may repair evidence/classification, but a saved title wins.
-            description = old.description,
+            // Backfill only a proven original alert with an untouched generated title.
+            description = if (previousSource?.bodyHash == incomingSource.bodyHash &&
+                previousSource?.receivedAt == timestamp && old.description in listOf(parsed.payee,
+                    "Credit card payment received", "Credit card bill payment")) body else old.description,
         )
         return if (changed == old) old else changed.copy(dirty = true, pendingOp = if (old.baseRev > 0) "UPDATE" else "CREATE")
     }

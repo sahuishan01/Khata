@@ -12,6 +12,45 @@ class SmsImportTest {
     private val queued = timestamp + 3 * 86_400_000
     private val body = "Rs.500 debited from HDFC account towards HDFC credit card on 18/10/26. Ref 1234567890"
 
+    @Test fun descriptionRetainsTheExactSmsIncludingWhitespaceAndLongMessages() {
+        val message = "  INR 500 debited from HDFC A/c XX1234 to SHOP.\n" + "Bank information. ".repeat(40) + "  "
+        val parsed = SmsParser.parse(message, "VM-HDFCBK")!!
+        val row = SmsImport.transaction(parsed, message, "VM-HDFCBK", timestamp, queued)
+        assertEquals(message, row.description)
+        assertTrue(row.description.length > 500)
+        assertEquals(parsed.payee, SmsSource.decode(row.smsSource)!!.parsedPayee)
+        assertEquals(message, Gson().fromJson(Gson().toJson(row), com.khata.app.data.LocalTransaction::class.java).description)
+    }
+
+    @Test fun rescanBackfillsProvenGeneratedDescriptionsAndPreservesFullUserEdits() {
+        val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
+        val fresh = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued)
+        val legacy = fresh.copy(description = "Credit card bill payment", rev = 1, baseRev = 1, dirty = false, pendingOp = null)
+        assertEquals(body, SmsImport.repair(legacy, parsed, body, timestamp).description)
+        val unverified = legacy.copy(smsSource = null)
+        assertEquals(unverified.description, SmsImport.repair(unverified, parsed, body, timestamp).description)
+        val edited = legacy.copy(description = "My title", amount = 321.0, direction = "credit", bank = "AXIS",
+            bankRef = "", balance = -100.0, category = "Refund", isTransfer = false,
+            txnDate = "2026-10-21", valueDate = "2026-10-22",
+            smsSource = Gson().toJson(SmsSource.decode(legacy.smsSource)!!.copy(userEdited = true)))
+        assertEquals(edited, SmsImport.repair(edited, parsed, body, timestamp))
+        assertTrue(SmsSource.decode(edited.smsSource)!!.userEdited == true)
+    }
+
+    @Test fun aScanCannotSaveOverAnEditMadeAfterItsLookup() = runBlocking {
+        val parsed = SmsParser.parse(body, "VM-HDFCBK")!!
+        val original = SmsImport.transaction(parsed, body, "VM-HDFCBK", timestamp, queued)
+        val dao = SyncOutboxTest.MemoryDao(listOf(original))
+        val edited = original.copy(description = "Just edited", amount = 900.0)
+        dao.upsert(edited)
+        assertFalse(dao.saveSmsIfUnchanged(original, original.copy(description = "Parsed later")))
+        assertEquals(edited, dao.getByClientId(original.clientId))
+        val legacyMetadata = """{"parser_version":1,"date_source":"message","parsed_date":"2026-10-20"}"""
+        val decoded = SmsSource.decode(legacyMetadata)!!
+        assertNull(decoded.userEdited)
+        assertFalse(Gson().toJson(decoded).contains("user_edited"))
+    }
+
     @Test fun bothSidesOfACardRepaymentAreTransfers() {
         val messages = listOf(
             body,
