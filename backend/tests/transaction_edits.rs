@@ -10,6 +10,7 @@ use khata::{
     },
     AppState,
 };
+use sha2::Digest;
 use sqlx::PgPool;
 use std::{
     collections::HashMap,
@@ -570,7 +571,8 @@ async fn exact_sms_descriptions_retain_cred_card_reconciliation(pool: PgPool) {
         operation.is_transfer = Some(direction == "credit");
         operation.sms_source=Some(sqlx::types::Json(serde_json::from_value(serde_json::json!({
             "parser_version":1,"date_source":"body","parsed_date":"2026-10-20","received_at":time+offset,
-            "parsed_payee":payee,"payment_role":role,"card_account_key":role.map(|_| "b".repeat(64)),
+            "parsed_payee":payee,"body_hash":format!("{:x}", sha2::Sha256::digest(text.to_lowercase().as_bytes())),
+            "payment_role":role,"card_account_key":role.map(|_| "b".repeat(64)),
         })).unwrap()));
         operations.push(operation);
     }
@@ -615,6 +617,8 @@ async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_des
     for (amount, role, transfer) in [
         (701.0, None, false),
         (702.0, Some("card_confirmation"), true),
+        (703.0, None, false),
+        (704.0, None, false),
     ] {
         for (index, text, direction, payee, payment_role, is_transfer) in [
             (
@@ -642,13 +646,21 @@ async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_des
                 transfer,
             ),
         ] {
-            let mut operation = op(&format!("{text} Amount {amount}"), direction, amount);
+            let original_message = format!("{text} Amount {amount}");
+            let description = if amount == 703.0 && index == 2 {
+                "My salary"
+            } else if amount == 704.0 && index == 0 {
+                "My store purchase"
+            } else {
+                &original_message
+            };
+            let mut operation = op(description, direction, amount);
             operation.is_transfer = Some(is_transfer);
             operation.sms_source = Some(sqlx::types::Json(
                 serde_json::from_value(serde_json::json!({
                     "parser_version":1,"date_source":"body","parsed_date":"2026-10-20",
                     "received_at":time + if index == 2 { 86_400_000 } else { index * 3000 },
-                    "parsed_payee":payee,"payment_role":payment_role,
+                    "parsed_payee":payee,"body_hash":format!("{:x}", sha2::Sha256::digest(original_message.to_lowercase().as_bytes())),"payment_role":payment_role,
                 }))
                 .unwrap(),
             ));
@@ -685,6 +697,20 @@ async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_des
         !rows
             .iter()
             .find(|row| row.client_id == Some(confirmations[1]))
+            .unwrap()
+            .deleted
+    );
+    assert!(
+        !rows
+            .iter()
+            .find(|row| row.client_id == Some(confirmations[2]))
+            .unwrap()
+            .deleted
+    );
+    assert!(
+        !rows
+            .iter()
+            .find(|row| row.client_id == Some(confirmations[3]))
             .unwrap()
             .deleted
     );
