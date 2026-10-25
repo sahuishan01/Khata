@@ -17,6 +17,9 @@ references, categorization and explicit transfer choices.
 
 Changes through existing inline category, notes and transfer controls also
 advance revisions. An already-open full editor cannot overwrite those changes.
+Older scanners that omit new metadata cannot replace full edits through ordinary
+uploads, even after pulling the latest revision. Unchanged upload retries still
+acknowledge saved rows; changed queued rows require explicit conflict review.
 
 The authenticated `PUT /api/txns/:id` accepts the complete editable field set
 and `base_rev` from the opened transaction. Ownership is enforced with RLS and
