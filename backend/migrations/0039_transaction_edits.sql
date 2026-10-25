@@ -1,8 +1,17 @@
 -- User edits remain authoritative over SMS date, duplicate and card inference.
 -- Parsed payees preserve CRED funding evidence when descriptions contain exact SMS.
+-- Derived payees apply only while the description is the original message.
+-- A title saved by an older client must keep its previous matching behavior.
+CREATE FUNCTION has_original_sms_description(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+    SELECT length(t.sms_source->>'body_hash')=64 AND
+        encode(sha256(convert_to(lower(btrim(regexp_replace(t.description, '\s+', ' ', 'g'))), 'UTF8')), 'hex')
+            = lower(t.sms_source->>'body_hash');
+$$;
+
 CREATE OR REPLACE FUNCTION is_cred_funding(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
     SELECT NOT t.deleted AND coalesce(t.sms_source->>'user_edited','false') <> 'true' AND t.direction = 'debit' AND is_named_bank(t.bank)
-      AND trim(regexp_replace(upper(coalesce(t.sms_source->>'parsed_payee', t.description)), '[^A-Z0-9]+', ' ', 'g')) IN ('CRED','CRED CLUB');
+      AND trim(regexp_replace(upper(CASE WHEN t.sms_source->>'parsed_payee' IS NOT NULL AND has_original_sms_description(t)
+          THEN t.sms_source->>'parsed_payee' ELSE t.description END), '[^A-Z0-9]+', ' ', 'g')) IN ('CRED','CRED CLUB');
 $$;
 CREATE OR REPLACE FUNCTION is_card_receipt(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
     SELECT NOT t.deleted AND coalesce(t.sms_source->>'user_edited','false') <> 'true' AND t.direction = 'credit' AND t.is_transfer
@@ -122,7 +131,7 @@ FOR EACH ROW EXECUTE FUNCTION advance_transaction_edit_revision();
 CREATE FUNCTION is_generic_sms_confirmation(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
     SELECT coalesce(t.sms_source->>'user_edited','false') <> 'true' AND (
         lower(trim(t.description))='transaction' OR (t.sms_source->>'payment_role' IS NULL
-            AND lower(trim(t.sms_source->>'parsed_payee'))='transaction'));
+            AND lower(trim(t.sms_source->>'parsed_payee'))='transaction' AND has_original_sms_description(t)));
 $$;
 CREATE OR REPLACE FUNCTION is_card_confirmation_candidate(a transactions,b transactions) RETURNS boolean LANGUAGE plpgsql STABLE AS $$
 DECLARE delta bigint;
