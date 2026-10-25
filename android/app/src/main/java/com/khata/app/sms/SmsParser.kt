@@ -22,17 +22,33 @@ object SmsParser {
         return UUID.nameUUIDFromBytes(identity.toByteArray(Charsets.UTF_8)).toString()
     }
 
-    // Regex patterns for Indian Bank SMSes (HDFC, ICICI, SBI, Axis, PNB, Kotak, UPI, Paytm, PhonePe, Cred)
+    // Posting grammar is shared by issuers. Abbreviations need an account
+    // reference so a doctor, credit limit or balance cannot become a posting.
+    private const val CURRENCY = "(?:rs\\.?|inr|₹)"
+    private const val AMOUNT = "([0-9,]+(?:\\.[0-9]{1,2})?)"
+    private const val ACCOUNT_REFERENCE = "\\b(?:account|acct|acc|a/c|ac)\\s*" +
+        "(?:(?:no\\.?|number|ending(?:\\s+(?:in|with))?)\\s*)?[:#.-]?\\s*" +
+        "[x*•#0-9][x*•#0-9 -]{0,38}[0-9]{2,}"
+
+    private fun accountPostings(marker: String): List<Pattern> {
+        val posting = "\\b${Pattern.quote(marker)}\\b\\.?"
+        val money = "$CURRENCY\\s*$AMOUNT"
+        return listOf(
+            "$ACCOUNT_REFERENCE\\s*(?:(?:is|was|has\\s+been)\\s+)?$posting\\s*$money",
+            "$ACCOUNT_REFERENCE\\s*$money\\s*$posting",
+        ).map { Pattern.compile(it, Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CHARACTER_CLASS) }
+    }
+
     private val DEBIT_PATTERNS = listOf(
         Pattern.compile("(?i)(?:debited|sent|paid|spent|txn of|withdrawn|vpa)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
         Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:debited|spent|paid|withdrawn|transferred)"),
-    )
+    ) + accountPostings("dr")
 
     private val CREDIT_PATTERNS = listOf(
         Pattern.compile("(?i)payment\\s+(?:of\\s+)?(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?).{0,80}?(?:received|credited|acknowledged)"),
         Pattern.compile("(?i)(?:credited|received|deposited|added)\\s*(?:by|for|of|with)?\\s*(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)"),
         Pattern.compile("(?i)(?:rs\\.?|inr|₹)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s*(?:has\\s+been\\s+|is\\s+)?(?:credited|received|deposited)"),
-    )
+    ) + accountPostings("cr")
 
     // "Get Rs ... credited" describes an offer, not money that has arrived.
     // Check the clause governing each amount, rather than banning words such as
@@ -108,10 +124,19 @@ object SmsParser {
         return excluded
     }
 
-    private val BANK_PATTERN = Pattern.compile("(?i)\\b(HDFC|ICICI|SBI|AXIS|KOTAK|PNB|BOB|CANARA|PAYTM|IDFC|YES|INDUSIND)\\b")
+    // An issuer catalog identifies bank names/sender aliases; it does not gate
+    // transaction recognition or select bank-specific message templates.
+    private val BANK_ALIASES = linkedMapOf(
+        "HDFC" to listOf("hdfc"), "ICICI" to listOf("icici"), "SBI" to listOf("sbi"),
+        "AXIS" to listOf("axis"), "KOTAK" to listOf("kotak"), "PNB" to listOf("pnb"),
+        "BOB" to listOf("bob"), "CANARA" to listOf("canara", "canbnk"),
+        "PAYTM" to listOf("paytm"), "IDFC" to listOf("idfc"), "YES" to listOf("yesbnk"),
+        "INDUSIND" to listOf("indusind", "indusb"),
+    )
+    private val BANK_PATTERN = Pattern.compile("(?i)\\b(${BANK_ALIASES.keys.joinToString("|") { Pattern.quote(it) }})(?:\\s*BANK)?\\b")
     // \b matters: without it the "to" inside ordinary prose ("...wish to inform
     // you that Rs 514...") matches and the payee becomes "inform you that Rs".
-    private val PAYEE_PATTERN = Pattern.compile("(?i)\\b(?:to|at|info|vpa)\\s+([A-Za-z0-9\\s\\.\\@\\-\\_]+?)(?:\\s+on|\\s+ref|\\s+avail|\\s+bal|\\s+bal:|\\.|\\,|$)")
+    private val PAYEE_PATTERN = Pattern.compile("(?i)\\b(?:to|at|info|vpa)\\s+([A-Za-z0-9\\s\\.\\@\\-\\_]+?)(?:\\s+on|\\s+ref|\\s+avail|\\s+bal|[.,;:!?]|$)")
 
     /** First words that mean the capture is English prose, not a merchant. */
     private val PAYEE_STOP_WORDS = setOf(
@@ -132,7 +157,7 @@ object SmsParser {
         return first in PAYEE_STOP_WORDS
     }
     private val REF_PATTERN = Pattern.compile("(?i)\\b(?:upi\\s*ref(?:erence)?|ref(?:erence)?|rrn|txn\\s*(?:id|no|number)|transaction\\s*(?:id|no|number))\\s*\\.?\\s*(?:(?:no|number|id)\\.?\\s*)?[:#-]?\\s*([A-Za-z0-9][A-Za-z0-9/-]{5,})")
-    private val EXTRA_REFERENCE = Regex("(?i)\\b(?:utr(?:\\s*(?:no|number))?\\.?\\s*[:#-]?\\s*([A-Za-z0-9]{10,35})|upi[/:-](?:p2[ap]/)?([0-9]{12})(?![0-9]))")
+    private val EXTRA_REFERENCE = Regex("(?i)\\b(?:utr(?:\\s*(?:no|number))?\\.?\\s*[:#-]?\\s*([A-Za-z0-9]{10,35})|upi\\s*[/:-]\\s*(?:p2[ap]/)?([0-9]{12})(?![A-Za-z0-9]))")
 
     // Keep old identities discoverable when a new parser learns a previously missed reference.
     fun legacyReference(body: String): String? {
@@ -176,16 +201,9 @@ object SmsParser {
         val direction = if (debit != null) "debit" else "credit"
 
         // Detect Bank
-        var bank = "Bank"
         val bankMatcher = BANK_PATTERN.matcher(cleanBody.uppercase(Locale.ROOT))
-        if (bankMatcher.find()) {
-            bank = bankMatcher.group(1) ?: "Bank"
-        } else if (lowerSender.contains("hdfc")) bank = "HDFC"
-        else if (lowerSender.contains("icici")) bank = "ICICI"
-        else if (lowerSender.contains("sbi")) bank = "SBI"
-        else if (lowerSender.contains("axis")) bank = "AXIS"
-        else if (lowerSender.contains("kotak")) bank = "KOTAK"
-        else if (lowerSender.contains("canara") || lowerSender.contains("canbnk")) bank = "CANARA"
+        val bank = if (bankMatcher.find()) bankMatcher.group(1) ?: "Bank"
+            else BANK_ALIASES.entries.firstOrNull { (_, aliases) -> aliases.any(lowerSender::contains) }?.key ?: "Bank"
 
         // Detect Payee
         var payee = "Transaction"

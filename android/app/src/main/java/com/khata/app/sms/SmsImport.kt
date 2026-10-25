@@ -47,6 +47,18 @@ object SmsImport {
         // the new reference-based ID. Otherwise its old duplicate is never repaired.
         val old = dao.getByClientId(legacyId) ?: dao.getByClientId(repairedId)
             ?: dao.getByClientId(previousClientId) ?: dao.getByClientId(clientId)
+            ?: run {
+                // Learning an issuer alias must not duplicate an older record
+                // whose issuer was unknown. Require the exact original receipt.
+                val original = SmsSource.from(body, timestamp, queuedAt)
+                listOf(parsed, legacyParsed).firstNotNullOfOrNull { previous ->
+                    dao.getByClientId(SmsParser.clientId(previous.copy(bank = "Bank"), body, sender, timestamp))
+                        ?.takeIf { row ->
+                            val source = SmsSource.decode(row.smsSource)
+                            source?.bodyHash == original.bodyHash && source?.receivedAt == timestamp
+                        }
+                }
+            }
         val row = old?.let { repair(it, parsed, body, timestamp) }
             ?: transaction(parsed, body, sender, timestamp, queuedAt)
         if (row == old) return SmsSaveResult.UNCHANGED
