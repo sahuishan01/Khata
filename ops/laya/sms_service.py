@@ -2,12 +2,24 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from sms_policy import MODEL_VERSION, contains_otp, decide
+from sms_policy import MODEL_VERSION, contains_otp, cpu_idle_enough, decide
+
+
+async def cpu_ready():
+    def counters():
+        return list(map(int, Path('/proc/stat').read_text().splitlines()[0].split()[1:9]))
+    try:
+        before = counters()
+        await asyncio.sleep(.2)
+        return cpu_idle_enough(before, counters())
+    except (OSError, ValueError, IndexError):
+        return False
 
 
 @asynccontextmanager
@@ -47,7 +59,7 @@ async def classify(request: Request):
         return JSONResponse({"error": "Invalid SMS request"}, status_code=400)
     if contains_otp(body):
         return JSONResponse({"error": "Authentication messages are not processed"}, status_code=400)
-    if app.state.slots.locked():
+    if app.state.slots.locked() or not await cpu_ready():
         return JSONResponse({"error": "Classifier busy"}, status_code=503)
     async with app.state.slots:
         try:

@@ -29,6 +29,11 @@ def contains_otp(body):
     return "otp" in body.lower() or OTP.search(body) is not None
 
 
+def cpu_idle_enough(before, after):
+    delta = [end - start for start, end in zip(before[:8], after[:8])]
+    return len(delta) == 8 and min(delta) >= 0 and sum(delta) > 0 and (delta[3] + delta[4]) / sum(delta) >= .8
+
+
 def decide(agent, body):
     # This check is deliberately before the first call into the model.
     if contains_otp(body):
