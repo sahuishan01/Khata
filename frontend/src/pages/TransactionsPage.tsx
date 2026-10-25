@@ -383,7 +383,7 @@ export function TransactionsPage() {
                         {formatDate(t.value_date)}
                       </td>
                       <td className="txn-desc" style={{ color: 'var(--text)' }}>
-                        {t.description}
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</span>
                         {t.possible_duplicate && <span className="badge badge-gray" style={{ marginLeft: 6 }}>Possible duplicate</span>}
                         {t.notes && <span style={{ fontSize: 11, color: 'var(--text-2)', marginLeft: 6 }}>📝</span>}
                       </td>
