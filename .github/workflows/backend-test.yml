@@ -48,7 +48,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Use installed Rust on VPS
+        if: runner.environment == 'self-hosted'
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustc" --version
+          "$HOME/.cargo/bin/cargo" --version
+          "$HOME/.cargo/bin/cargo-clippy" --version
+
       - name: Install Rust
+        if: runner.environment != 'self-hosted'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
