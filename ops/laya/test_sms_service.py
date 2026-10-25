@@ -1,5 +1,5 @@
 import unittest
-from sms_policy import contains_otp, decide
+from sms_policy import contains_otp, cpu_idle_enough, decide
 
 class FakeAgent:
     def __init__(self, transaction=.95, debit=.9):
@@ -13,6 +13,10 @@ class FakeAgent:
         return {'answers': {name: {'probabilities': {key: probability}}}}
 
 class DecisionsTest(unittest.TestCase):
+    def test_inference_requires_eighty_percent_cpu_idle(self):
+        self.assertTrue(cpu_idle_enough([0]*8,[20,0,0,80,0,0,0,0]))
+        self.assertFalse(cpu_idle_enough([0]*8,[21,0,0,79,0,0,0,0]))
+        self.assertFalse(cpu_idle_enough([0]*8,[0]*8))
     def test_otp_never_reaches_model(self):
         for body in ['OTP 123456 for INR 500', 'Your otp is 123456', 'One-time password 123456', 'Login code 123456']:
             agent = FakeAgent()

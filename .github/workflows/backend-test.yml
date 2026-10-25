@@ -7,14 +7,12 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
-      - 'ops/laya/**'
       - '.github/workflows/backend-test.yml'
   pull_request:
     branches: [master]
     paths:
       - 'backend/**'
       - 'frontend/**'
-      - 'ops/laya/**'
       - '.github/workflows/backend-test.yml'
 
 permissions:

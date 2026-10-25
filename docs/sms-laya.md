@@ -82,7 +82,9 @@ model under `/var/lib/khata-laya/model`.
 `khata-laya.service` runs as a dedicated unprivileged user on `127.0.0.1:8091`.
 It processes one SMS at a time with two CPU threads, a 150% CPU quota, a 2500 MiB
 memory soft limit and 3500 MiB hard limit. Network access is restricted to
-loopback, filesystem protections are enabled, access logs are disabled, and
+loopback. Inference starts only when `/proc/stat` reports at least 80% CPU idle;
+busy requests remain queued for retry. Filesystem protections are enabled,
+access logs are disabled, and
 errors do not include message bodies. Health: `GET http://127.0.0.1:8091/health`.
 The API gateway defaults to that service's `/decide` route; `KHATA_LAYA_URL` may
 override it only with another literal loopback HTTP address. No public model
