@@ -174,13 +174,14 @@ export function TransactionsPage() {
   const handleCategoryUpdate = (txnId: string, newCat: string) => {
     setList(l => l ? { ...l, data: l.data.map(t => t.id === txnId ? { ...t, category: newCat } : t) } : l)
     api.get<string[]>('/txns/categories').then(r => setCategories(r.data))
-    setTimeout(() => fetchPage(loadedPage.current), 1500)
+    void fetchPage(loadedPage.current)
   }
 
   const toggleTransfer = async (id: string, val: boolean) => {
     try {
       await api.patch(`/txns/${id}/transfer`, { is_transfer: val })
       setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, is_transfer: val } : t) } : l)
+      void fetchPage(loadedPage.current)
     } catch { setRefreshError('Could not save the transaction change. Please retry.') }
   }
 
@@ -189,6 +190,7 @@ export function TransactionsPage() {
       await api.patch(`/txns/${id}/notes`, { notes: noteText })
       setList(l => l ? { ...l, data: l.data.map(t => t.id === id ? { ...t, notes: noteText } : t) } : l)
       setEditingNotes(null)
+      void fetchPage(loadedPage.current)
     } catch { setRefreshError('Could not save the transaction change. Please retry.') }
   }
 

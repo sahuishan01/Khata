@@ -94,3 +94,25 @@ CREATE OR REPLACE FUNCTION is_card_funding(t transactions) RETURNS boolean LANGU
         AND (is_cred_funding(t) OR (t.is_transfer AND
             is_card_repayment(t.description,t.direction,t.bank='GENERIC_CC')));
 $$;
+
+-- Older inline/category/rule endpoints do not explicitly advance rev. A full
+-- editor opened before one of those writes must still receive a conflict.
+CREATE FUNCTION advance_transaction_edit_revision() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.rev = OLD.rev AND
+       ROW(NEW.description, NEW.amount, NEW.direction, NEW.txn_date, NEW.value_date,
+           NEW.bank, NEW.bank_ref, NEW.balance, NEW.category, NEW.is_transfer, NEW.notes, NEW.deleted)
+       IS DISTINCT FROM
+       ROW(OLD.description, OLD.amount, OLD.direction, OLD.txn_date, OLD.value_date,
+           OLD.bank, OLD.bank_ref, OLD.balance, OLD.category, OLD.is_transfer, OLD.notes, OLD.deleted) THEN
+        NEW.base_rev := OLD.rev;
+        NEW.rev := OLD.rev + 1;
+        NEW.version := greatest(NEW.version, OLD.version + 1);
+        NEW.updated_at := now();
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- Run after the existing BEFORE triggers so their final field choices count.
+CREATE TRIGGER transaction_zz_edit_revision BEFORE UPDATE ON transactions
+FOR EACH ROW EXECUTE FUNCTION advance_transaction_edit_revision();
