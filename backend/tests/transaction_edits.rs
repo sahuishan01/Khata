@@ -315,6 +315,49 @@ fn full_edit_rejects_unknown_fields_and_invalid_dates() {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn non_sms_transactions_can_reverse_existing_manual_transfer_choices(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let _ = handlers::sync_push(
+        State(app.clone()),
+        CurrentUser(owner),
+        Json(vec![op("Manual payment", "debit", 10.0)]),
+    )
+    .await
+    .unwrap();
+    let mut row = handlers::sync_pull(
+        State(app.clone()),
+        CurrentUser(owner),
+        Query(SyncPullQuery {
+            since_rev: Some(0),
+            limit: Some(50),
+            cursor_version: Some(2),
+        }),
+    )
+    .await
+    .unwrap()
+    .0
+    .txns
+    .remove(0);
+    assert!(row.sms_source.is_none());
+    for transfer in [true, false, true, false] {
+        let mut request = edit(&row);
+        request.is_transfer = transfer;
+        row = handlers::update_txn(
+            State(app.clone()),
+            CurrentUser(owner),
+            Path(row.id),
+            Json(request),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert_eq!(row.is_transfer, transfer);
+        assert!(row.sms_source.is_none());
+    }
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn exact_sms_descriptions_retain_cred_card_reconciliation(pool: PgPool) {
     let app = state(&pool);
     let owner = user(&pool).await;

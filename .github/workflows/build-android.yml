@@ -9,6 +9,9 @@ on:
 jobs:
   check:
     runs-on: [self-hosted, linux, x64, heaven]
+    permissions:
+      actions: read
+      contents: read
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
       version: ${{ steps.version.outputs.version }}
@@ -32,12 +35,29 @@ jobs:
 
       - name: Check for app changes since the previous tag
         id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          prev_tag=$(git tag --sort=-v:refname --merged "$GITHUB_REF_NAME" | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          # A cancelled/unpublished tag is not an installed-app baseline.
+          # Compare against the last successful signed release with an APK.
+          prev_tag=''
+          successful_tags=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs" \
+            --method GET -f status=success -f event=push -F per_page=50 \
+            --jq '.workflow_runs[].head_branch')
+          while IFS= read -r candidate; do
+            [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            git rev-parse --quiet --verify "refs/tags/$candidate" >/dev/null || continue
+            has_apk=$(gh release view "$candidate" --repo "$GITHUB_REPOSITORY" \
+              --json assets --jq '.assets | any(.name | endswith("-release.apk"))' 2>/dev/null) || continue
+            if [ "$has_apk" = true ]; then
+              prev_tag=$candidate
+              break
+            fi
+          done <<< "$successful_tags"
           if [ -z "$prev_tag" ]; then
             echo "no previous tag found; building unconditionally"
             echo "changed=true" >> "$GITHUB_OUTPUT"
