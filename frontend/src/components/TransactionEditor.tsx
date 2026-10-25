@@ -28,7 +28,7 @@ export function TransactionEditor({ transaction, categories, onSaved, onClose }:
   const valid = draft.description.trim().length > 0 && draft.description.length <= 16000 &&
     money(draft.amount, true) && (!draft.balance || money(draft.balance, false)) &&
     !!draft.txn_date && !!draft.value_date && !!draft.category.trim() && draft.category.length <= 100 &&
-    !!draft.bank.trim() && draft.bank.length <= 100 && draft.bank_ref.length <= 500 && draft.notes.length <= 10000
+    !!draft.bank.trim() && draft.bank.length <= 100 && draft.bank_ref.length <= 500 && draft.notes.length <= 16000
 
   useEffect(() => { dialog.current?.showModal() }, [])
 
@@ -95,7 +95,7 @@ export function TransactionEditor({ transaction, categories, onSaved, onClose }:
             <input type="checkbox" checked={draft.is_transfer} onChange={e => setDraft({ ...draft, is_transfer: e.target.checked })} />Transfer
           </label>
           <label className="form-label">Notes
-            <textarea className="form-input" aria-label="Notes" rows={2} maxLength={10000} value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
+            <textarea className="form-input" aria-label="Notes" rows={2} maxLength={16000} value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
           </label>
           <p style={{ fontSize: 12, color: 'var(--text-2)', margin: 0 }}>Use a positive amount with up to two decimal places.</p>
         </fieldset>

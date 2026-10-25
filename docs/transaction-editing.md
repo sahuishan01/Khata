@@ -1,4 +1,4 @@
-# Transaction editing and exact SMS descriptions
+# Transaction editing and SMS notes
 
 Expand a transaction and select **Edit transaction** on web or Android. Android
 also offers this action in the transaction's three-dot menu. Edit description,
@@ -7,13 +7,14 @@ reference, optional balance, transfer status and notes. Cancel discards the draf
 Saving requires a server connection. Failures retain the draft for retry; if the
 record changed on another device, close and reopen the editor to review it.
 
-New SMS imports use the exact message as their description, preserving line
-breaks and surrounding whitespace. Existing automatic titles can be backfilled
-with **Add Data → Scan SMS inbox**, while the original message remains present.
-Backfill requires matching message hash and receipt time plus a recognized
-generated title. Custom descriptions and unverified legacy descriptions remain
-unchanged. Full transaction edits survive subsequent scans, including dates,
-references, categorization and explicit transfer choices.
+Since v0.45.24, SMS imports use **Auto-captured via SMS (bank)** as the title
+and put the exact original message in **Notes**, preserving line breaks and
+surrounding whitespace. This swaps the v0.45.23 title/notes mapping.
+**Add Data → Scan SMS inbox** swaps existing automatic fields only when the
+original message hash, receipt time and both generated fields match. Custom
+notes/titles, fully edited transactions and unverifiable imports remain unchanged.
+Full transaction edits survive later scans, including dates, references,
+categorization and explicit transfer choices.
 
 Changes through existing inline category, notes and transfer controls also
 advance revisions. An already-open full editor cannot overwrite those changes.
@@ -32,7 +33,7 @@ the edit available to normal device sync and rejects stale queued writes.
 Descriptions must be nonblank and contain at most 16000 characters. Amounts
 must be positive and fit NUMERIC(14,2); optional balances may be negative. Both
 use at most two decimal places. Category/bank are required (100 characters each),
-references allow 500 characters and notes allow 10000 characters. Blank balance
+references allow 500 characters and notes allow 16000 characters. Blank balance
 clears it. Dates must be valid ISO dates. Description whitespace is preserved.
 
 Migration 0039 updates automatic inference functions without backfilling user
@@ -61,3 +62,7 @@ Android CI `40155432187` passed 81 release tests; backend/web CI `40161566580` p
 214 tests (1 ignored), Clippy and the web build. Release lint, browser flows,
 API 35 emulator flows, APK signature/metadata and production deployment checks
 passed. The existing default CodeQL unsigned Java autobuild issue remains separate.
+
+Migration 0040 reads repayment evidence from verified SMS notes as well as legacy
+descriptions. It preserves custom-title behavior, economic-credit safeguards and
+retry acknowledgements, without rewriting stored transactions.

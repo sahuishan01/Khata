@@ -267,7 +267,7 @@ async fn full_edit_rejects_invalid_values_other_owners_stale_and_excluded_rows(p
             7 => req.bank = " ".into(),
             8 => req.direction = "refund".into(),
             9 => req.category = "x".repeat(101),
-            _ => req.notes = "x".repeat(10001),
+            _ => req.notes = "x".repeat(16001),
         }
         assert!(
             matches!(
@@ -782,4 +782,179 @@ async fn editing_legacy_sms_creates_rescan_protection_and_keeps_matching_referen
     let source = saved.sms_source.unwrap();
     assert_eq!(source.user_edited, Some(true));
     source.validate().unwrap();
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn sms_notes_preserve_matching_and_retries_without_overwriting_custom_fields(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let time = chrono::DateTime::parse_from_rfc3339("2026-10-20T04:00:00Z")
+        .unwrap()
+        .timestamp_millis();
+    for (amount, custom_title, custom_notes, economic_credit) in [
+        (801.0, false, false, false),
+        (802.0, true, false, false),
+        (803.0, false, true, false),
+        (804.0, false, false, true),
+    ] {
+        let mut operations = vec![];
+        for (index, message, direction, payee, role) in [
+            (
+                0,
+                "INR debited from HDFC A/c XX1234 to CRED Club.",
+                "debit",
+                "CRED Club",
+                None,
+            ),
+            (
+                1,
+                "Payment received towards HDFC credit card.",
+                "credit",
+                "Transaction",
+                Some("card_receipt"),
+            ),
+            (
+                2,
+                if economic_credit {
+                    "IPO amount refunded to HDFC account."
+                } else {
+                    "INR credited to HDFC account."
+                },
+                "credit",
+                "Transaction",
+                None,
+            ),
+        ] {
+            let message = format!("  {message}\nAmount {amount}  ");
+            let mut operation = op(
+                if index == 0 && custom_title {
+                    "My purchase"
+                } else {
+                    "Auto-captured via SMS (HDFC)"
+                },
+                direction,
+                amount,
+            );
+            operation.notes = Some(if index == 0 && custom_notes {
+                "My notes".into()
+            } else {
+                message.clone()
+            });
+            operation.is_transfer = Some(index == 1);
+            operation.sms_source = Some(sqlx::types::Json(serde_json::from_value(serde_json::json!({
+                "parser_version":1,"date_source":"body","parsed_date":"2026-10-20",
+                "received_at":time + if index == 2 { 86_400_000 } else { index * 3000 },
+                "parsed_payee":payee,"body_hash":format!("{:x}", sha2::Sha256::digest(message.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase().as_bytes())),"payment_role":role,
+            })).unwrap()));
+            operations.push(operation);
+        }
+        let expected: Vec<_> = operations
+            .iter()
+            .map(|op| {
+                (
+                    op.client_id,
+                    op.description.clone().unwrap(),
+                    op.notes.clone().unwrap(),
+                )
+            })
+            .collect();
+        let payload = serde_json::to_value(&operations).unwrap();
+        let result = handlers::sync_push(State(app.clone()), CurrentUser(owner), Json(operations))
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(result.accepted.len(), 3);
+        let rows = handlers::sync_pull(
+            State(app.clone()),
+            CurrentUser(owner),
+            Query(SyncPullQuery {
+                since_rev: Some(0),
+                limit: Some(100),
+                cursor_version: Some(2),
+            }),
+        )
+        .await
+        .unwrap()
+        .0
+        .txns;
+        let funding = rows
+            .iter()
+            .find(|row| row.client_id == Some(expected[0].0))
+            .unwrap();
+        let confirmation = rows
+            .iter()
+            .find(|row| row.client_id == Some(expected[2].0))
+            .unwrap();
+        assert_eq!(funding.is_transfer, !custom_title && !custom_notes);
+        assert_eq!(
+            confirmation.deleted,
+            !custom_title && !custom_notes && !economic_credit
+        );
+        for (client_id, title, notes) in expected {
+            let row = rows
+                .iter()
+                .find(|row| row.client_id == Some(client_id))
+                .unwrap();
+            assert_eq!(row.description, title);
+            assert_eq!(row.notes, notes);
+        }
+        let retry = handlers::sync_push(
+            State(app.clone()),
+            CurrentUser(owner),
+            Json(serde_json::from_value(payload).unwrap()),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert_eq!(retry.accepted.len(), 3);
+        assert!(retry.conflicts.is_empty());
+    }
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn sms_notes_keep_future_date_and_full_edit_protection(pool: PgPool) {
+    let app = state(&pool);
+    let owner = user(&pool).await;
+    let message = "INR 500 debited from HDFC account on 02/12/26";
+    let mut operation = op("Auto-captured via SMS (HDFC)", "debit", 500.0);
+    operation.txn_date = Some("2100-01-01".parse().unwrap());
+    operation.value_date = operation.txn_date;
+    operation.notes = Some(message.into());
+    operation.sms_source = Some(sqlx::types::Json(serde_json::from_value(serde_json::json!({
+        "parser_version":1,"date_source":"message","parsed_date":"2026-10-20",
+        "received_at":1792468800000_i64,"body_hash":format!("{:x}",sha2::Sha256::digest(message.to_lowercase().as_bytes())),
+    })).unwrap()));
+    let _ = handlers::sync_push(
+        State(app.clone()),
+        CurrentUser(owner),
+        Json(vec![operation]),
+    )
+    .await
+    .unwrap();
+    let row = handlers::sync_pull(
+        State(app.clone()),
+        CurrentUser(owner),
+        Query(SyncPullQuery {
+            since_rev: Some(0),
+            limit: Some(50),
+            cursor_version: Some(2),
+        }),
+    )
+    .await
+    .unwrap()
+    .0
+    .txns
+    .remove(0);
+    assert_eq!(row.txn_date.to_string(), "2026-10-20");
+    assert_eq!(row.value_date.to_string(), "2026-10-20");
+    let mut edit = edit(&row);
+    edit.description = "My edited title".into();
+    edit.notes = "My edited notes".repeat(1000);
+    let saved = handlers::update_txn(State(app), CurrentUser(owner), Path(row.id), Json(edit))
+        .await
+        .unwrap()
+        .0;
+    assert_eq!(saved.description, "My edited title");
+    assert_eq!(saved.notes, "My edited notes".repeat(1000));
+    assert_eq!(saved.sms_source.unwrap().user_edited, Some(true));
 }

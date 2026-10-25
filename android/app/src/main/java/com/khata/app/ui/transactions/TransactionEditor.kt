@@ -43,7 +43,7 @@ fun TransactionEditor(txn: TxnRow, onSave: suspend (String, UpdateTxnReq) -> Str
         validEditMoney(amount, true) != null && (balance.isBlank() || validEditMoney(balance, false) != null) &&
         runCatching { LocalDate.parse(txnDate); LocalDate.parse(valueDate) }.isSuccess &&
         category.isNotBlank() && category.length <= 100 && bank.isNotBlank() && bank.length <= 100 &&
-        bankRef.length <= 500 && notes.length <= 10_000
+        bankRef.length <= 500 && notes.length <= 16_000
     AlertDialog(
         onDismissRequest = { if (!saving) onClose() },
         title = { Text("Edit transaction") },

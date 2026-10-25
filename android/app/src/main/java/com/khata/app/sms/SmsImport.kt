@@ -12,6 +12,8 @@ enum class SmsSaveResult { CREATED, UPDATED, UNCHANGED }
 
 /** Live capture and historical rescans use exactly the same date/transfer policy. */
 object SmsImport {
+    private fun captureTitle(bank: String) = "Auto-captured via SMS ($bank)"
+
     /** Exclude only an unchanged auto-import proven to come from this rejected non-transaction SMS. */
     suspend fun excludeNonTransaction(dao: TransactionDao, body: String, sender: String, timestamp: Long, queuedAt: Long): Boolean {
         val parsed = SmsParser.previouslyImportedNonTransaction(body, sender) ?: return false
@@ -23,9 +25,10 @@ object SmsImport {
         if (source.bodyHash != SmsSource.from(body, timestamp, queuedAt).bodyHash || source.receivedAt != timestamp) return false
         if (old.deleted || (old.dirty && old.baseRev > 0) ||
             old.amount != parsed.amount || old.direction != parsed.direction || old.bank != parsed.bank ||
-            (old.description != parsed.payee && old.description != body) || old.category != "Uncategorized" || old.isTransfer ||
+            !((old.description == captureTitle(parsed.bank) && old.notes == body) ||
+                (old.notes == captureTitle(parsed.bank) && old.description in listOf(parsed.payee, body))) ||
+            old.category != "Uncategorized" || old.isTransfer ||
             old.bankRef.isNotBlank() || old.balance != null ||
-            old.notes != "Auto-captured via SMS (${parsed.bank})" ||
             old.txnDate != source.parsedDate || old.valueDate != source.parsedDate) return false
         return dao.excludeSmsIfUnchanged(old)
     }
@@ -55,11 +58,11 @@ object SmsImport {
         val date = SmsDates.resolve(body, timestamp, queuedAt)
         return LocalTransaction(
             clientId = SmsParser.clientId(parsed, body, sender, timestamp),
-            description = body,
+            description = captureTitle(parsed.bank),
             amount = parsed.amount, direction = parsed.direction,
             category = if (parsed.isTransfer) "Transfer" else "Uncategorized",
             bank = parsed.bank, bankRef = parsed.refNo.orEmpty(), txnDate = date, valueDate = date,
-            isTransfer = parsed.isTransfer, notes = "Auto-captured via SMS (${parsed.bank})",
+            isTransfer = parsed.isTransfer, notes = body,
             updatedAt = queuedAt, dirty = true, pendingOp = "CREATE",
             smsSource = Gson().toJson(SmsSource.from(body, timestamp, queuedAt, parsed.direction, parsed.bank).copy(parsedPayee = parsed.payee)),
         )
@@ -67,12 +70,18 @@ object SmsImport {
 
     /** Repair previously imported SMS rows without replacing their identity or other edits. */
     fun repair(old: LocalTransaction, parsed: ParsedSmsTxn, body: String, timestamp: Long): LocalTransaction {
-        if (old.deleted || !old.notes.startsWith("Auto-captured")) return old
+        if (old.deleted) return old
         val oldMessageDate = SmsDates.timestampDate(timestamp)
         val previousSource = SmsSource.decode(old.smsSource)
         if (previousSource?.userEdited == true) return old
         val incomingSource = SmsSource.from(body, timestamp, old.updatedAt, parsed.direction, parsed.bank)
             .copy(parsedPayee = parsed.payee)
+        val verifiedMessage = previousSource?.bodyHash == incomingSource.bodyHash &&
+            previousSource?.receivedAt == timestamp
+        val swapped = old.description == captureTitle(parsed.bank) && old.notes == body && verifiedMessage
+        if (!old.notes.startsWith("Auto-captured") && !swapped) return old
+        val swapLegacy = verifiedMessage && old.notes == captureTitle(parsed.bank) &&
+            old.description in listOf(body, parsed.payee, "Credit card payment received", "Credit card bill payment")
         // Another alert for a referenced payment may omit the transaction date.
         // Its receipt day must not replace a known valid date from the earlier alert.
         val source = if (previousSource?.dateSource == "body" && incomingSource.dateSource != "body" &&
@@ -86,14 +95,18 @@ object SmsImport {
             txnDate = repairDate(old.txnDate),
             valueDate = repairDate(old.valueDate),
             bankRef = old.bankRef.ifBlank { parsed.refNo.orEmpty() },
-            smsSource = Gson().toJson(source.copy(previousTxnDate = previousSource?.previousTxnDate,
+            // A repair must not turn an unverifiable legacy title into proof
+            // that it was generated, allowing the next scan to overwrite it.
+            smsSource = Gson().toJson(source.copy(
+                bodyHash = source.bodyHash.takeIf { previousSource?.bodyHash != null },
+                eventKey = source.eventKey.takeIf { previousSource?.bodyHash != null },
+                previousTxnDate = previousSource?.previousTxnDate,
                 previousValueDate = previousSource?.previousValueDate)),
             isTransfer = old.isTransfer || newTransfer,
             category = if (newTransfer) "Transfer" else old.category,
-            // Backfill only a proven original alert with an untouched generated title.
-            description = if (previousSource?.bodyHash == incomingSource.bodyHash &&
-                previousSource?.receivedAt == timestamp && old.description in listOf(parsed.payee,
-                    "Credit card payment received", "Credit card bill payment")) body else old.description,
+            // Swap only a proven original alert with untouched generated fields.
+            description = if (swapLegacy) captureTitle(parsed.bank) else old.description,
+            notes = if (swapLegacy) body else old.notes,
         )
         return if (changed == old) old else changed.copy(dirty = true, pendingOp = if (old.baseRev > 0) "UPDATE" else "CREATE")
     }

@@ -434,7 +434,7 @@ export function TransactionsPage() {
                             {t.balance != null && <div><span style={{ color: 'var(--text-muted)' }}>Balance: </span><span>{formatINR(t.balance)}</span></div>}
                             <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
                             {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
-                            {t.notes && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
+                            {t.notes && <div style={{ gridColumn: '1 / -1', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
                           </div>
                         </td>
                       </tr>
@@ -505,7 +505,7 @@ export function TransactionsPage() {
                     <div><span style={{ color: 'var(--text-muted)' }}>Category: </span><span>{t.category}</span></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Bank: </span><span>{t.bank}</span></div>
                     {t.bank_ref && <div><span style={{ color: 'var(--text-muted)' }}>Reference: </span><span>{t.bank_ref}</span></div>}
-                    {t.notes && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
+                    {t.notes && <div style={{ gridColumn: '1 / -1', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><span style={{ color: 'var(--text-muted)' }}>Notes: </span><span>{t.notes}</span></div>}
                   </div>
                 )}
               </div>

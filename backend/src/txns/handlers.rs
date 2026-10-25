@@ -710,7 +710,7 @@ pub async fn update_txn(
     if req.category.trim().is_empty() || req.category.chars().count() > 100
         || req.bank.trim().is_empty() || req.bank.chars().count() > 100
         || req.bank_ref.as_ref().is_some_and(|r| r.chars().count() > 500)
-        || req.notes.chars().count() > 10_000 {
+        || req.notes.chars().count() > 16_000 {
         return Err(AppError::BadRequest("Check category, bank, reference and notes lengths".into()));
     }
     let mut tx = state.db.begin().await?;
@@ -1061,7 +1061,8 @@ fn is_sync_replay(op: &SyncPushOp, stored: &SyncStoredTransaction) -> bool {
     let same_sms = op.sms_source.as_ref().is_some_and(|source|
         source.body_hash.is_some() && source.received_at.is_some()
         && unchanged_source
-        && op.notes.as_deref().is_some_and(|notes| notes.starts_with("Auto-captured via SMS"))
+        && (op.notes.as_deref().is_some_and(|notes| notes.starts_with("Auto-captured via SMS"))
+            || op.description.as_deref() == Some(format!("Auto-captured via SMS ({})", row.bank).as_str()))
         && row.notes == op.notes.as_deref().unwrap_or_default());
     unchanged(&op.amount, &row.amount)
         && unchanged(&op.direction, &row.direction)

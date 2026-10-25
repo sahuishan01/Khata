@@ -306,7 +306,7 @@ pub struct SyncPushOp {
     pub sms_source: Option<sqlx::types::Json<SmsSource>>,
 }
 
-/// SMS provenance; the original message is imported as the transaction description.
+/// SMS provenance; the original message is retained in transaction notes (legacy: description).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SmsSource {
     pub parser_version: i32,
