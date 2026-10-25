@@ -131,7 +131,8 @@ FOR EACH ROW EXECUTE FUNCTION advance_transaction_edit_revision();
 CREATE FUNCTION is_generic_sms_confirmation(t transactions) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
     SELECT coalesce(t.sms_source->>'user_edited','false') <> 'true' AND (
         lower(trim(t.description))='transaction' OR (t.sms_source->>'payment_role' IS NULL
-            AND lower(trim(t.sms_source->>'parsed_payee'))='transaction' AND has_original_sms_description(t)));
+            AND lower(trim(t.sms_source->>'parsed_payee'))='transaction' AND has_original_sms_description(t)
+            AND t.description !~* '\m(REFUND[A-Z]*|REVERS[A-Z]*|CASHBACK[A-Z]*|CHARGEBACK[A-Z]*|SALAR[A-Z]*|DIVIDEND[A-Z]*|BONUS[A-Z]*|INSURANCE|INTEREST[A-Z]*|LOAN[A-Z]*|DISBURS[A-Z]*|IPO[A-Z]*)\M'));
 $$;
 CREATE OR REPLACE FUNCTION is_card_confirmation_candidate(a transactions,b transactions) RETURNS boolean LANGUAGE plpgsql STABLE AS $$
 DECLARE delta bigint;

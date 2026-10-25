@@ -468,7 +468,7 @@ export function TransactionsPage() {
                     <div style={{
                       color: 'var(--text)', fontSize: 13, fontWeight: 500,
                       lineHeight: 1.35, marginBottom: 5,
-                      display: '-webkit-box', WebkitLineClamp: expandedId === t.id ? 'unset' : 2,
+                      display: '-webkit-box', WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       wordBreak: 'break-word',
                     }}>

@@ -619,6 +619,8 @@ async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_des
         (702.0, Some("card_confirmation"), true),
         (703.0, None, false),
         (704.0, None, false),
+        (705.0, None, false),
+        (706.0, None, false),
     ] {
         for (index, text, direction, payee, payment_role, is_transfer) in [
             (
@@ -646,7 +648,13 @@ async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_des
                 transfer,
             ),
         ] {
-            let original_message = format!("{text} Amount {amount}");
+            let original_message = if amount == 705.0 && index == 2 {
+                format!("IPO amount refunded INR {amount} credited to HDFC account on 20/10/26")
+            } else if amount == 706.0 && index == 2 {
+                format!("Salary INR {amount} credited to HDFC account on 20/10/26")
+            } else {
+                format!("{text} Amount {amount}")
+            };
             let description = if amount == 703.0 && index == 2 {
                 "My salary"
             } else if amount == 704.0 && index == 0 {
@@ -714,6 +722,15 @@ async fn generic_confirmations_keep_legacy_proof_requirements_with_exact_sms_des
             .unwrap()
             .deleted
     );
+    for id in &confirmations[4..] {
+        assert!(
+            !rows
+                .iter()
+                .find(|row| row.client_id == Some(*id))
+                .unwrap()
+                .deleted
+        );
+    }
 }
 
 #[sqlx::test(migrations = "./migrations")]

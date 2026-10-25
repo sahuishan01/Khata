@@ -44,6 +44,8 @@ confirmations without a card key. Existing duplicate restore safeguards remain.
 Derived payees require the description to match the original SMS hash, so
 descriptions customized through older title editors keep their previous matching
 behavior.
+Explicit refund, salary, loan and similar economic-credit wording in original
+SMS descriptions stays outside generic-confirmation exclusion.
 Android's immediate cache update and conditional inbox write prevent a scan
 from replacing an edit made while that scan was parsing. Dirty queued work
 remains available for normal conflict review.
