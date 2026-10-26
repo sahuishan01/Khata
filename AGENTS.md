@@ -29,14 +29,22 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.29` (verification in progress).
+Current release version: `v0.45.29` (verified).
 
 `v0.45.29` adds persistent overall queued-SMS progress to Upload and Transactions:
 finished/total, percentage and a progress bar. Pending and review messages keep
 work unfinished; accepted, ignored and locally filtered messages finish work.
 The total grows during inbox scanning, which cannot report completion early.
 Retries and restarts retain progress for the current account/server. No migration
-or backend/model/web deployment. Verification is in progress.
+or backend/model/web deployment. Release lint and 114 unit tests passed.
+Android API 35 checks verified 50% progress survives restart, 83% remains
+unfinished with a review item, and resolving it reaches 100%. New incoming work
+grows the total immediately (6/7, 85%) and returns to 100% after processing.
+Account isolation, saved edits and both screens passed. Signed CI `40312581787`
+passed with 114 release tests; Security Scan `40312582034` passed. APK ZIP/digest,
+signing continuity with v0.45.28, versionCode 215, retained metadata/progress UI,
+production API URL and HTTPS-only networking were verified. Android source
+matches the signed tag; physical-phone verification is unavailable.
 Evidence: `~/.local/state/khata-sms-overall-progress/`.
 
 `v0.45.28` narrows phone SMS uploads to messages with a currency amount,
@@ -56,9 +64,9 @@ API URL, HTTPS-only networking and shortcut components were verified. The
 Android tree matches the signed tag. Physical-phone verification is unavailable.
 Evidence: `~/.local/state/khata-sms-candidate-fix/`.
 
-Last verified signed APK: `v0.45.28` (run `40289726794`).
+Last verified signed APK: `v0.45.29` (run `40312581787`).
 
-Previous signed APK: `v0.45.27`
+Earlier signed APK: `v0.45.27`
 (GitHub Actions run `40262809332`, 104 release unit tests passed). Its signing
 certificate matches `v0.45.26`; versionCode 213 supports updating the existing
 app. ZIP/digest/signature, retained decision/editing metadata and worker class,
