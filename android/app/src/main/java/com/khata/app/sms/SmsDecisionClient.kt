@@ -6,6 +6,7 @@ import com.khata.app.api.TxnRow
 import com.khata.app.api.SyncPullResponse
 import com.khata.app.api.SyncPushOp
 import com.khata.app.api.SyncPushResult
+import com.khata.app.api.SyncRoutes
 import com.khata.app.api.toLocal
 import com.khata.app.data.LocalTransaction
 import kotlinx.coroutines.Dispatchers
@@ -36,23 +37,36 @@ fun smsSession(token: String?, origin: String): SmsSession? = runCatching {
 
 data class SmsHistory(val rows: Map<String, LocalTransaction>, val cursor: Long)
 
-class SmsDecisionFailure(val retry: Boolean) : Exception("SMS upload unavailable")
+class SmsDecisionFailure(val retry: Boolean, message: String = "SMS upload unavailable") : Exception(message)
+
+private fun httpFailure(code: Int): SmsDecisionFailure = when (code) {
+    404, 405 -> SmsDecisionFailure(false,"The server upload endpoint was not found. Update Khata or check the server URL.")
+    401, 403 -> SmsDecisionFailure(false,"Sign in again before retrying SMS uploads.")
+    400, 409, 422 -> SmsDecisionFailure(false,"Review the saved transaction before retrying this upload.")
+    else -> SmsDecisionFailure(true)
+}
 
 @Singleton
-class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
+class SmsDecisionClient internal constructor(
+    private val currentSession: () -> SmsSession?,
+    private val http: OkHttpClient,
+) {
+    @Inject constructor(tokens: TokenManager) : this(
+        { smsSession(tokens.getTokenSync(),tokens.getServerUrlSync()) },
+        OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(35, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS)
+            .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build(),
+    )
     private val gson = Gson()
     // Captured origin/token are used together, independently of mutable global interceptors.
-    private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(35, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).proxy(java.net.Proxy.NO_PROXY).build()
-    fun session(): SmsSession? = smsSession(tokens.getTokenSync(), tokens.getServerUrlSync())
+    fun session(): SmsSession? = currentSession()
 
     private suspend fun <T> postOrNull(session: SmsSession, path: String, payload: Any, type: Class<T>): T? = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(session.origin + path)
             .header("Authorization", "Bearer ${session.token}")
             .post(gson.toJson(payload).toRequestBody("application/json".toMediaType())).build()
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw SmsDecisionFailure(response.code !in listOf(400,401,403,409,422))
+            if (!response.isSuccessful) throw httpFailure(response.code)
             val source = response.body?.source() ?: throw SmsDecisionFailure(true)
             if (source.request(8_000_001)) throw SmsDecisionFailure(false)
             gson.fromJson(source.readUtf8(), type)
@@ -67,10 +81,10 @@ class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
         val rows = linkedMapOf<String,LocalTransaction>()
         var cursor = since
         while (true) {
-            val request = Request.Builder().url(session.origin + "/api/sync/pull?since_rev=$cursor&limit=200&cursor_version=2")
+            val request = Request.Builder().url(session.origin + "/" + SyncRoutes.PULL + "?since_rev=$cursor&limit=200&cursor_version=2")
                 .header("Authorization", "Bearer ${session.token}").build()
             val page = http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw SmsDecisionFailure(response.code !in listOf(400,401,403,409,422))
+                if (!response.isSuccessful) throw httpFailure(response.code)
                 val source = response.body?.source() ?: throw SmsDecisionFailure(true)
                 if (source.request(8_000_001)) throw SmsDecisionFailure(false)
                 gson.fromJson(source.readUtf8(), SyncPullResponse::class.java) ?: throw SmsDecisionFailure(true)
@@ -89,7 +103,7 @@ class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
     }
 
     suspend fun saveBatch(session: SmsSession, rows: List<LocalTransaction>): SyncPushResult =
-        post(session,"/api/sync/push",rows.map(::operation),SyncPushResult::class.java)
+        post(session,"/" + SyncRoutes.PUSH,rows.map(::operation),SyncPushResult::class.java)
 
     suspend fun save(session: SmsSession, row: LocalTransaction): TxnRow =
         post(session,"/api/sms/import",mapOf("owner_id" to session.ownerId,"operation" to operation(row)),TxnRow::class.java)

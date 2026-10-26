@@ -92,6 +92,7 @@ gradle.taskGraph.whenReady {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
