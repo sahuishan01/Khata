@@ -188,43 +188,6 @@ object SmsParser {
 
     fun parse(body: String, sender: String = ""): ParsedSmsTxn? = parseCandidate(body, sender, rejectNonTransactions = true)
 
-    /** Model decisions never manufacture an amount or override contradictory posting evidence. */
-    fun fromDecision(body: String, sender: String, direction: String, modelVersion: String): ParsedSmsTxn? {
-        if (SmsPrivacy.containsOtp(body) || direction !in listOf("debit", "credit")) return null
-        val original = body.trim()
-        val clean = original.replace("\n", " ")
-        val excluded = nonPostingClauses(original)
-        val balance = Pattern.compile("(?i)\\b(?:bal(?:ance)?|limit)\\b[^.!?;]{0,100}$")
-        val matcher = Pattern.compile("(?i)$CURRENCY\\s*$AMOUNT").matcher(clean)
-        val amounts = mutableSetOf<Double>()
-        while (matcher.find()) {
-            if (excluded.any { matcher.start() <= it.last && matcher.end() > it.first }) continue
-            val prefix = clean.substring(0, matcher.start())
-            if (OFFER_PREFIX.matcher(prefix).find()) continue
-            val balancePrefix = balance.matcher(prefix.takeLast(120))
-            if (balancePrefix.find() && !COMPLETED_EVIDENCE.matcher(balancePrefix.group()).find()) continue
-            // A sentence full stop is valid; a third decimal or dangling comma is not.
-            val tail = clean.substring(matcher.end())
-            if (tail.firstOrNull()?.isDigit() == true || tail.startsWith(",") ||
-                (tail.startsWith(".") && tail.getOrNull(1)?.isDigit() == true)) continue
-            val token = matcher.group(1) ?: continue
-            if (!MONEY_TOKEN.matches(token)) continue
-            val value = token.replace(",", "").toDoubleOrNull() ?: continue
-            if (value.isFinite() && value > 0 && value <= 999_999_999_999.99) amounts += value
-        }
-        val known = parse(body, sender)
-        val amount = if (known != null) {
-            if (known.direction != direction || amounts.singleOrNull() != known.amount) return null
-            known.amount
-        } else {
-            // A model score alone cannot make a balance or arbitrary priced text a posting.
-            if (!COMPLETED_EVIDENCE.matcher(clean).find()) return null
-            amounts.singleOrNull() ?: return null
-        }
-        val parsed = known ?: fields(amount, direction, clean, sender.lowercase(Locale.ROOT))
-        return parsed.copy(paymentMethod = paymentMethod(clean), classifierVersion = modelVersion)
-    }
-
     fun forManualReview(body: String, sender: String, amount: Double, direction: String): ParsedSmsTxn? {
         if (SmsPrivacy.containsOtp(body) || !amount.isFinite() || amount <= 0 || amount > 999_999_999_999.99 ||
             direction !in listOf("debit","credit") || kotlin.math.abs(amount * 100 - kotlin.math.round(amount * 100)) > .0001) return null
@@ -259,8 +222,13 @@ object SmsParser {
                 while (matcher.find()) {
                     if (rejectNonTransactions && OFFER_PREFIX.matcher(cleanBody.substring(0, matcher.start())).find()) continue
                     if (excluded.any { matcher.start() <= it.last && matcher.end() > it.first }) continue
-                    val amount = matcher.group(1)?.replace(",", "")?.toDoubleOrNull()
-                    if (amount != null && amount.isFinite() && amount > 0) return amount
+                    val token = matcher.group(1) ?: continue
+                    if (!MONEY_TOKEN.matches(token)) continue
+                    val tail = cleanBody.substring(matcher.end())
+                    if (tail.firstOrNull()?.isDigit()==true || tail.startsWith(",") ||
+                        (tail.startsWith(".") && tail.getOrNull(1)?.isDigit()==true)) continue
+                    val amount = token.replace(",", "").toDoubleOrNull()
+                    if (amount != null && amount.isFinite() && amount > 0 && amount <= 999_999_999_999.99) return amount
                 }
             }
             return null
@@ -269,7 +237,7 @@ object SmsParser {
         val amount = debit ?: amountFrom(CREDIT_PATTERNS) ?: return null
         val direction = if (debit != null) "debit" else "credit"
 
-        return fields(amount, direction, cleanBody, lowerSender)
+        return fields(amount, direction, cleanBody, lowerSender).copy(paymentMethod=paymentMethod(body))
     }
 
     private fun fields(amount: Double, direction: String, cleanBody: String, lowerSender: String): ParsedSmsTxn {

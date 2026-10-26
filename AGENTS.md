@@ -29,7 +29,22 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.29` (verified).
+Current release version: `v0.45.30` (verification in progress).
+
+`v0.45.30` removes Laya from SMS ingestion at the user's request. Local generic
+posting grammar recognizes transactions before queueing; only parsed records
+use normal batched sync. Existing pending/review jobs are converted locally,
+without deleting saved transactions or edits. Progress, OTP protection, exact
+Notes, payment methods, timestamps and owner-scoped identity checks remain.
+No database migration or financial backfill. The Laya service is stopped and
+disabled; do not re-enable it without an explicit user request. See
+`docs/sms-local-import.md`. Release lint, 108 unit tests and all three exact SMS
+regressions passed. A real debug-app update from v0.45.29 kept Room 3, locally
+filtered 12,000 old jobs and handled 304 recognized SMS with 303 uploads in two
+batches (199/104), zero model calls, preserved edits and owner isolation.
+Backend unit checks passed; signed CI and backend rollout are in progress.
+Evidence: `~/.local/state/khata-sms-local-restore/`.
+
 
 `v0.45.29` adds persistent overall queued-SMS progress to Upload and Transactions:
 finished/total, percentage and a progress bar. Pending and review messages keep
@@ -88,7 +103,7 @@ Android tree matches the signed tag. Physical-phone UI verification is unavailab
 Backend/web run `40209851091` at `69b15ca` is deployed with migration 0040;
 its backend/frontend source trees match the signed tag. Stored source/financial
 records, authentication, forced RLS and loopback bindings were verified unchanged.
-`khata-laya.service` runs the pinned model offline as an unprivileged user on
+Before v0.45.30, `khata-laya.service` ran the pinned model offline as an unprivileged user on
 127.0.0.1:8091, with CPU/memory limits and an 80% CPU-idle gate.
 Evidence: `~/.local/state/khata-laya/`.
 

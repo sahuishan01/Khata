@@ -103,7 +103,7 @@ fun CombinedUploadScreen(
 
                     Spacer(Modifier.height(20.dp))
                     Text("From SMS", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Text("Only SMS with a currency amount are sent for background classification. OTP messages are skipped. Scan your inbox to process past messages.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("SMS transactions are recognized on this device with the bank parser. Only parsed transactions are uploaded. OTP messages are skipped.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     smsDecisionStatus()
                     deviceSyncStatus()
                     Spacer(Modifier.height(6.dp))
@@ -116,7 +116,7 @@ fun CombinedUploadScreen(
                         if (smsProgress.total > 0) LinearProgressIndicator(
                             progress = { smsProgress.scanned.toFloat() / smsProgress.total }, modifier = Modifier.fillMaxWidth()
                         ) else if (smsProgress.running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text("${smsProgress.scanned} of ${smsProgress.total} SMS read · ${smsProgress.matched} queued for classification", fontSize = 12.sp)
+                        Text("${smsProgress.scanned} of ${smsProgress.total} SMS read · ${smsProgress.matched} queued for upload", fontSize = 12.sp)
                         Text("${smsProgress.filtered} skipped on this device · ${smsProgress.alreadySaved} already queued or handled", fontSize = 12.sp)
                         if (smsProgress.excludedNonTransactions > 0) Text("${smsProgress.excludedNonTransactions} non-transaction imports excluded", fontSize = 12.sp)
                         Spacer(Modifier.height(4.dp))

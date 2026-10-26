@@ -499,12 +499,12 @@ RLS, authenticated SMS endpoints, public asset equality and loopback bindings
 were verified. The build passed 222 backend tests (1 ignored), Clippy and web
 build. The tag revision's backend/web CI `40212200830` also passed.
 
-The resident model runs as `khata-laya.service` under a dedicated unprivileged
+Before v0.45.30, the resident model ran as `khata-laya.service` under a dedicated unprivileged
 user, CPU-only on 127.0.0.1:8091. It loads the pinned English Laya checkpoint
 `7b928d828b7b0e022f929d9bd2e44165aa270148` offline. CPU threads/quota, memory
 limits, an 80% CPU-idle gate, filesystem protections and loopback-only egress
 bound its work. The authenticated Rust gateway owns the public API; no model
-port is exposed. See `docs/sms-laya.md` and `ops/laya/install.sh`.
+port is exposed. That service is now stopped and disabled; see `docs/sms-local-import.md`.
 
 Android and web browser checks cover exact Notes, full edits and payment-method
 correction. Native checks cover real SMS receipt, OTP exclusion before queueing
@@ -518,3 +518,15 @@ failure; it is not included in the passing-check claim.
 
 Evidence, signed APK manifest, encrypted backup, deployment manifest and browser/
 emulator results: `~/.local/state/khata-laya/`.
+
+## v0.45.30 local SMS parsing
+
+Laya has been removed from SMS imports at the user's request.
+`khata-laya.service` is stopped and disabled; the private model files are retained
+for recovery only. Do not start it unless explicitly requested. The Android app
+uses its local posting parser and the ordinary bulk-sync API. Existing queued
+messages are rechecked locally after updating; saved transactions and edits remain.
+The retired decision route returns a terminal error and never forwards message
+bodies to an inference service. Backend rollout verification is in progress.
+See `docs/sms-local-import.md`; evidence is private under
+`~/.local/state/khata-sms-local-restore/`.

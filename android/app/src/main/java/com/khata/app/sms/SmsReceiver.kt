@@ -33,7 +33,7 @@ class SmsReceiver : BroadcastReceiver() {
             if (SmsPrivacy.containsOtp(body)) continue
             val sender = sms.originatingAddress ?: ""
 
-            // Persist monetary candidates quickly; model/network work belongs to WorkManager.
+            // Persist locally parsed transactions quickly; model/network work belongs to WorkManager.
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {

@@ -19,23 +19,25 @@ data class SmsDecisionJob(
 @Dao
 interface SmsDecisionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(job: SmsDecisionJob): Long
-    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND status='pending' ORDER BY queuedAt LIMIT 12")
+    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND status='pending' ORDER BY queuedAt LIMIT 200")
     suspend fun pending(owner: String): List<SmsDecisionJob>
-    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND status='review' ORDER BY queuedAt DESC LIMIT 50")
+    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND status IN ('review','conflict') ORDER BY queuedAt DESC LIMIT 50")
     suspend fun review(owner: String): List<SmsDecisionJob>
     // One pending marker plus recent reviews keeps both states visible during long scans.
-    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND (id=(SELECT id FROM sms_decision_jobs WHERE owner=:owner AND status='pending' ORDER BY queuedAt LIMIT 1) OR status='review') ORDER BY status='pending' DESC, queuedAt DESC LIMIT 51")
+    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND (id=(SELECT id FROM sms_decision_jobs WHERE owner=:owner AND status='pending' ORDER BY queuedAt LIMIT 1) OR status IN ('review','conflict')) ORDER BY status='pending' DESC, queuedAt DESC LIMIT 51")
     fun active(owner: String): Flow<List<SmsDecisionJob>>
-    @Query("SELECT COUNT(CASE WHEN status='pending' THEN 1 END) AS pending, COUNT(CASE WHEN status='review' THEN 1 END) AS review, COUNT(CASE WHEN status='done' THEN 1 END) AS accepted, COUNT(CASE WHEN status='ignored' THEN 1 END) AS ignored, COUNT(CASE WHEN status='filtered' THEN 1 END) AS filtered FROM sms_decision_jobs WHERE owner=:owner")
+    @Query("SELECT COUNT(CASE WHEN status='pending' THEN 1 END) AS pending, COUNT(CASE WHEN status IN ('review','conflict') THEN 1 END) AS review, COUNT(CASE WHEN status='done' THEN 1 END) AS accepted, COUNT(CASE WHEN status='ignored' THEN 1 END) AS ignored, COUNT(CASE WHEN status='filtered' THEN 1 END) AS filtered FROM sms_decision_jobs WHERE owner=:owner")
     fun summary(owner: String): Flow<SmsDecisionSummary>
-    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND status IN ('pending','review') AND body IS NOT NULL AND id>:afterId ORDER BY id LIMIT 500")
+    @Query("SELECT * FROM sms_decision_jobs WHERE owner=:owner AND status IN ('pending','review','conflict') AND body IS NOT NULL AND id>:afterId ORDER BY id LIMIT 500")
     suspend fun unfinishedPage(owner: String, afterId: String): List<SmsDecisionJob>
     @Query("UPDATE sms_decision_jobs SET reason=:reason WHERE id=:id AND status='pending'")
     suspend fun pendingReason(id: String, reason: String)
     @Query("UPDATE sms_decision_jobs SET status=:status, reason=:reason, body=CASE WHEN :retain THEN body ELSE NULL END, sender=CASE WHEN :retain THEN sender ELSE '' END WHERE id=:id")
     suspend fun finish(id: String, status: String, reason: String = "", retain: Boolean = false)
-    @Query("UPDATE sms_decision_jobs SET status='pending', reason='' WHERE owner=:owner AND status='review'")
+    @Query("UPDATE sms_decision_jobs SET status='pending', reason='' WHERE owner=:owner AND status IN ('review','conflict')")
     suspend fun retryReview(owner: String)
+    @Query("UPDATE sms_decision_jobs SET status='pending', reason='' WHERE owner=:owner AND status='review'")
+    suspend fun resumeLegacyReviews(owner: String)
     @Query("DELETE FROM sms_decision_jobs") suspend fun clearAll()
 }
 
