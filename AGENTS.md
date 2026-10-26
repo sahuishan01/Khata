@@ -29,7 +29,15 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.28` (verified).
+Current release version: `v0.45.29` (verification in progress).
+
+`v0.45.29` adds persistent overall queued-SMS progress to Upload and Transactions:
+finished/total, percentage and a progress bar. Pending and review messages keep
+work unfinished; accepted, ignored and locally filtered messages finish work.
+The total grows during inbox scanning, which cannot report completion early.
+Retries and restarts retain progress for the current account/server. No migration
+or backend/model/web deployment. Verification is in progress.
+Evidence: `~/.local/state/khata-sms-overall-progress/`.
 
 `v0.45.28` narrows phone SMS uploads to messages with a currency amount,
 rechecks the old pending/review backlog locally, and separates SMS classification

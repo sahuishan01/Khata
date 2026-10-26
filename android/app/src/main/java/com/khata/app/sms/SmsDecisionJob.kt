@@ -47,5 +47,12 @@ data class SmsDecisionSummary(
     val filtered: Int = 0,
 )
 
-fun SmsDecisionSummary.hasMessages(): Boolean = pending + review + accepted + ignored + filtered > 0
+fun SmsDecisionSummary.totalCount(): Long = pending.toLong() + review + accepted + ignored + filtered
+fun SmsDecisionSummary.finishedCount(): Long = accepted.toLong() + ignored + filtered
+fun SmsDecisionSummary.progressFraction(): Float =
+    if (totalCount() == 0L) 0f else finishedCount().toFloat() / totalCount()
+// Integer division keeps an unfinished queue below 100%, including large backlogs.
+fun SmsDecisionSummary.progressPercent(): Int =
+    if (totalCount() == 0L) 0 else (finishedCount() * 100 / totalCount()).toInt()
+fun SmsDecisionSummary.hasMessages(): Boolean = totalCount() > 0
 fun SmsDecisionSummary.isComplete(): Boolean = pending == 0 && review == 0

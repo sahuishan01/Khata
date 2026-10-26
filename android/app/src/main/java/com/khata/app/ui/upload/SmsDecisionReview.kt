@@ -14,17 +14,36 @@ import com.khata.app.sms.SmsParser
 import com.khata.app.sms.SmsDecisionSummary
 import com.khata.app.sms.hasMessages
 import com.khata.app.sms.isComplete
+import com.khata.app.sms.totalCount
+import com.khata.app.sms.finishedCount
+import com.khata.app.sms.progressFraction
+import com.khata.app.sms.progressPercent
 import com.khata.app.ui.transactions.validEditMoney
 
 @Composable
-fun SmsClassificationStatus(summary: SmsDecisionSummary, onRetry: () -> Unit) {
-    if (!summary.hasMessages()) return
+fun SmsClassificationStatus(summary: SmsDecisionSummary, onRetry: () -> Unit, scanning: Boolean = false) {
+    if (!summary.hasMessages() && !scanning) return
     Column(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Text(when {
+            scanning -> "SMS inbox scan in progress"
             summary.pending > 0 -> "SMS classification in progress"
             summary.review > 0 -> "SMS classification needs review"
             else -> "SMS classification complete"
         },style=MaterialTheme.typography.titleSmall)
+        Text(
+            "${summary.finishedCount()} of ${summary.totalCount()} queued SMS finished" +
+                if (scanning) "" else " (${summary.progressPercent()}%)",
+            style=MaterialTheme.typography.bodySmall.copy(fontFeatureSettings="tnum"),
+        )
+        if (scanning) {
+            LinearProgressIndicator(Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Reading inbox; the queued total is still growing.",style=MaterialTheme.typography.bodySmall)
+        } else {
+            LinearProgressIndicator(
+                progress={summary.progressFraction()},modifier=Modifier.fillMaxWidth(),
+                color=MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text("${summary.pending} waiting · ${summary.review} need review · ${summary.accepted} SMS accepted",style=MaterialTheme.typography.bodySmall)
         Text("${summary.filtered} skipped on this device · ${summary.ignored} classified as non-transactions",style=MaterialTheme.typography.bodySmall)
         if (!summary.isComplete()) Text("Accepted SMS are separate from newly created transaction counts. Review messages under Add Data → Upload.",style=MaterialTheme.typography.bodySmall)

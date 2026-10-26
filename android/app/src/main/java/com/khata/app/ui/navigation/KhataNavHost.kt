@@ -105,7 +105,7 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
     val smsDecisionJobs by viewModel.smsDecisionJobs.collectAsState()
     val smsDecisionSummary by viewModel.smsDecisionSummary.collectAsState()
     val smsDecisionStatus: @Composable () -> Unit = {
-        com.khata.app.ui.upload.SmsClassificationStatus(smsDecisionSummary,viewModel::retrySmsProcessing)
+        com.khata.app.ui.upload.SmsClassificationStatus(smsDecisionSummary,viewModel::retrySmsProcessing,smsProgress.running)
         com.khata.app.ui.upload.SmsDecisionReview(smsDecisionJobs,viewModel::retrySmsReview,viewModel::ignoreSmsReview,viewModel::resolveSmsReview)
     }
     val serverUrl by viewModel.serverUrl.collectAsState()
@@ -251,7 +251,7 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
                 TransactionsScreen(
                     txnState = txnState.txns,
                     deviceSyncStatus = {
-                        com.khata.app.ui.upload.SmsClassificationStatus(smsDecisionSummary,viewModel::retrySmsProcessing)
+                        com.khata.app.ui.upload.SmsClassificationStatus(smsDecisionSummary,viewModel::retrySmsProcessing,smsProgress.running)
                         if (pendingSyncCount > 0 || deviceSyncState is SyncUiState.Error || deviceSyncState is SyncUiState.Conflicts) deviceSyncStatus()
                     },
                     categories = txnState.categories,
