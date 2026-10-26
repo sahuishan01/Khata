@@ -111,9 +111,6 @@ jobs:
           ./scripts/fetch-pdfium.sh linux x64
           echo "PDFIUM_LIB_PATH=$PWD/.pdfium/lib" >> "$GITHUB_ENV"
 
-      - name: Test SMS decision privacy and policy
-        run: python3 -m unittest discover -s ops/laya -p 'test_*.py' -v
-
       - name: Test
         run: cargo test --manifest-path backend/Cargo.toml
 

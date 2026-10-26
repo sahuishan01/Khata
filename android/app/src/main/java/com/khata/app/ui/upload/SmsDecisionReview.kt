@@ -26,9 +26,9 @@ fun SmsClassificationStatus(summary: SmsDecisionSummary, onRetry: () -> Unit, sc
     Column(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Text(when {
             scanning -> "SMS inbox scan in progress"
-            summary.pending > 0 -> "SMS classification in progress"
-            summary.review > 0 -> "SMS classification needs review"
-            else -> "SMS classification complete"
+            summary.pending > 0 -> "SMS upload in progress"
+            summary.review > 0 -> "SMS upload needs review"
+            else -> "SMS import complete"
         },style=MaterialTheme.typography.titleSmall)
         Text(
             "${summary.finishedCount()} of ${summary.totalCount()} queued SMS finished" +
@@ -44,12 +44,12 @@ fun SmsClassificationStatus(summary: SmsDecisionSummary, onRetry: () -> Unit, sc
                 color=MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text("${summary.pending} waiting · ${summary.review} need review · ${summary.accepted} SMS accepted",style=MaterialTheme.typography.bodySmall)
-        Text("${summary.filtered} skipped on this device · ${summary.ignored} classified as non-transactions",style=MaterialTheme.typography.bodySmall)
-        if (!summary.isComplete()) Text("Accepted SMS are separate from newly created transaction counts. Review messages under Add Data → Upload.",style=MaterialTheme.typography.bodySmall)
+        Text("${summary.pending} waiting · ${summary.review} need review · ${summary.accepted} SMS handled",style=MaterialTheme.typography.bodySmall)
+        Text("${summary.filtered} skipped on this device · ${summary.ignored} ignored",style=MaterialTheme.typography.bodySmall)
+        if (!summary.isComplete()) Text("Handled SMS may reuse saved transactions. Review messages under Add Data → Upload.",style=MaterialTheme.typography.bodySmall)
         if (summary.pending > 0) {
-            Text("Background work may wait for the connection or server capacity. Saved transaction sync does not complete this queue.",style=MaterialTheme.typography.bodySmall)
-            TextButton(onClick=onRetry) { Text("Retry SMS processing") }
+            Text("SMS are parsed on this device. Uploads wait for a connection.",style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick=onRetry) { Text("Retry SMS uploads") }
         }
     }
 }
@@ -66,7 +66,7 @@ fun SmsDecisionReview(
     var error by remember { mutableStateOf<String?>(null) }
     if (jobs.isNotEmpty()) {
         jobs.firstOrNull { it.status=="pending" && it.reason.isNotBlank() }?.let { Text(it.reason,style=MaterialTheme.typography.bodySmall) }
-        jobs.filter { it.status=="review" }.take(20).forEach { job ->
+        jobs.filter { it.status in listOf("review","conflict") }.take(20).forEach { job ->
             Card(Modifier.fillMaxWidth().padding(vertical=4.dp)) {
                 Column(Modifier.padding(12.dp)) {
                     Text(job.body.orEmpty(),maxLines=3)
@@ -81,7 +81,7 @@ fun SmsDecisionReview(
                 }
             }
         }
-        if (jobs.any { it.status=="review" }) TextButton(onClick=onRetry) { Text("Retry undecided SMS") }
+        if (jobs.any { it.status in listOf("review","conflict") }) TextButton(onClick=onRetry) { Text("Retry SMS needing review") }
     }
     selected?.let { job ->
         AlertDialog(onDismissRequest={if(!saving) selected=null},title={Text("Review SMS")},

@@ -1,17 +1,10 @@
-use axum::{routing::post, Json, Router};
-use khata::{
-    sms::{classify_at, DecisionRequest},
-    AppState,
-};
+use axum::Router;
+use khata::AppState;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::{
     collections::HashMap,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 use uuid::Uuid;
 fn state(pool: &PgPool) -> AppState {
@@ -61,50 +54,6 @@ fn http() -> reqwest::Client {
     reqwest::Client::builder().no_proxy().build().unwrap()
 }
 
-#[tokio::test]
-async fn gateway_binds_decisions_to_input_and_rejects_invalid_or_unavailable_model() {
-    let calls = Arc::new(AtomicUsize::new(0));
-    let seen = calls.clone();
-    let (url,task)=server(Router::new().route("/decide",post(move |Json(request):Json<Value>| {let seen=seen.clone();async move {
-        seen.fetch_add(1,Ordering::SeqCst);
-        let body=request["body"].as_str().unwrap();
-        Json(json!({"status":"decision","is_transaction":true,"is_debit":true,
-            "transaction_probability":0.95,"debit_probability":0.8,
-            "source_hash":if body=="wrong hash" {"invalid".into()} else {format!("{:x}",Sha256::digest(body.as_bytes()))},
-            "model_version":"laya:test:sms-choice-v1"}))
-    }}))).await;
-    let url = format!("{url}/decide");
-    let owner = Uuid::new_v4();
-    let decide = |body: &str| {
-        classify_at(
-            owner,
-            DecisionRequest {
-                owner_id: owner,
-                body: body.into(),
-            },
-            &url,
-        )
-    };
-    assert!(decide("INR 500 sent").await.unwrap().is_debit.unwrap());
-    assert!(decide("wrong hash").await.is_err());
-    assert!(decide("Your OTP 123456 for INR 500 sent").await.is_err());
-    assert_eq!(calls.load(Ordering::SeqCst), 2);
-    task.abort();
-    let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let endpoint = format!("http://{}/decide", unavailable.local_addr().unwrap());
-    drop(unavailable);
-    assert!(classify_at(
-        owner,
-        DecisionRequest {
-            owner_id: owner,
-            body: "INR 500 sent".into()
-        },
-        &endpoint
-    )
-    .await
-    .is_err());
-}
-
 #[sqlx::test(migrations = "./migrations")]
 async fn sms_endpoints_authenticate_scope_imports_and_preserve_manual_edits(pool: PgPool) {
     let app = state(&pool);
@@ -143,6 +92,18 @@ async fn sms_endpoints_authenticate_scope_imports_and_preserve_manual_edits(pool
             .status(),
         400
     );
+    // Old apps get a terminal error instead of uploading SMS to a model.
+    for (owner, expected) in [(a, 400), (b, 403)] {
+        let disabled = client
+            .post(format!("{url}/api/sms/decide"))
+            .bearer_auth(&token)
+            .json(&json!({"owner_id":owner,"body":"INR 500 sent"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(disabled.status(), expected);
+        assert!(!disabled.text().await.unwrap().contains("INR 500"));
+    }
     assert_eq!(
         client
             .post(format!("{url}/api/sms/import"))

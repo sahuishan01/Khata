@@ -384,7 +384,7 @@ class MainViewModel @Inject constructor(
                         kotlinx.coroutines.currentCoroutineContext().ensureActive()
                         progress = progress.copy(scanned = progress.scanned + 1)
                         val body = it.getString(bI).orEmpty()
-                        if (!com.khata.app.sms.SmsCandidateFilter.isCandidate(body)) {
+                        if (body.length > 16000 || com.khata.app.sms.SmsParser.parse(body,it.getString(aI).orEmpty()) == null) {
                             progress = progress.copy(filtered=progress.filtered+1)
                             continue
                         }
@@ -398,7 +398,7 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 smsDecisions.resume()
-                val message = "${progress.matched} monetary SMS queued for classification; ${progress.filtered} skipped on this device. Queued does not mean imported. See SMS classification progress below; uncertain messages need review."
+                val message = "${progress.matched} transaction SMS parsed locally and queued for upload; ${progress.filtered} skipped on this device. See SMS upload progress; saved transactions and edits are preserved."
                 _smsProgress.value = progress.copy(running=false,phase="Queued",message=message)
                 withContext(Dispatchers.Main) { onResult(message) }
             } catch (e: CancellationException) {

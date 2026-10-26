@@ -41,7 +41,7 @@ object SmsImport {
         return if (old == null) SmsSaveResult.CREATED else SmsSaveResult.UPDATED
     }
 
-    /** A model worker uploads with its captured owner before adopting the canonical row locally. */
+    /** An SMS worker uploads with its captured owner before adopting the canonical row locally. */
     suspend fun prepare(dao: TransactionDao, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long): Pair<LocalTransaction?, LocalTransaction> {
         return prepareWithLookup(parsed,body,sender,timestamp,queuedAt,lookup=dao::getByClientId)
     }

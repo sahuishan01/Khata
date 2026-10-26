@@ -4,8 +4,7 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::{sync::OnceLock, time::Duration};
+use std::sync::OnceLock;
 use uuid::Uuid;
 
 use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
@@ -15,17 +14,6 @@ use crate::{auth::middleware::CurrentUser, error::AppError, AppState};
 pub struct DecisionRequest {
     pub owner_id: Uuid,
     pub body: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct DecisionResponse {
-    pub status: String,
-    pub is_transaction: Option<bool>,
-    pub is_debit: Option<bool>,
-    pub transaction_probability: Option<f64>,
-    pub debit_probability: Option<f64>,
-    pub source_hash: String,
-    pub model_version: String,
 }
 
 #[derive(Deserialize)]
@@ -142,118 +130,17 @@ pub fn contains_otp(body: &str) -> bool {
     ).expect("constant regex")).is_match(body)
 }
 
-fn client() -> &'static reqwest::Client {
-    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(Duration::from_secs(2))
-            .timeout(Duration::from_secs(25))
-            .build()
-            .expect("local classifier HTTP client")
-    })
-}
-
-fn local_endpoint(value: &str) -> Result<reqwest::Url, AppError> {
-    let url = reqwest::Url::parse(value).map_err(|_| AppError::Internal)?;
-    if url.scheme() != "http"
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || !url.host_str().is_some_and(|host| {
-            host.parse::<std::net::IpAddr>()
-                .is_ok_and(|ip| ip.is_loopback())
-        })
-    {
-        return Err(AppError::Internal);
-    }
-    Ok(url)
-}
-
-pub async fn classify_at(
-    owner: Uuid,
-    request: DecisionRequest,
-    endpoint: &str,
-) -> Result<DecisionResponse, AppError> {
-    // Do not forward or reflect OTP contents, even if an older/custom client bypasses its gate.
-    if contains_otp(&request.body) {
-        return Err(AppError::BadRequest(
-            "Authentication messages are not processed".into(),
-        ));
-    }
-    if owner != request.owner_id {
-        return Err(AppError::Forbidden);
-    }
-    if request.body.is_empty() || request.body.chars().count() > 16_000 {
-        return Err(AppError::BadRequest(
-            "SMS must contain 1-16000 characters".into(),
-        ));
-    }
-    let mut response = client()
-        .post(local_endpoint(endpoint)?)
-        .json(&serde_json::json!({"body":request.body}))
-        .send()
-        .await
-        .map_err(|_| AppError::Unavailable)?;
-    if !response.status().is_success() {
-        return Err(AppError::Unavailable);
-    }
-    if response.content_length().is_some_and(|len| len > 32_768) {
-        return Err(AppError::Unavailable);
-    }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| AppError::Unavailable)? {
-        if bytes.len() + chunk.len() > 32_768 {
-            return Err(AppError::Unavailable);
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    let result: DecisionResponse =
-        serde_json::from_slice(&bytes).map_err(|_| AppError::Unavailable)?;
-    let valid_probability =
-        |value: Option<f64>| value.is_none_or(|p| p.is_finite() && (0.0..=1.0).contains(&p));
-    let consistent = match result.status.as_str() {
-        "decision" => {
-            result.is_transaction == Some(true)
-                && result.is_debit.is_some()
-                && result.transaction_probability.is_some_and(|p| p >= 0.75)
-                && result
-                    .debit_probability
-                    .is_some_and(|p| p.max(1.0 - p) >= 0.55 && result.is_debit == Some(p > 0.5))
-        }
-        "ignored" => {
-            result.is_transaction == Some(false)
-                && result.is_debit.is_none()
-                && result.debit_probability.is_none()
-                && result.transaction_probability.is_some_and(|p| p <= 0.2)
-        }
-        "review" => result.is_debit.is_none(),
-        _ => false,
-    };
-    if !consistent
-        || result.source_hash != format!("{:x}", Sha256::digest(request.body.as_bytes()))
-        || !result.model_version.starts_with("laya:")
-        || result.model_version.len() > 128
-        || !valid_probability(result.transaction_probability)
-        || !valid_probability(result.debit_probability)
-    {
-        return Err(AppError::Unavailable);
-    }
-    Ok(result)
-}
-
+// Retired endpoint for older apps. Never load or contact an inference service.
 async fn classify(
     CurrentUser(owner): CurrentUser,
     Json(request): Json<DecisionRequest>,
-) -> Result<Json<DecisionResponse>, AppError> {
-    static SLOTS: OnceLock<tokio::sync::Semaphore> = OnceLock::new();
-    let _permit = SLOTS
-        .get_or_init(|| tokio::sync::Semaphore::new(2))
-        .try_acquire()
-        .map_err(|_| AppError::TooManyRequests)?;
-    let endpoint =
-        std::env::var("KHATA_LAYA_URL").unwrap_or_else(|_| "http://127.0.0.1:8091/decide".into());
-    classify_at(owner, request, &endpoint).await.map(Json)
+) -> Result<Json<serde_json::Value>, AppError> {
+    if owner != request.owner_id {
+        return Err(AppError::Forbidden);
+    }
+    Err(AppError::BadRequest(
+        "SMS model decisions are disabled. Update Khata to use on-device parsing.".into(),
+    ))
 }
 
 pub fn router() -> Router<AppState> {
@@ -266,52 +153,15 @@ pub fn router() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn otp_is_rejected_before_any_endpoint_can_be_contacted() {
+    #[test]
+    fn authentication_messages_remain_blocked() {
         for body in [
             "OTP 123456 for INR 500",
             "One-time password 123456",
             "Login code 123456",
         ] {
-            let owner = Uuid::new_v4();
-            let result = classify_at(
-                owner,
-                DecisionRequest {
-                    owner_id: owner,
-                    body: body.into(),
-                },
-                "invalid",
-            )
-            .await;
-            assert!(matches!(result, Err(AppError::BadRequest(_))));
+            assert!(contains_otp(body));
         }
-    }
-
-    #[tokio::test]
-    async fn a_changed_login_cannot_process_another_owners_queue() {
-        let result = classify_at(
-            Uuid::new_v4(),
-            DecisionRequest {
-                owner_id: Uuid::new_v4(),
-                body: "INR 500 debited".into(),
-            },
-            "invalid",
-        )
-        .await;
-        assert!(matches!(result, Err(AppError::Forbidden)));
-    }
-
-    #[test]
-    fn model_calls_cannot_leave_the_host() {
-        for endpoint in [
-            "https://127.0.0.1/",
-            "http://example.com/",
-            "http://0.0.0.0/",
-            "http://user:password@127.0.0.1/",
-        ] {
-            assert!(local_endpoint(endpoint).is_err());
-        }
-        assert!(local_endpoint("http://127.0.0.1:8091/decide").is_ok());
+        assert!(!contains_otp("INR 500 sent"));
     }
 }

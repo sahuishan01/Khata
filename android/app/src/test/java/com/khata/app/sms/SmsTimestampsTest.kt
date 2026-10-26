@@ -9,7 +9,7 @@ class SmsTimestampsTest {
     private val sent=1792477800000L
     private val arrival=sent+1042
     private val body="INR 500 spent using HDFC credit card at SHOP on 20/10/26."
-    private val parsed=SmsParser.fromDecision(body,"HDFCBK","debit","laya:test:sms-choice-v1")!!
+    private val parsed=SmsParser.parse(body,"HDFCBK")!!
 
     @Test fun liveReceiptAndInboxScanUseTheSameIdentity() {
         assertEquals(sent,SmsTimestamps.fromInbox(arrival,sent))

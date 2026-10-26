@@ -1,9 +1,11 @@
 package com.khata.app.sms
 
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import com.khata.app.api.TokenManager
 import com.khata.app.api.TxnRow
+import com.khata.app.api.SyncPullResponse
+import com.khata.app.api.SyncPushOp
+import com.khata.app.api.SyncPushResult
 import com.khata.app.api.toLocal
 import com.khata.app.data.LocalTransaction
 import kotlinx.coroutines.Dispatchers
@@ -32,17 +34,9 @@ fun smsSession(token: String?, origin: String): SmsSession? = runCatching {
     SmsSession(id, smsDigest("${origin.trimEnd('/')}|$id"), origin.trimEnd('/'), token)
 }.getOrNull()
 
-data class SmsDecision(
-    val status: String,
-    @SerializedName("is_transaction") val isTransaction: Boolean?,
-    @SerializedName("is_debit") val isDebit: Boolean?,
-    @SerializedName("transaction_probability") val transactionProbability: Double?,
-    @SerializedName("debit_probability") val debitProbability: Double?,
-    @SerializedName("source_hash") val sourceHash: String,
-    @SerializedName("model_version") val modelVersion: String,
-)
+data class SmsHistory(val rows: Map<String, LocalTransaction>, val cursor: Long)
 
-class SmsDecisionFailure(val retry: Boolean) : Exception("SMS decision service unavailable")
+class SmsDecisionFailure(val retry: Boolean) : Exception("SMS upload unavailable")
 
 @Singleton
 class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
@@ -60,7 +54,7 @@ class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw SmsDecisionFailure(response.code !in listOf(400,401,403,409,422))
             val source = response.body?.source() ?: throw SmsDecisionFailure(true)
-            if (source.request(256_001)) throw SmsDecisionFailure(false)
+            if (source.request(8_000_001)) throw SmsDecisionFailure(false)
             gson.fromJson(source.readUtf8(), type)
         }
     }
@@ -68,33 +62,43 @@ class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
     private suspend fun <T> post(session: SmsSession, path: String, payload: Any, type: Class<T>): T =
         postOrNull(session,path,payload,type) ?: throw SmsDecisionFailure(true)
 
-    suspend fun prepare(session: SmsSession, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long, legacyTimestamp: Long? = null): Pair<LocalTransaction?,LocalTransaction> {
-        val found=mutableMapOf<String,LocalTransaction?>()
-        return SmsImport.prepareWithLookup(parsed,body,sender,timestamp,queuedAt,alternateTimestamp=legacyTimestamp) { id ->
-            if (runCatching { UUID.fromString(id) }.isFailure) null
-            else {
-                if (!found.containsKey(id)) found[id]=postOrNull(session,"/api/sms/lookup",mapOf("owner_id" to session.ownerId,"client_id" to id),TxnRow::class.java)?.toLocal()
-                found[id]
+    /** Captured owner/origin/token also scope the normal bulk-sync protocol. */
+    suspend fun history(session: SmsSession, since: Long = 0): SmsHistory = withContext(Dispatchers.IO) {
+        val rows = linkedMapOf<String,LocalTransaction>()
+        var cursor = since
+        while (true) {
+            val request = Request.Builder().url(session.origin + "/api/sync/pull?since_rev=$cursor&limit=200&cursor_version=2")
+                .header("Authorization", "Bearer ${session.token}").build()
+            val page = http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw SmsDecisionFailure(response.code !in listOf(400,401,403,409,422))
+                val source = response.body?.source() ?: throw SmsDecisionFailure(true)
+                if (source.request(8_000_001)) throw SmsDecisionFailure(false)
+                gson.fromJson(source.readUtf8(), SyncPullResponse::class.java) ?: throw SmsDecisionFailure(true)
             }
+            if (page.hasMore && (page.txns.isEmpty() || page.newRev <= cursor)) throw SmsDecisionFailure(true)
+            for (row in page.txns) rows[row.clientId ?: row.id] = row.toLocal()
+            cursor = page.newRev
+            if (!page.hasMore) break
         }
+        SmsHistory(rows,cursor)
     }
 
-    suspend fun decide(session: SmsSession, body: String): SmsDecision {
-        if (!SmsCandidateFilter.isCandidate(body)) throw SmsDecisionFailure(false)
-        return post(session, "/api/sms/decide", mapOf("owner_id" to session.ownerId, "body" to body), SmsDecision::class.java)
-            .also {
-                if (it.sourceHash != smsDigest(body) || !it.modelVersion.startsWith("laya:")) throw SmsDecisionFailure(false)
-            }
+    suspend fun prepare(session: SmsSession, parsed: ParsedSmsTxn, body: String, sender: String, timestamp: Long, queuedAt: Long, legacyTimestamp: Long? = null): Pair<LocalTransaction?,LocalTransaction> {
+        val snapshot = history(session)
+        return SmsImport.prepareWithLookup(parsed,body,sender,timestamp,queuedAt,alternateTimestamp=legacyTimestamp,lookup=snapshot.rows::get)
     }
 
-    suspend fun save(session: SmsSession, row: LocalTransaction): TxnRow {
+    suspend fun saveBatch(session: SmsSession, rows: List<LocalTransaction>): SyncPushResult =
+        post(session,"/api/sync/push",rows.map(::operation),SyncPushResult::class.java)
+
+    suspend fun save(session: SmsSession, row: LocalTransaction): TxnRow =
+        post(session,"/api/sms/import",mapOf("owner_id" to session.ownerId,"operation" to operation(row)),TxnRow::class.java)
+
+    private fun operation(row: LocalTransaction): SyncPushOp {
         if (SmsPrivacy.containsOtp(row.notes)) throw SmsDecisionFailure(false)
-        val operation = mapOf("client_id" to row.clientId, "base_rev" to row.baseRev,
-            "description" to row.description, "amount" to row.amount, "direction" to row.direction,
-            "category" to row.category, "txn_date" to row.txnDate, "value_date" to row.valueDate,
-            "bank" to row.bank, "bank_ref" to row.bankRef, "notes" to row.notes,
-            "is_transfer" to row.isTransfer, "deleted" to row.deleted,
-            "sms_source" to SmsSource.decode(row.smsSource))
-        return post(session, "/api/sms/import", mapOf("owner_id" to session.ownerId, "operation" to operation), TxnRow::class.java)
+        return SyncPushOp(clientId=row.clientId,baseRev=row.baseRev,
+            description=row.description,amount=row.amount,direction=row.direction,category=row.category,
+            txnDate=row.txnDate,valueDate=row.valueDate,bank=row.bank,bankRef=row.bankRef,
+            notes=row.notes,isTransfer=row.isTransfer,deleted=row.deleted,smsSource=SmsSource.decode(row.smsSource))
     }
 }
