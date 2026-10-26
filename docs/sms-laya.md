@@ -68,6 +68,15 @@ accepted, filtered and non-transaction counts on Upload and Transactions. Accept
 SMS may reuse an existing transaction, so this count is not a count of new rows.
 Classification is complete only when pending and review counts are both zero.
 
+Both screens also show **X of Y queued SMS finished (Z%)** and an overall progress
+bar. The total includes every queued SMS for the current account/server on this
+device, including previously finished work. Accepted, ignored and locally filtered
+jobs count as finished; pending and review jobs remain unfinished. Percentages
+round down so an outstanding message cannot display 100%. Counts survive app
+restarts and do not reset on retries or rescans. While an inbox scan is still
+adding jobs, the bar is indeterminate and explains that the total is growing;
+completion is shown only after scanning and all queued work are finished.
+
 Saved transaction uploads have a separate sync status. Their completion cannot
 complete SMS classification. Transactions and dashboard totals refresh as SMS
 are accepted, including when a later message is waiting for a connection or
