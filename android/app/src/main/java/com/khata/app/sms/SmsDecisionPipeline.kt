@@ -159,7 +159,7 @@ class SmsDecisionPipeline @Inject constructor(
             if (!e.retry) {
                 val pendingIds = dao.pending(owner).map { it.id }.toSet()
                 for (job in jobs) if (job.id in pendingIds)
-                    dao.finish(job.id,"conflict","Sign in again or review the saved transaction before retrying.",true)
+                    dao.finish(job.id,"conflict",e.message ?: "Review the saved transaction before retrying.",true)
                 return@withLock if (dao.pending(owner).isEmpty()) SmsWorkOutcome.DONE else SmsWorkOutcome.MORE
             }
             dao.pendingReason(jobs.first().id,"Waiting for a connection to upload locally parsed transactions.")

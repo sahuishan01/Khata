@@ -40,3 +40,12 @@ were removed. The retired /api/sms/decide endpoint returns a terminal client
 error without contacting a model; old apps need the v0.45.30 update. Existing
 lookup/import endpoints and historic classifier provenance remain compatible.
 No database migration, financial-record backfill or model download is required.
+
+## Sync route contract
+
+Canonical endpoints are `/api/txns/sync/pull` and `/api/txns/sync/push`. The
+Retrofit API and captured SMS transport share SyncRoutes to prevent divergence.
+HTTP tests must reject unknown paths, rather than accepting any URL ending in
+`/sync/pull` or `/sync/push`. Verify the actual deployed service with authenticated
+history reads and empty pushes; never create synthetic financial rows in production.
+The public proxy keeps a compatibility mapping for v0.45.30's incorrect paths.

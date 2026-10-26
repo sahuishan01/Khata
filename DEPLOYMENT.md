@@ -545,3 +545,22 @@ queue exclusions and two upload batches, offline/reconnect, OTP exclusion and
 repeated scans passed. Backend CI passed 219 tests (1 ignored), Clippy and web
 build; Security Scan `40326120916` passed. Physical-phone UI checks remain
 unavailable. Current Android/backend source trees match the signed tag.
+
+## SMS sync URL compatibility (v0.45.30/v0.45.31)
+
+v0.45.30 incorrectly used `/api/sync/*` instead of `/api/txns/sync/*`. Caddy
+now rewrites the exact legacy pull/push/resolve paths to the canonical handlers
+before proxying. Queries, methods, bodies and application authentication are
+preserved. Keep this compatibility mapping for installed v0.45.30 clients.
+The app is being corrected to use the normal transaction sync route constants.
+
+```caddyfile
+@legacySmsSync path /api/sync/pull /api/sync/push /api/sync/resolve
+uri @legacySmsSync path_regexp ^/api/sync/ /api/txns/sync/
+```
+
+The mapping lives inside `handle /api/*` in
+`/etc/caddy/sites/khaata2.caddy`. Caddy validation/reload and live authenticated
+GET/empty-POST probes passed for both route families; unauthenticated calls stay
+401. No production test transactions were created. Evidence:
+`~/.local/state/khata-sms-upload-route-fix/`.

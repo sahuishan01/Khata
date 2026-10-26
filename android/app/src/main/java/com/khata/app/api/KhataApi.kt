@@ -4,6 +4,13 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.*
 
+/** Keep Retrofit and owner-captured SMS uploads on the same API paths. */
+object SyncRoutes {
+    const val PULL = "api/txns/sync/pull"
+    const val PUSH = "api/txns/sync/push"
+    const val RESOLVE = "api/txns/sync/resolve"
+}
+
 interface KhataApi {
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse
@@ -85,12 +92,12 @@ interface KhataApi {
     @DELETE("api/categories/{id}") suspend fun deleteCategory(@Path("id") id: String): MessageResponse
 
     // Sync
-    @GET("api/txns/sync/pull")
+    @GET(SyncRoutes.PULL)
     suspend fun syncPull(@Query("since_rev") sinceRev: Long = 0, @Query("limit") limit: Int = 200, @Query("cursor_version") cursorVersion: Int = 2): SyncPullResponse
 
-    @POST("api/txns/sync/push")
+    @POST(SyncRoutes.PUSH)
     suspend fun syncPush(@Body ops: List<SyncPushOp>): SyncPushResult
 
-    @POST("api/txns/sync/resolve")
+    @POST(SyncRoutes.RESOLVE)
     suspend fun syncResolve(@Body resolutions: List<SyncPushOp>): List<SyncAccepted>
 }

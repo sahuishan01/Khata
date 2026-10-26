@@ -29,7 +29,20 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.30` (verified).
+Current release version: `v0.45.31` (verification in progress).
+
+`v0.45.31` corrects SMS history/upload URLs to `/api/txns/sync/*`, shared with
+Retrofit through SyncRoutes. v0.45.30 used `/api/sync/*`; permissive synthetic
+routing hid that 404. A Caddy compatibility rewrite is already live for installed
+v0.45.30 clients. Authenticated history/empty-push probes passed for both path
+families; unauthorized requests remain 401. Missing routes now give actionable
+errors. Laya remains disabled. No database migration or financial backfill.
+110 release tests, lint, real-client production history/empty-push probes and
+Android API 35 checks passed. The old app reproduced 304 stuck transactions; a
+real debug-app update to v0.45.31 uploaded 303 rows in two batches, preserving
+edits, owner isolation and Room 3. Signed CI is in progress. Evidence:
+`~/.local/state/khata-sms-upload-route-fix/`.
+
 
 `v0.45.30` removes Laya from SMS ingestion at the user's request. Local generic
 posting grammar recognizes transactions before queueing; only parsed records
