@@ -80,7 +80,7 @@ class SmsDecisionClient @Inject constructor(private val tokens: TokenManager) {
     }
 
     suspend fun decide(session: SmsSession, body: String): SmsDecision {
-        if (SmsPrivacy.containsOtp(body)) throw SmsDecisionFailure(false)
+        if (!SmsCandidateFilter.isCandidate(body)) throw SmsDecisionFailure(false)
         return post(session, "/api/sms/decide", mapOf("owner_id" to session.ownerId, "body" to body), SmsDecision::class.java)
             .also {
                 if (it.sourceHash != smsDigest(body) || !it.modelVersion.startsWith("laya:")) throw SmsDecisionFailure(false)

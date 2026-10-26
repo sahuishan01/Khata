@@ -29,7 +29,20 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.27` (verified).
+Current release version: `v0.45.28` (verification in progress).
+
+`v0.45.28` narrows phone SMS uploads to messages with a currency amount,
+rechecks the old pending/review backlog locally, and separates SMS classification
+from saved transaction sync. Exact queue counts remain visible while processing;
+accepted transactions refresh before the queue drains. Manual retry resets old
+backoff without losing completed decisions. Saved transactions, edits, import
+identities and other owners remain protected. No backend/model deployment or
+database migration. See `docs/sms-laya.md`. Local release lint and 110 unit tests
+passed. Android API 35 checks passed for filtering 12,000 old queued texts,
+partial-result refresh, transient retry, review completion, live OTP exclusion,
+owner isolation and preservation of edited records. Signed CI is in progress.
+Evidence: `~/.local/state/khata-sms-candidate-fix/`.
+
 Last verified signed APK: `v0.45.27`
 (GitHub Actions run `40262809332`, 104 release unit tests passed). Its signing
 certificate matches `v0.45.26`; versionCode 213 supports updating the existing

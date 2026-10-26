@@ -12,7 +12,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.Locale
@@ -31,22 +30,24 @@ class SmsDecisionPipeline @Inject constructor(
     private val mutex = Mutex()
     private val dao get() = database.smsDecisionDao()
 
-    fun active(): Flow<List<SmsDecisionJob>> = client.session()?.let { dao.active(it.owner) } ?: flowOf(emptyList())
+    fun active(owner: String): Flow<List<SmsDecisionJob>> = dao.active(owner)
+    fun summary(owner: String): Flow<SmsDecisionSummary> = dao.summary(owner)
 
-    internal fun schedule(owner: String) {
+    internal fun schedule(owner: String, restart: Boolean = false) {
         val request = OneTimeWorkRequestBuilder<SmsDecisionWorker>()
             .setInputData(workDataOf("owner" to owner))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .addTag("sms-decisions").build()
-        WorkManager.getInstance(context).enqueueUniqueWork("sms-decisions-$owner", ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        val policy = if (restart) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE
+        WorkManager.getInstance(context).enqueueUniqueWork("sms-decisions-$owner", policy, request)
     }
 
-    fun resume() { client.session()?.let { schedule(it.owner) } }
+    fun resume() { client.session()?.let { schedule(it.owner, restart=true) } }
 
     suspend fun enqueue(body: String, sender: String, timestamp: Long, scheduleNow: Boolean = true, legacyTimestamp: Long? = null): Boolean {
         // No OTP is persisted in the decision queue or placed in WorkManager input.
-        if (SmsPrivacy.containsOtp(body) || body.isBlank() || body.length > 16000) return false
+        if (!SmsCandidateFilter.isCandidate(body)) return false
         val session = client.session() ?: return false
         val id = smsDigest("${session.owner}|sms-choice-v1|${sender.uppercase(Locale.ROOT)}|$timestamp|$body")
         val created = dao.insert(SmsDecisionJob(id,session.owner,sender,body,timestamp,System.currentTimeMillis(),legacyReceivedAt=legacyTimestamp?.takeIf { it != timestamp })) != -1L
@@ -56,7 +57,7 @@ class SmsDecisionPipeline @Inject constructor(
 
     suspend fun retryReview() {
         val session = client.session() ?: return
-        dao.retryReview(session.owner); schedule(session.owner)
+        dao.retryReview(session.owner); schedule(session.owner, restart=true)
     }
 
     suspend fun ignore(id: String) {
@@ -87,33 +88,58 @@ class SmsDecisionPipeline @Inject constructor(
         catch (_: Exception) { "Could not save. Your SMS remains available for retry." }
     }
 
-    /** Returns true when pending work needs retrying; original SMS remains local on errors. */
+    /** Recheck old-version pending/review work before any body can leave the device. */
+    private suspend fun filterBacklog(owner: String) {
+        var after = ""
+        while (client.session()?.owner == owner) {
+            val page = dao.unfinishedPage(owner,after)
+            if (page.isEmpty()) return
+            val unrelated = page.filter { !SmsCandidateFilter.isCandidate(it.body.orEmpty()) }
+            if (unrelated.isNotEmpty()) database.withTransaction {
+                for (job in unrelated) dao.finish(job.id,"filtered","Skipped on this device: no eligible currency amount.")
+            }
+            after = page.last().id
+        }
+    }
+
+    /** Partial progress starts fresh work rather than accumulating hours of retry backoff. */
     suspend fun runPending(owner: String): SmsWorkOutcome = mutex.withLock {
         val session = client.session()?.takeIf { it.owner == owner } ?: return@withLock SmsWorkOutcome.DONE
+        filterBacklog(owner)
+        var madeProgress = false
+        suspend fun finish(id: String, status: String, reason: String = "", retain: Boolean = false) {
+            dao.finish(id,status,reason,retain)
+            madeProgress = true
+        }
+        suspend fun retry(id: String): SmsWorkOutcome {
+            dao.pendingReason(id,"Waiting for the SMS service or connection. Will retry automatically.")
+            return if (madeProgress) SmsWorkOutcome.MORE else SmsWorkOutcome.RETRY
+        }
         for (job in dao.pending(owner)) {
             if (client.session()?.owner != owner) return@withLock SmsWorkOutcome.DONE
-            val body = job.body ?: continue
-            if (SmsPrivacy.containsOtp(body)) { dao.finish(job.id,"ignored"); continue }
+            val body = job.body
+            if (body == null) { finish(job.id,"review","Original SMS unavailable; review or ignore this item.",true); continue }
+            if (!SmsCandidateFilter.isCandidate(body)) { finish(job.id,"filtered"); continue }
             try {
                 val decision = client.decide(session,body)
                 if (client.session()?.owner != owner) return@withLock SmsWorkOutcome.DONE
                 if (decision.status == "ignored" && decision.isTransaction == false) {
                     if (SmsParser.parse(body,job.sender) != null)
-                        dao.finish(job.id,"review","The transaction decision conflicts with a posting in the SMS.",true)
-                    else dao.finish(job.id,"ignored")
+                        finish(job.id,"review","The transaction decision conflicts with a posting in the SMS.",true)
+                    else finish(job.id,"ignored")
                     continue
                 }
                 if (decision.status != "decision" || decision.isTransaction != true || decision.isDebit == null) {
-                    dao.finish(job.id,"review","The model could not decide confidently.",true); continue
+                    finish(job.id,"review","The model could not decide confidently.",true); continue
                 }
                 val direction = if (decision.isDebit) "debit" else "credit"
                 val parsed = SmsParser.fromDecision(body,job.sender,direction,decision.modelVersion)
                 if (parsed == null) {
-                    dao.finish(job.id,"review","The amount, direction or completed status needs checking.",true); continue
+                    finish(job.id,"review","The amount, direction or completed status needs checking.",true); continue
                 }
                 val txnDao = database.transactionDao()
                 val (previous,row) = client.prepare(session,parsed,body,job.sender,job.receivedAt,job.queuedAt,job.legacyReceivedAt)
-                if (row == previous) { dao.finish(job.id,"done"); continue }
+                if (row == previous) { finish(job.id,"done"); continue }
                 if (client.session()?.owner != owner) return@withLock SmsWorkOutcome.DONE
                 val localBefore = txnDao.getByClientId(row.clientId)
                 val saved = client.save(session,row)
@@ -122,14 +148,15 @@ class SmsDecisionPipeline @Inject constructor(
                     if (txnDao.getByClientId(row.clientId) == localBefore && localBefore?.dirty != true) txnDao.upsert(saved.toLocal().copy(id=localBefore?.id ?: saved.id))
                     dao.finish(job.id,"done")
                 }
+                madeProgress = true
             } catch (e: CancellationException) { throw e }
             catch (_: SmsIdentityConflict) {
-                dao.finish(job.id,"review","The older saved SMS transaction needs checking.",true)
+                finish(job.id,"review","The older saved SMS transaction needs checking.",true)
             }
             catch (e: SmsDecisionFailure) {
-                if (e.retry) return@withLock SmsWorkOutcome.RETRY
-                dao.finish(job.id,"review","Sign in again or review the saved transaction before retrying.",true)
-            } catch (_: Exception) { return@withLock SmsWorkOutcome.RETRY }
+                if (e.retry) return@withLock retry(job.id)
+                finish(job.id,"review","Sign in again or review the saved transaction before retrying.",true)
+            } catch (_: Exception) { return@withLock retry(job.id) }
         }
         if (dao.pending(owner).isNotEmpty()) SmsWorkOutcome.MORE else SmsWorkOutcome.DONE
     }

@@ -11,7 +11,29 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.khata.app.sms.SmsDecisionJob
 import com.khata.app.sms.SmsParser
+import com.khata.app.sms.SmsDecisionSummary
+import com.khata.app.sms.hasMessages
+import com.khata.app.sms.isComplete
 import com.khata.app.ui.transactions.validEditMoney
+
+@Composable
+fun SmsClassificationStatus(summary: SmsDecisionSummary, onRetry: () -> Unit) {
+    if (!summary.hasMessages()) return
+    Column(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+        Text(when {
+            summary.pending > 0 -> "SMS classification in progress"
+            summary.review > 0 -> "SMS classification needs review"
+            else -> "SMS classification complete"
+        },style=MaterialTheme.typography.titleSmall)
+        Text("${summary.pending} waiting · ${summary.review} need review · ${summary.accepted} SMS accepted",style=MaterialTheme.typography.bodySmall)
+        Text("${summary.filtered} skipped on this device · ${summary.ignored} classified as non-transactions",style=MaterialTheme.typography.bodySmall)
+        if (!summary.isComplete()) Text("Accepted SMS are separate from newly created transaction counts. Review messages under Add Data → Upload.",style=MaterialTheme.typography.bodySmall)
+        if (summary.pending > 0) {
+            Text("Background work may wait for the connection or server capacity. Saved transaction sync does not complete this queue.",style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick=onRetry) { Text("Retry SMS processing") }
+        }
+    }
+}
 
 @Composable
 fun SmsDecisionReview(
@@ -24,7 +46,7 @@ fun SmsDecisionReview(
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     if (jobs.isNotEmpty()) {
-        Text(if (jobs.any { it.status=="pending" }) "SMS processing in the background" else "SMS need review")
+        jobs.firstOrNull { it.status=="pending" && it.reason.isNotBlank() }?.let { Text(it.reason,style=MaterialTheme.typography.bodySmall) }
         jobs.filter { it.status=="review" }.take(20).forEach { job ->
             Card(Modifier.fillMaxWidth().padding(vertical=4.dp)) {
                 Column(Modifier.padding(12.dp)) {

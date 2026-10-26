@@ -16,6 +16,14 @@ remain unknown. Spending categories still use existing categorization rules.
 
 ## Privacy and ownership
 
+Before queueing or networking, Android requires a currency marker (`INR`, `Rs`
+or `₹`) next to a numeric amount. This generic gate does not depend on the bank,
+sender or posting wording. Monetary offers can still pass this gate; Laya and
+the extractor decide whether they describe a completed transaction. Ordinary
+personal texts, delivery codes and other messages without a currency amount stay
+on the device. The gate supports prefix/suffix currency, Indian digit grouping,
+line breaks and Unicode spaces.
+
 Messages containing `otp` (case insensitive), one-time passwords/passcodes/codes,
 login codes, verification codes or authentication codes are excluded before
 insertion into the Android decision queue and before any decision API call.
@@ -36,12 +44,36 @@ owner-scoped server lookup, rather than trusting a device cache left by another
 sign-in. Edits and exclusions are preserved by the existing conditional sync
 protocol. Server changes while processing cause a review conflict.
 
-Offline and transient failures remain pending with exponential retry. A changed
+Old-version pending and review jobs are checked against the current gate before
+any decision request. Ineligible queued bodies and senders are discarded locally;
+the tombstone remains to avoid repeat work. Saved transactions and custom edits
+are not deleted. Filtering is scoped to the current user and server.
+
+Offline and transient failures remain pending with exponential retry. A batch
+that made progress starts a fresh work item so successful partial batches do not
+accumulate hours of backoff. Opening the app, scanning again or **Retry SMS
+processing** restarts pending work without resetting its saved decisions. A changed
 sign-in stops that owner's work; signing back in resumes it. Successfully
 processed or ignored jobs retain a deduplication tombstone and discard queued
 text/sender. Undecided jobs retain their original text privately on the device
 for review. Review lets the user confirm amount and direction, retry, or ignore.
 Clear All Data also clears the local decision queue.
+
+## Progress
+
+Inbox scan counts distinguish messages read, queued for classification, skipped
+locally and already handled. Queueing does not mean a transaction was recognized
+or imported. The persistent classification summary shows exact pending, review,
+accepted, filtered and non-transaction counts on Upload and Transactions. Accepted
+SMS may reuse an existing transaction, so this count is not a count of new rows.
+Classification is complete only when pending and review counts are both zero.
+
+Saved transaction uploads have a separate sync status. Their completion cannot
+complete SMS classification. Transactions and dashboard totals refresh as SMS
+are accepted, including when a later message is waiting for a connection or
+server capacity. No inbox rescan or screen restart is required to see partial
+results. These phone-inbox controls are Android-specific; saved transactions and
+the whole-transaction editor remain available on Android and web.
 
 ## Model and validation
 

@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.coroutineScope
 import com.khata.app.sms.SmsImportProgress
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -32,6 +33,7 @@ data class PortfolioUiState(val snapshot: NetWorthSnapshot? = null, val isLoadin
 data class CategoriesUiState(val list: List<Category> = emptyList(), val isLoading: Boolean = false, val error: String? = null)
 
 @HiltViewModel
+@OptIn(kotlinx.coroutines.FlowPreview::class)
 class MainViewModel @Inject constructor(
     private val repository: KhataRepository,
     private val tokenManager: TokenManager,
@@ -43,6 +45,9 @@ class MainViewModel @Inject constructor(
     val smsProgress: StateFlow<SmsImportProgress> = _smsProgress.asStateFlow()
     private val _smsDecisionJobs = MutableStateFlow<List<com.khata.app.sms.SmsDecisionJob>>(emptyList())
     val smsDecisionJobs: StateFlow<List<com.khata.app.sms.SmsDecisionJob>> = _smsDecisionJobs.asStateFlow()
+    private val _smsDecisionSummary = MutableStateFlow(com.khata.app.sms.SmsDecisionSummary())
+    val smsDecisionSummary = _smsDecisionSummary.asStateFlow()
+    fun retrySmsProcessing() { smsDecisions.resume() }
     fun retrySmsReview() { viewModelScope.launch(Dispatchers.IO) { smsDecisions.retryReview() } }
     fun ignoreSmsReview(id: String) { viewModelScope.launch(Dispatchers.IO) { smsDecisions.ignore(id) } }
     fun resolveSmsReview(id: String, amount: Double, direction: String, done: (String?) -> Unit) {
@@ -76,14 +81,19 @@ class MainViewModel @Inject constructor(
                 if (auth.isLoggedIn && !auth.mustResetPassword) com.khata.app.sms.smsSession(token,url)?.owner else null
             }.distinctUntilChanged().collectLatest { owner ->
                 _smsDecisionJobs.value = emptyList()
+                _smsDecisionSummary.value = com.khata.app.sms.SmsDecisionSummary()
                 if (owner != null) {
                     smsDecisions.resume()
-                    var waiting = false
-                    smsDecisions.active().collect { jobs ->
-                        _smsDecisionJobs.value = jobs
-                        val pending = jobs.any { it.status == "pending" }
-                        if (waiting && !pending) { loadTransactions(); refreshDashboard() }
-                        waiting = pending
+                    coroutineScope {
+                        launch { smsDecisions.active(owner).collect { _smsDecisionJobs.value = it } }
+                        launch { smsDecisions.summary(owner).collect { _smsDecisionSummary.value = it } }
+                        launch {
+                            smsDecisions.summary(owner).map { it.accepted }.filter { it > 0 }.distinctUntilChanged()
+                                .debounce(750).conflate().collect {
+                                    transactionPager.refresh(_txnFilterState.value)
+                                    refreshDashboard()
+                                }
+                        }
                     }
                 }
             }
@@ -94,12 +104,6 @@ class MainViewModel @Inject constructor(
                     val f = _txnFilterState.value
                     loadTransactions(f.sortBy, f.sortDir, f.category, f.from, f.to, f.preset)
                     refreshDashboard()
-                    _smsProgress.update { progress ->
-                        if (!progress.running && progress.failed) progress.copy(
-                            phase = "Complete", failed = false,
-                            message = "Device sync complete. Queued transactions uploaded.",
-                        ) else progress
-                    }
                 }
             }
         }
@@ -115,34 +119,7 @@ class MainViewModel @Inject constructor(
 
     fun retryDeviceSync() {
         if (_smsProgress.value.running || syncEngine.state.value is com.khata.app.data.SyncUiState.Syncing) return
-        val progress = _smsProgress.value.copy(running = true, phase = "Retrying queued uploads…", failed = false, message = "")
-        _smsProgress.value = progress
-        viewModelScope.launch(Dispatchers.IO) {
-            try { finishSmsSync(progress) }
-            catch (e: CancellationException) {
-                _smsProgress.value = progress.copy(running = false, phase = "Stopped", message = "Upload stopped. Transactions remain queued.")
-                throw e
-            } catch (e: Exception) {
-                _smsProgress.value = progress.copy(running = false, phase = "Upload needs attention", failed = true,
-                    message = "Could not upload queued transactions: ${e.message ?: "please retry"}.")
-            }
-        }
-    }
-
-    private suspend fun finishSmsSync(progress: SmsImportProgress): String {
-        val queued = db.transactionDao().getOutbox().size
-        _smsProgress.value = progress.copy(phase = "Uploading $queued queued transactions…")
-        val synced = syncEngine.sync()
-        val message = (if (synced) {
-            "$queued queued transactions uploaded. Server sync complete."
-        } else {
-            val detail = (syncEngine.state.value as? com.khata.app.data.SyncUiState.Error)?.message
-                ?: "Resolve sync conflicts and retry."
-            "Server sync failed: $detail Saved transactions remain queued on this device."
-        }) + (if (progress.excludedNonTransactions > 0) " ${progress.excludedNonTransactions} unchanged non-transaction SMS imports excluded." else "") +
-            if (progress.serverCheckFailed) " Server history could not be checked before scanning. Scan again when connected to check previously imported SMS." else ""
-        _smsProgress.value = progress.copy(running = false, phase = if (synced) "Complete" else "Upload needs attention", message = message, failed = !synced)
-        return message
+        viewModelScope.launch(Dispatchers.IO) { syncEngine.sync() }
     }
 
     fun updateServerUrl(url: String) {
@@ -407,7 +384,10 @@ class MainViewModel @Inject constructor(
                         kotlinx.coroutines.currentCoroutineContext().ensureActive()
                         progress = progress.copy(scanned = progress.scanned + 1)
                         val body = it.getString(bI).orEmpty()
-                        if (com.khata.app.sms.SmsPrivacy.containsOtp(body)) continue
+                        if (!com.khata.app.sms.SmsCandidateFilter.isCandidate(body)) {
+                            progress = progress.copy(filtered=progress.filtered+1)
+                            continue
+                        }
                         val sender = it.getString(aI).orEmpty()
                         val arrival = it.getLong(dI)
                         val timestamp = com.khata.app.sms.SmsTimestamps.fromInbox(arrival,it.getLong(sI))
@@ -418,7 +398,7 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 smsDecisions.resume()
-                val message = "${progress.matched} SMS queued for background classification. OTP messages were skipped. Open transactions after processing; uncertain messages stay available for review."
+                val message = "${progress.matched} monetary SMS queued for classification; ${progress.filtered} skipped on this device. Queued does not mean imported. See SMS classification progress below; uncertain messages need review."
                 _smsProgress.value = progress.copy(running=false,phase="Queued",message=message)
                 withContext(Dispatchers.Main) { onResult(message) }
             } catch (e: CancellationException) {
