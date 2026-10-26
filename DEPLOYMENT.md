@@ -476,3 +476,45 @@ Backend/web remain deployed from run `40176342020` at `7fdcb20`, with migration
 0040. Their source is unchanged; no server build, deployment or data backfill is
 needed. Production health/revision were rechecked. Exact fixtures/replay records
 remain private under `~/.local/state/khata-generic-sms/`.
+
+
+## v0.45.27 background SMS decisions (2026-10-26)
+
+Signed [v0.45.27](https://github.com/sahuishan01/Khata/releases/tag/v0.45.27) passed Android CI `40262809332`
+(104 release unit tests), release lint, APK digest/ZIP/signature checks and
+certificate continuity with v0.45.26; versionCode 213 supports updates.
+[Download APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.27/khata_0.45.27-release.apk). SMS decision/source DTOs, worker class,
+editing metadata, production API URL, HTTPS-only networking and shortcut/widget
+components are retained. Signed startup and the production sign-in screen were
+checked on an API 35 emulator. Physical-phone verification remains unavailable.
+
+Backend/web artifacts from successful run `40209851091` (`69b15ca`) are deployed:
+
+- Backend: `/usr/local/lib/khata/releases/v0.45.27-laya-20261025T162200Z`.
+- Web: `/srv/khata/releases/v0.45.27-laya-20261025T162200Z`.
+
+Their backend/frontend source trees match the signed tag. Migration remains 0040.
+Encrypted backup round-trip, unchanged stored financial/source records, forced
+RLS, authenticated SMS endpoints, public asset equality and loopback bindings
+were verified. The build passed 222 backend tests (1 ignored), Clippy and web
+build. The tag revision's backend/web CI `40212200830` also passed.
+
+The resident model runs as `khata-laya.service` under a dedicated unprivileged
+user, CPU-only on 127.0.0.1:8091. It loads the pinned English Laya checkpoint
+`7b928d828b7b0e022f929d9bd2e44165aa270148` offline. CPU threads/quota, memory
+limits, an 80% CPU-idle gate, filesystem protections and loopback-only egress
+bound its work. The authenticated Rust gateway owns the public API; no model
+port is exposed. See `docs/sms-laya.md` and `ops/laya/install.sh`.
+
+Android and web browser checks cover exact Notes, full edits and payment-method
+correction. Native checks cover real SMS receipt, OTP exclusion before queueing
+or network calls, offline force-stop/retry, explicit manual review, Room 2 to 3
+migration, separate identical events and repeated inbox scans without new
+financial rows or overwriting edits. Private exact-message/model fixtures stay
+outside the repository. Runtime dependencies were patched after the initial
+scan; Security Scan `40212200937` and policy CI `40212200885` passed. Default
+CodeQL Java autobuild still has its existing unsigned-release configuration
+failure; it is not included in the passing-check claim.
+
+Evidence, signed APK manifest, encrypted backup, deployment manifest and browser/
+emulator results: `~/.local/state/khata-laya/`.
