@@ -29,7 +29,7 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.30` (verification in progress).
+Current release version: `v0.45.30` (verified).
 
 `v0.45.30` removes Laya from SMS ingestion at the user's request. Local generic
 posting grammar recognizes transactions before queueing; only parsed records
@@ -42,7 +42,18 @@ disabled; do not re-enable it without an explicit user request. See
 regressions passed. A real debug-app update from v0.45.29 kept Room 3, locally
 filtered 12,000 old jobs and handled 304 recognized SMS with 303 uploads in two
 batches (199/104), zero model calls, preserved edits and owner isolation.
-Backend unit checks passed; signed CI and backend rollout are in progress.
+Backend CI `40326120243` passed and is deployed at `4a509d9`, migration 0040.
+Encrypted backup round-trip, unchanged financial/source records, forced RLS,
+authenticated disabled decision responses and loopback bindings passed. Web assets
+are unchanged. Live receive/offline/reconnect and repeated-scan checks also passed
+with zero model calls. Signed Android CI `40326121068` passed 108 release tests. Security Scan
+`40326120916` passed. Backend CI passed 219 tests (1 ignored), Clippy and web
+build. APK ZIP/digest/signature, continuity with v0.45.29, versionCode 216,
+production URL/HTTPS-only networking, retained source/edit metadata and legacy
+worker class were verified. The APK contains normal bulk-sync calls and no
+model-decision endpoint. Published APK startup passed on API 35. Source trees
+match the signed tag. Physical-phone
+verification is unavailable.
 Evidence: `~/.local/state/khata-sms-local-restore/`.
 
 
@@ -79,7 +90,7 @@ API URL, HTTPS-only networking and shortcut components were verified. The
 Android tree matches the signed tag. Physical-phone verification is unavailable.
 Evidence: `~/.local/state/khata-sms-candidate-fix/`.
 
-Last verified signed APK: `v0.45.29` (run `40312581787`).
+Last verified signed APK: `v0.45.30` (run `40326121068`).
 
 Earlier signed APK: `v0.45.27`
 (GitHub Actions run `40262809332`, 104 release unit tests passed). Its signing
