@@ -44,8 +44,11 @@ than published with account/card details. No production transactions are inserte
 or changed by development tests.
 
 
-Verified signed release: [v0.45.26 APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.26/khata_0.45.26-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.26).
+Initial verified signed release: [v0.45.26 APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.26/khata_0.45.26-release.apk) · [Release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.26).
 CI `40194289828` passed 88 release tests; release lint, exact-message regressions,
 isolated server repayment/retry replay, Security Scan `40194289598`, browser
 checks and API 35 SMS receive/upload/display checks passed. Production API/web
 source remains unchanged from verified run `40176342020`.
+
+Local parsing is restored in v0.45.30. See [current local SMS imports](sms-local-import.md)
+for queued-message conversion, batch uploads and progress.

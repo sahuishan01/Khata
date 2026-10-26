@@ -527,6 +527,21 @@ for recovery only. Do not start it unless explicitly requested. The Android app
 uses its local posting parser and the ordinary bulk-sync API. Existing queued
 messages are rechecked locally after updating; saved transactions and edits remain.
 The retired decision route returns a terminal error and never forwards message
-bodies to an inference service. Backend rollout verification is in progress.
+bodies to an inference service. Backend run `40326120243` is deployed from source `4a509d9`; migration remains
+0040. Its release artifact, encrypted backup round-trip, unchanged financial/source
+records, forced RLS, authenticated retired-route responses, and loopback-only
+backend/database bindings were verified. The web release and assets are unchanged.
+Backend path: `/usr/local/lib/khata/releases/v0.45.30-local-sms-20261026T130932Z`.
 See `docs/sms-local-import.md`; evidence is private under
 `~/.local/state/khata-sms-local-restore/`.
+
+Signed Android [v0.45.30 APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.30/khata_0.45.30-release.apk)
+and [release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.30):
+CI `40326121068` passed 108 release tests. APK ZIP/digest/signature, versionCode
+216, signing continuity with v0.45.29, no model-decision endpoint, production
+URL, HTTPS-only networking and API 35 startup were verified. Release lint,
+three private exact-SMS regressions, true debug-app upgrade with 12,000 local
+queue exclusions and two upload batches, offline/reconnect, OTP exclusion and
+repeated scans passed. Backend CI passed 219 tests (1 ignored), Clippy and web
+build; Security Scan `40326120916` passed. Physical-phone UI checks remain
+unavailable. Current Android/backend source trees match the signed tag.
