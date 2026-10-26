@@ -29,22 +29,32 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.27` (verification pending).
+Current release version: `v0.45.27` (verified).
+Last verified signed APK: `v0.45.27`
+(GitHub Actions run `40262809332`, 104 release unit tests passed). Its signing
+certificate matches `v0.45.26`; versionCode 213 supports updating the existing
+app. ZIP/digest/signature, retained decision/editing metadata and worker class,
+production API URL, HTTPS-only networking and shortcut components were verified.
 
 `v0.45.27` adds persistent background Laya SMS decisions, OTP exclusion before
-queueing/networking, owner-scoped imports, uncertain-result review, payment-method
-provenance/display and generic amount-first posting verbs including multiline
-IMPS. Laya runs offline on loopback as `khata-laya.service`; raw messages do not
-go to an external inference provider. Model scores still need deterministic
-amount/completion/direction validation. See `docs/sms-laya.md`. No backend
-migration; Android Room migrates 2 to 3. Release and deployment verification is
-in progress. Evidence: `~/.local/state/khata-laya/`.
-
-Last verified signed APK: `v0.45.26`
-(GitHub Actions run `40194289828`, 88 release unit tests passed). Its signing
-certificate matches `v0.45.24`; versionCode 212 supports updating the existing
-app. ZIP/digest/signature, retained SMS/editing metadata, production API URL,
-HTTPS-only networking and shortcut components were verified.
+queueing/networking, owner-scoped imports and uncertain-result review. The local
+model first decides transaction status, then debit direction for positive results.
+Amount/completion/direction checks still protect against model mistakes. Payment
+methods are visible and editable on Android and web. Inbox/live capture share the
+SMS-centre timestamp; verified older arrival-based identities and custom edits
+survive rescans. Android Room migrates 2 to 3. No backend migration or data backfill.
+See `docs/sms-laya.md`. Release lint, 222 backend tests (1 ignored), Clippy, web
+build, eight policy tests, desktop/mobile browser and Android API 35 receive,
+offline restart/retry, migration, review, editing and repeated-scan checks passed.
+All three exact reported SMS passed private live-model and extractor regressions.
+Security Scan `40212200937` and SMS Decision Policy `40212200885` passed. The
+Android tree matches the signed tag. Physical-phone UI verification is unavailable.
+Backend/web run `40209851091` at `69b15ca` is deployed with migration 0040;
+its backend/frontend source trees match the signed tag. Stored source/financial
+records, authentication, forced RLS and loopback bindings were verified unchanged.
+`khata-laya.service` runs the pinned model offline as an unprivileged user on
+127.0.0.1:8091, with CPU/memory limits and an 80% CPU-idle gate.
+Evidence: `~/.local/state/khata-laya/`.
 
 `v0.45.26` adds shared account posting grammar for Dr/Cr alerts across banks,
 with generic payee field boundaries, spaced UPI references and issuer suffixes.
@@ -144,14 +154,14 @@ fund-block guards and required metadata were verified. Evidence:
 R8. Use the latest verified signed release; the Gson DTO is retained explicitly
 in the ProGuard rules.
 
-Backend artifact from run `40176342020` (commit `7fdcb20`) is deployed
-with migration 0040 (216 backend tests passed, 1 ignored; Clippy and the
+Backend artifact from run `40209851091` (commit `69b15ca`) is deployed
+with migration 0040 (222 backend tests passed, 1 ignored; Clippy and the
 workflow's web build passed). Identical upload retries now acknowledge saved rows
 and refresh the device's canonical cache. Automatic transfer/duplicate flags are
 preserved; genuine stale edits still require review. Push and resolution return
 revisions after deferred reconciliation. This recovery works in Android v0.45.15.
 
-The current web assets are from run `40176342020`. Earlier desktop and phone
+The current web assets are from run `40209851091`. Earlier desktop and phone
 browser checks cover scrolling, retry, stale responses, refresh, duplicate review and Undo.
 Whole-history reconciliation handles CRED and direct bill payments, older
 confirmation metadata, separate upload batches and date differences. Explicit
