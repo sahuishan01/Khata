@@ -552,7 +552,7 @@ v0.45.30 incorrectly used `/api/sync/*` instead of `/api/txns/sync/*`. Caddy
 now rewrites the exact legacy pull/push/resolve paths to the canonical handlers
 before proxying. Queries, methods, bodies and application authentication are
 preserved. Keep this compatibility mapping for installed v0.45.30 clients.
-The app is being corrected to use the normal transaction sync route constants.
+v0.45.31 uses the normal transaction sync route constants directly.
 
 ```caddyfile
 @legacySmsSync path /api/sync/pull /api/sync/push /api/sync/resolve
@@ -564,3 +564,15 @@ The mapping lives inside `handle /api/*` in
 GET/empty-POST probes passed for both route families; unauthenticated calls stay
 401. No production test transactions were created. Evidence:
 `~/.local/state/khata-sms-upload-route-fix/`.
+
+Verified signed [v0.45.31 APK](https://github.com/sahuishan01/Khata/releases/download/v0.45.31/khata_0.45.31-release.apk)
+and [release page](https://github.com/sahuishan01/Khata/releases/tag/v0.45.31):
+CI `40345534406` passed 110 tests, release lint and Security Scan `40345534353`
+passed. Certificate continuity with v0.45.30, versionCode 217, ZIP/digest,
+production URL/HTTPS-only networking, canonical paths and absent wrong/model
+paths were verified. The actual client passed full production history reads
+and empty uploads over canonical and compatibility routes. Native API 35
+reproduced v0.45.30's 404 with 304 pending messages, then a true debug-app update
+recovered 303 uploads in two batches while preserving edits and owner isolation.
+The published APK startup passed. Backend/financial records need no migration;
+Laya remains disabled.

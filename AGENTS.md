@@ -29,7 +29,7 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.31` (verification in progress).
+Current release version: `v0.45.31` (verified).
 
 `v0.45.31` corrects SMS history/upload URLs to `/api/txns/sync/*`, shared with
 Retrofit through SyncRoutes. v0.45.30 used `/api/sync/*`; permissive synthetic
@@ -40,7 +40,13 @@ errors. Laya remains disabled. No database migration or financial backfill.
 110 release tests, lint, real-client production history/empty-push probes and
 Android API 35 checks passed. The old app reproduced 304 stuck transactions; a
 real debug-app update to v0.45.31 uploaded 303 rows in two batches, preserving
-edits, owner isolation and Room 3. Signed CI is in progress. Evidence:
+edits, owner isolation and Room 3. Signed CI `40345534406` passed 110 tests;
+Security Scan `40345534353` passed. APK ZIP/digest/signature, signing continuity
+with v0.45.30, versionCode 217, canonical routes, absent incorrect/model paths,
+production URL, HTTPS-only networking, retained metadata/worker and API 35 startup
+were verified. Android source matches the signed tag. Backend remains the verified
+v0.45.30 deployment; the Caddy compatibility rewrite is active. Physical-phone
+verification is unavailable. Evidence:
 `~/.local/state/khata-sms-upload-route-fix/`.
 
 
@@ -103,7 +109,7 @@ API URL, HTTPS-only networking and shortcut components were verified. The
 Android tree matches the signed tag. Physical-phone verification is unavailable.
 Evidence: `~/.local/state/khata-sms-candidate-fix/`.
 
-Last verified signed APK: `v0.45.30` (run `40326121068`).
+Last verified signed APK: `v0.45.31` (run `40345534406`).
 
 Earlier signed APK: `v0.45.27`
 (GitHub Actions run `40262809332`, 104 release unit tests passed). Its signing
