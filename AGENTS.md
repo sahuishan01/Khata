@@ -29,7 +29,18 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.31` (verified).
+Current release version: `v0.45.32` (verified).
+
+`v0.45.32` brings the complete "Bahi by lamplight" design system to Web and Android
+alongside critical backend RLS context fixes. Warm parchment aesthetic, Schibsted
+Grotesk typography, Space Mono figures, Ledger Statement components, and redesigned
+navigation are integrated while cleanly preserving all `v0.45.31` upstream features
+(canonical SMS sync routes, progress bar, in-place transaction editing, duplicate
+reviews, and background card repayment reconciliation). Category rule execution
+and budget calculations now explicitly initialize the tenant RLS context and drop
+the legacy `is_investment` reference. Production Dockerfile drops privileges to
+`USER 1000:1000`. Backend (222 unit/integration tests), web bundle build, and Android
+release lint/unit tests (31 unit test tasks, 29 lint tasks) passed cleanly.
 
 `v0.45.31` corrects SMS history/upload URLs to `/api/txns/sync/*`, shared with
 Retrofit through SyncRoutes. v0.45.30 used `/api/sync/*`; permissive synthetic
