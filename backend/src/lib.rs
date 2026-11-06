@@ -16,6 +16,9 @@ pub mod sms;
 pub mod subscriptions;
 pub mod txns;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;

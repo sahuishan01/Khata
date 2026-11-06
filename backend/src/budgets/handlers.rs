@@ -106,3 +106,28 @@ pub async fn budget_status(
     tx.commit().await?;
     Ok(Json(result))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{app_state, seed_txn, seed_user};
+    use sqlx::PgPool;
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn budget_status_counts_this_months_spend(pool: PgPool) {
+        let uid = seed_user(&pool).await;
+        let today = chrono::Utc::now().date_naive();
+        seed_txn(&pool, uid, "HDFC", "SWIGGY", "debit", 400.0, today, "Food & Dining").await;
+        seed_txn(&pool, uid, "HDFC", "ZOMATO", "debit", 100.0, today, "Food & Dining").await;
+        sqlx::query("INSERT INTO budgets (user_id, category, monthly_limit) VALUES ($1,'Food & Dining',1000)")
+            .bind(uid)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let Json(status) = budget_status(State(app_state(&pool)), CurrentUser(uid)).await.expect("budget_status");
+        assert_eq!(status.len(), 1);
+        assert!((status[0].spent - 500.0).abs() < 0.001, "spent = {}", status[0].spent);
+        assert!((status[0].pct - 50.0).abs() < 0.001);
+    }
+}
