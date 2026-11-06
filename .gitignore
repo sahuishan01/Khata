@@ -12,3 +12,4 @@ android/keystore.properties
 backend/khata.log
 .gitnexus
 .claude/
+android/.kotlin/
