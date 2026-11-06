@@ -5,6 +5,16 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-11-06] — "Bahi by lamplight" design system & RLS fixes (v0.45.32)
+
+- Comprehensive "Bahi by lamplight" redesign across Web and Android: warm parchment palette, Schibsted Grotesk headings, Space Mono figures, Ledger Statement UI, and micro-interactions.
+- Fix PostgreSQL Row-Level Security (RLS) context setting on category rules (`apply_rule_to_matching`) and budget calculation to ensure user tenant isolation while matching and calculating spend correctly.
+- Drop reference to removed `is_investment` column in budget handlers.
+- Secure production Dockerfile runtime dropping root privileges to `USER 1000:1000`.
+- Preserve all upstream `v0.45.31` features including SMS sync progress counters, canonical sync routes, in-place transaction editing, duplicate alert review, and background transfer reconciliation.
+
+---
+
 ## [2026-10-24] — Ignore IPO application receipts (v0.45.21)
 
 - Reject the reported Jio Platforms IPO acknowledgement instead of recording its
