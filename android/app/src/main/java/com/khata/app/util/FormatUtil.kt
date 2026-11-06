@@ -19,7 +19,7 @@ fun formatDate(iso: String): String {
     if (iso.isBlank()) return ""
     return try {
         val date = LocalDate.parse(iso.take(10))
-        date.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
+        date.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.US)) // never "Sept"
     } catch (_: Exception) {
         iso
     }

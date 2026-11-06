@@ -360,8 +360,8 @@ export function UploadPage() {
                   Statement password: {emailConfig.has_pdf_password ? 'set' : 'not set'}
                 </div>
                 {emailConfig.last_synced_at
-                  ? <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Last Synced: {emailConfig.last_synced_at}</div>
-                  : <div style={{ fontSize: 11, color: 'var(--warn)', marginTop: 4 }}>Not yet synced — a full mailbox scan will run on next sync</div>}
+                  ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Last Synced: {emailConfig.last_synced_at}</div>
+                  : <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 4 }}>Not yet synced — a full mailbox scan will run on next sync</div>}
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                   <button className="btn btn-primary" onClick={syncEmailNow} disabled={loading || emailStarting || emailRunning}>{emailRunning ? 'Sync in progress…' : emailStarting ? 'Starting…' : 'Sync Email Now'}</button>
@@ -383,12 +383,12 @@ export function UploadPage() {
                 <div className="form-group">
                   <label className="form-label">Google App Password (16-chars)</label>
                   <input className="form-input" type="password" value={appPasswordInput} onChange={e => setAppPasswordInput(e.target.value)} required={!hasExistingKey} placeholder={hasExistingKey ? 'Leave blank to keep current key' : 'abcd efgh ijkl mnop'} />
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Generate at myaccount.google.com/apppasswords</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Generate at myaccount.google.com/apppasswords</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">IMAP Folder</label>
                   <input className="form-input" value={folderInput} onChange={e => setFolderInput(e.target.value)} placeholder="[Gmail]/All Mail" />
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Default scans all mail — statement emails are usually auto-archived out of the inbox.</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Default scans all mail — statement emails are usually auto-archived out of the inbox.</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Statement Password (Optional)</label>

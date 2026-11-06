@@ -65,7 +65,7 @@ fun ConflictScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Column { Text("Resolve conflicts", fontSize = 16.sp); Text("${conflicts.size} edits clash with server changes", fontSize = 11.sp, color = KhataColors.text2) } },
+                title = { Column { Text("Resolve conflicts", fontSize = 16.sp); Text("${conflicts.size} edits clash with server changes", fontSize = 12.sp, color = KhataColors.text2) } },
                 navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = null) } }
             )
         },
@@ -115,14 +115,14 @@ fun ConflictScreen(
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(if (local.description.isNotBlank()) local.description else remote.description, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = KhataColors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(local.valueDate.ifBlank { remote.valueDate }, fontSize = 11.sp, color = KhataColors.text2)
+                                Text(local.valueDate.ifBlank { remote.valueDate }, fontSize = 12.sp, color = KhataColors.text2)
                             }
                             if (meta.isDeleteConflict) {
-                                Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.expenseSoft) { Text("Delete vs edit", fontSize = 9.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = KhataColors.expense) }
+                                Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.expenseSoft) { Text("Delete vs edit", fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = KhataColors.expense) }
                             } else if (meta.isAmountConflict) {
-                                Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.warn.copy(alpha = 0.2f)) { Text("Amount conflict", fontSize = 9.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = KhataColors.warn) }
+                                Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.warn.copy(alpha = 0.2f)) { Text("Amount conflict", fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = KhataColors.warn) }
                             } else {
-                                Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.brandSoft) { Text("${meta.diffCount} field${if (meta.diffCount != 1) "s" else ""} differ", fontSize = 9.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = KhataColors.brand) }
+                                Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.brandSoft) { Text("${meta.diffCount} field${if (meta.diffCount != 1) "s" else ""} differ", fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = KhataColors.brand) }
                             }
                         }
                         Spacer(Modifier.height(8.dp))
@@ -142,7 +142,7 @@ fun ConflictScreen(
                         // Delete-vs-edit note
                         if (meta.isDeleteConflict) {
                             Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.expenseSoft, modifier = Modifier.fillMaxWidth()) {
-                                Text("This transaction was deleted on one device and edited on the other. Merge is not available.", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = KhataColors.expense)
+                                Text("This transaction was deleted on one device and edited on the other. Merge is not available.", fontSize = 12.sp, modifier = Modifier.padding(8.dp), color = KhataColors.expense)
                             }
                             Spacer(Modifier.height(4.dp))
                         }
@@ -153,13 +153,13 @@ fun ConflictScreen(
                             val mergedDesc = if (local.description != remote.description && local.description.isNotBlank() && remote.description.isNotBlank()) "${local.description} / ${remote.description}" else if (local.description.isNotBlank()) local.description else remote.description
                             val mergedCat = if (local.category != remote.category && local.category.isNotBlank() && remote.category.isNotBlank()) "${local.category} / ${remote.category}" else if (local.category.isNotBlank()) local.category else remote.category
                             Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.incomeSoft, modifier = Modifier.fillMaxWidth()) {
-                                Text("Merged: $mergedDesc · $mergedCat", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = KhataColors.income, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text("Merged: $mergedDesc · $mergedCat", fontSize = 12.sp, modifier = Modifier.padding(8.dp), color = KhataColors.income, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                         }
 
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Resolution:", fontSize = 11.sp, color = KhataColors.textMuted)
+                            Text("Resolution:", fontSize = 12.sp, color = KhataColors.textMuted)
                             Spacer(Modifier.width(8.dp))
                             StrategyDropdown(
                                 label = when (cur) { ConflictStrategy.Override -> "Override (keep mine)"; ConflictStrategy.KeepExisting -> "Keep existing"; ConflictStrategy.Merge -> "Merge" },
@@ -185,14 +185,14 @@ private fun diffField(label: String, local: String, remote: String, isMerge: Boo
     val borderColor = if (localWins) KhataColors.brand else if (remoteWins) KhataColors.expense else KhataColors.hairline
 
     Column(Modifier.padding(vertical = 2.dp)) {
-        Text(label, fontSize = 9.sp, color = KhataColors.textMuted)
+        Text(label, fontSize = 12.sp, color = KhataColors.textMuted)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Surface(shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, if (localWins) KhataColors.brand else KhataColors.hairline), color = if (localWins) KhataColors.brandSoft else KhataColors.surface2) {
-                Text(local.ifBlank { "—" }, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(local.ifBlank { "—" }, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text("vs", fontSize = 9.sp, color = KhataColors.textMuted, modifier = Modifier.align(Alignment.CenterVertically))
+            Text("vs", fontSize = 12.sp, color = KhataColors.textMuted, modifier = Modifier.align(Alignment.CenterVertically))
             Surface(shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, if (remoteWins) KhataColors.expense else KhataColors.hairline), color = if (remoteWins) KhataColors.expenseSoft else KhataColors.surface2) {
-                Text(remote.ifBlank { "—" }, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(remote.ifBlank { "—" }, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -203,25 +203,25 @@ private fun diffAmount(local: Double, remote: Double, isMerge: Boolean, strategy
     val localWins = strategy == ConflictStrategy.Override || (isMerge && !bothChanged)
     val remoteWins = strategy == ConflictStrategy.KeepExisting || (isMerge && !bothChanged)
     Column(Modifier.padding(vertical = 2.dp)) {
-        Text("Amount", fontSize = 9.sp, color = KhataColors.textMuted)
+        Text("Amount", fontSize = 12.sp, color = KhataColors.textMuted)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, if (localWins) KhataColors.brand else KhataColors.hairline), color = if (localWins) KhataColors.brandSoft else KhataColors.surface2) {
-                Text("₹${local}", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text)
+                Text("₹${local}", fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text)
             }
-            Text("vs", fontSize = 9.sp, color = KhataColors.textMuted)
+            Text("vs", fontSize = 12.sp, color = KhataColors.textMuted)
             Surface(shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, if (remoteWins) KhataColors.expense else KhataColors.hairline), color = if (remoteWins) KhataColors.expenseSoft else KhataColors.surface2) {
-                Text("₹${remote}", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text)
+                Text("₹${remote}", fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = KhataColors.text)
             }
         }
         if (bothChanged && isMerge) {
             Spacer(Modifier.height(4.dp))
             Surface(shape = RoundedCornerShape(4.dp), color = KhataColors.warn.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth()) {
-                Text("Amount changed on both devices — pick manually:", fontSize = 10.sp, modifier = Modifier.padding(6.dp), color = KhataColors.warn)
+                Text("Amount changed on both devices — pick manually:", fontSize = 12.sp, modifier = Modifier.padding(6.dp), color = KhataColors.warn)
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = manualAmount == "local", onClick = { onPick("local") }, label = { Text("₹${local}", fontSize = 11.sp) })
-                FilterChip(selected = manualAmount == "remote", onClick = { onPick("remote") }, label = { Text("₹${remote}", fontSize = 11.sp) })
+                FilterChip(selected = manualAmount == "local", onClick = { onPick("local") }, label = { Text("₹${local}", fontSize = 12.sp) })
+                FilterChip(selected = manualAmount == "remote", onClick = { onPick("remote") }, label = { Text("₹${remote}", fontSize = 12.sp) })
             }
         }
     }
@@ -232,7 +232,7 @@ private fun StrategyDropdown(label: String, selected: ConflictStrategy?, onSelec
     var expanded by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.height(36.dp), shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, KhataColors.hairline)) {
-            Text(label, fontSize = 11.sp, color = KhataColors.text, maxLines = 1)
+            Text(label, fontSize = 12.sp, color = KhataColors.text, maxLines = 1)
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp), tint = KhataColors.text2)
         }

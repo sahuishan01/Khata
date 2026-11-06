@@ -79,7 +79,7 @@ export function RulesPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
               <Chip color="gray" title={r.pattern}>{r.pattern}</Chip>
               <span style={{ color: 'var(--text-2)', flexShrink: 0 }}>→</span>
-              <Chip color="purple">{r.category}</Chip>
+              <Chip color="gray">{r.category}</Chip>
             </div>
           </ListRow>
         ))}

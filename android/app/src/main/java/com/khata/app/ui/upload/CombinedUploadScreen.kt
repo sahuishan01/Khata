@@ -103,7 +103,7 @@ fun CombinedUploadScreen(
 
                     Spacer(Modifier.height(20.dp))
                     Text("From SMS", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Text("SMS transactions are recognized on this device with the bank parser. Only parsed transactions are uploaded. OTP messages are skipped.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("SMS transactions are recognized on this device with the bank parser. Only parsed transactions are uploaded. OTP messages are skipped.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     smsDecisionStatus()
                     deviceSyncStatus()
                     Spacer(Modifier.height(6.dp))
@@ -171,12 +171,12 @@ fun CombinedUploadScreen(
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = appPassInput, onValueChange = { appPassInput = it }, placeholder = { Text("Google App Password (16 chars)") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(4.dp))
-                    Text("Generate at myaccount.google.com/apppasswords", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Generate at myaccount.google.com/apppasswords", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = pdfPassInput, onValueChange = { pdfPassInput = it }, placeholder = { Text("Statement Password (optional)") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = folderInput, onValueChange = { folderInput = it }, label = { Text("IMAP folder", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Text("Default scans all mail — statement emails are usually auto-archived out of the inbox.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = folderInput, onValueChange = { folderInput = it }, label = { Text("IMAP folder", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Text("Default scans all mail — statement emails are usually auto-archived out of the inbox.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = parseTxnEmails, onCheckedChange = { parseTxnEmails = it })
@@ -289,14 +289,14 @@ fun CombinedUploadScreen(
                                             Text(if (showErrors) "Hide ${run.errors.size} issues" else "Show ${run.errors.size} issues", fontSize = 12.sp)
                                         }
                                         if (showErrors) run.errors.forEach { e ->
-                                            Text("• ${e.item ?: e.stage ?: ""}: ${e.detail ?: ""}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("• ${e.item ?: e.stage ?: ""}: ${e.detail ?: ""}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                     if (run.status == "ok" && run.messagesScanned == 0) {
                                         Spacer(Modifier.height(4.dp))
                                         Text(
                                             "No new emails matched this scan. Check the mailbox folder and filters if you expected transactions.",
-                                            fontSize = 11.sp, color = MaterialTheme.colorScheme.error
+                                            fontSize = 12.sp, color = MaterialTheme.colorScheme.error
                                         )
                                     }
                                     CopyButton(run.summaryText(), "Copy details")
@@ -323,8 +323,8 @@ fun CombinedUploadScreen(
                     Spacer(Modifier.height(8.dp))
                     // Date + Value Date row
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = txnDate, onValueChange = { txnDate = it }, label = { Text("Txn Date", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = valueDate, onValueChange = { valueDate = it }, label = { Text("Value Date", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = txnDate, onValueChange = { txnDate = it }, label = { Text("Txn Date", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = valueDate, onValueChange = { valueDate = it }, label = { Text("Value Date", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(8.dp))
                     // Category
@@ -334,7 +334,7 @@ fun CombinedUploadScreen(
                     OutlinedTextField(value = notes, onValueChange = { notes = it }, placeholder = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
                     Spacer(Modifier.height(12.dp))
                     if (error.isNotBlank()) { Text(error, fontSize = 13.sp, color = MaterialTheme.colorScheme.error); CopyButton(error, "Copy error"); Spacer(Modifier.height(8.dp)) }
-                    if (success.isNotBlank()) { Text(success, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary); Spacer(Modifier.height(8.dp)) }
+                    if (success.isNotBlank()) { Text(success, fontSize = 13.sp, color = com.khata.app.ui.theme.KhataColors.income); Spacer(Modifier.height(8.dp)) }
                     Button(onClick = {
                         if (desc.isBlank() || amount.isBlank()) { error = "Fill required fields"; return@Button }
                         onAddTxn(CreateTxnReq(txnDate, valueDate, desc, amount.toDoubleOrNull() ?: 0.0, direction, category, null, notes.ifBlank { null }))

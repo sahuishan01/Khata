@@ -139,7 +139,7 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "monthly_bar" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("MONTHLY TREND")
+                    KhataCardHeader("Monthly trend")
                     KhataCardBody {
                         MonthlyBarChart(data = stats.monthly)
                     }
@@ -151,7 +151,7 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "net_line" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("NET WORTH TREND")
+                    KhataCardHeader("Net worth trend")
                     KhataCardBody {
                         NetWorthLineChart(data = stats.monthly)
                     }
@@ -163,7 +163,7 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "waterfall" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("SURPLUS / DEFICIT")
+                    KhataCardHeader("Surplus / deficit")
                     KhataCardBody {
                         WaterfallChart(data = stats.monthly)
                     }
@@ -175,8 +175,8 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "category" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("SPENDING BY CATEGORY") {
-                        Text(categoryChartType.uppercase(), fontSize = 9.sp, color = KhataColors.text2)
+                    KhataCardHeader("Spending by category") {
+                        Text(categoryChartType.uppercase(), fontSize = 12.sp, color = KhataColors.text2)
                     }
                     KhataCardBody {
                         if (analysis.categoryBreakdown.isNotEmpty()) {
@@ -187,12 +187,7 @@ fun AnalyticsScreen(
                                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onNavigateToDetail("category", c.category) }, horizontalArrangement = Arrangement.SpaceBetween) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             val idx = analysis.categoryBreakdown.indexOf(c)
-                                            Box(Modifier.size(10.dp).padding(0.dp).clip(androidx.compose.foundation.shape.CircleShape).background(listOf(
-                                                Color(0xFF8479F2), Color(0xFF2EC27E), Color(0xFFEE6B4D),
-                                                Color(0xFFFDCB6E), Color(0xFF74B9FF), Color(0xFFA29BFE),
-                                                Color(0xFF55EFC4), Color(0xFFFF7675), Color(0xFFFD79A8),
-                                                Color(0xFF81ECEC), Color(0xFFFAB1A0), Color(0xFF636E72),
-                                            )[idx % 12]))
+                                            Box(Modifier.size(10.dp).padding(0.dp).clip(androidx.compose.foundation.shape.CircleShape).background(com.khata.app.ui.theme.chartPalette.getOrElse(idx) { com.khata.app.ui.theme.chartOther }))
                                             Spacer(Modifier.width(6.dp))
                                             Text(c.category, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                         }
@@ -246,7 +241,7 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "insights" }?.visible == true) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("INSIGHTS")
+                    KhataCardHeader("Insights")
                     KhataCardBody {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Surface(shape = MaterialTheme.shapes.small, color = KhataColors.brandSoft, modifier = Modifier.clickable { onNavigateToDetail("all", "") }) {
@@ -268,15 +263,15 @@ fun AnalyticsScreen(
         if (toggles.find { it.key == "monthly_table" }?.visible == true && stats.monthly.isNotEmpty()) {
             item {
                 KhataCard(Modifier.fillMaxWidth()) {
-                    KhataCardHeader("MONTHLY SUMMARY")
+                    KhataCardHeader("Monthly summary")
                     KhataCardBody {
                         stats.monthly.reversed().forEach { month ->
                             val net = month.earned - month.spent
                             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable { onNavigateToDetail("month", month.month) }, verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) { Text(month.month, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(formatINR(month.spent), fontSize = 11.sp, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
-                                    Text(formatINR(month.earned), fontSize = 11.sp, color = KhataColors.income, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                    Text(formatINR(month.spent), fontSize = 12.sp, color = KhataColors.expense, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                                    Text(formatINR(month.earned), fontSize = 12.sp, color = KhataColors.income, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 Text(formatINR(net, sign = true), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,

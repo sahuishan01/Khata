@@ -33,5 +33,6 @@ COPY --from=builder /build/target/release/khata /usr/local/bin/khata
 COPY --from=builder /pdfium/lib/libpdfium.so /usr/local/lib/libpdfium.so
 ENV PDFIUM_LIB_PATH=/usr/local/lib/libpdfium.so
 RUN ldconfig
+USER 1000:1000
 EXPOSE 8090
 CMD ["khata"]

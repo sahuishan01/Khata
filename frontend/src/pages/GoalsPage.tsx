@@ -105,7 +105,7 @@ export function GoalsPage() {
         ) : goals.length === 0 ? (
           <Card>
             <CardBody style={{ textAlign: 'center', padding: '32px 16px' }}>
-              <Target size={32} style={{ color: 'var(--brand)', marginBottom: 8 }} />
+              <Target size={32} style={{ color: 'var(--text-2)', marginBottom: 8 }} />
               <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>No Financial Goals Defined</div>
               <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Set savings goals like Emergency Fund, Vacation, or New Car to track your target milestones.</div>
             </CardBody>
@@ -123,7 +123,7 @@ export function GoalsPage() {
                         <span style={{ fontWeight: 600, fontSize: 15 }}>{goal.name}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand)' }}>{pct}%</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }} className="figure">{pct}%</span>
                         <Button variant="ghost" size="sm" onClick={() => handleDelete(goal.id)}>
                           <Trash2 size={15} style={{ color: 'var(--expense)' }} />
                         </Button>

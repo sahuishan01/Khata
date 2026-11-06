@@ -41,7 +41,7 @@ export function AccountsPage() {
   const blurToggle = (
     <Button variant="ghost" size="sm" onClick={toggleBlur}>
       {blurMode ? <EyeOff size={14} /> : <Eye size={14} />}
-      <span style={{ fontSize: 11, marginLeft: 4 }}>{blurMode ? 'Blurred' : 'Visible'}</span>
+      <span style={{ fontSize: 12, marginLeft: 4 }}>{blurMode ? 'Blurred' : 'Visible'}</span>
     </Button>
   )
 
@@ -65,7 +65,7 @@ export function AccountsPage() {
         {accounts.map(a => (
           <ListRow
             key={a.id}
-            leading={<div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Landmark size={15} /></div>}
+            leading={<div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Landmark size={15} /></div>}
             trailing={<Button variant="ghost" size="sm" style={{ color: 'var(--expense)' }} onClick={() => del(a.id)}><Trash2 size={14} /></Button>}
           >
             <ListRowText primary={a.label} secondary={blurMode ? maskIdentifier(a.identifier) : a.identifier} />

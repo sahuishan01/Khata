@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { getServerUrl, setServerUrl, refreshApiBaseUrl } from '../api/client'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 import { shortcutReturnTo } from '../utils/shortcutReturnTo'
 
 export function LoginPage() {
@@ -85,8 +85,8 @@ export function LoginPage() {
               autoComplete="current-password"
               style={{ paddingRight: 36 }}
             />
-            <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: 8, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4, lineHeight: 1 }}>
-              <span>{showPwd ? '🙈' : '👁'}</span>
+            <button type="button" onClick={() => setShowPwd(!showPwd)} aria-label={showPwd ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 4, bottom: 4, width: 32, height: 32, display: 'grid', placeItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', borderRadius: 'var(--r-sm)' }}>
+              {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
 
@@ -122,7 +122,7 @@ export function LoginPage() {
                 onChange={e => setServerUrlValue(e.target.value)}
                 style={{ fontSize: 13 }}
               />
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                 Leave empty for default (current host). For self-hosted, enter your server URL.
               </p>
             </div>

@@ -15,80 +15,110 @@ The two apps have forked into different products: different currency formatting,
 
 ## 1. The cardinal color rule
 
-Most of the "looks unpolished / inconsistent" feedback traces to two accent colors (purple **and** green) competing for "primary." Fix it with a rule, not a repaint:
+The look is **"Bahi by lamplight"**: a personal bahi-khata (the cloth-bound Indian
+ledger) read at night. Warm lamp-black paper, paper-tinted text, fountain-pen ink
+blue for the pen (actions), and the ledger's red and green ink for money. Color is
+a rule, not decoration:
 
-- **Purple is for _actions only_** — buttons, links, active nav tab, focus rings, selected toggles.
-- **Green and red are reserved _exclusively for money and state_** — green = money in / positive, red = money out / negative / destructive.
+- **Brand (ink blue) is for _actions only_**: buttons, links, active nav tab, focus rings, selected toggles and filter pills.
+- **Green and red are reserved _exclusively for money and state_**: green = money in / positive, red = money out / negative / destructive.
+- **Amber is "needs attention"** only (low savings rate, budget ≥ 80%).
+- Decorative icons, category chips and data values use the neutral text tokens, never brand.
 
-Consequences (these are current bugs that this rule resolves):
-- The Android "Expense" type toggle **MUST NOT** highlight green (it currently does, while expense rows are red — a contradiction). Selected toggles use purple; the expense/income meaning is carried by the amount color and the +/− sign.
-- Bottom-nav active state **MUST** be purple on both platforms (Android currently uses green).
-- Filter pills, "Apply", and primary CTAs **MUST** all use the same purple.
+Consequences:
+- A selected "Expense" toggle is brand, not red; expense/income meaning lives in the amount color and the +/− sign.
+- Bottom-nav active state is brand on both platforms.
+- Unsigned totals (Total spent, liabilities, budget limits) are **neutral text**, not green. Only signed amounts are colored by sign.
 
 ---
 
 ## 2. Design tokens
 
-These are the single source of truth. Port the **same hex values and scale** to both platforms. Do not hand-pick colors in components.
+These are the single source of truth. Port the **same hex values and scale** to both platforms (`frontend/src/index.css` ↔ `android/.../ui/theme/Theme.kt`). Do not hand-pick colors in components.
 
 ### 2.1 Color
 
 | Token | Hex | Role |
 |---|---|---|
-| `bg` | `#0E0E13` | App background |
-| `surface` | `#17171F` | Cards, sheets |
-| `surface-2` | `#1F1F2A` | Inputs, chips, nested surfaces |
-| `hairline` | `#2A2A38` | Borders, dividers |
-| `text` | `#F2F2F5` | Primary text |
-| `text-2` | `#9A9AA8` | Secondary text |
-| `text-muted` | `#6B6B78` | Captions, placeholders, disabled |
-| `brand` | `#8479F2` | **Actions only** |
-| `brand-press` | `#6F62E6` | Pressed/active brand |
-| `brand-soft` | `rgba(132,121,242,.16)` | Brand chip/badge backgrounds |
-| `income` | `#2EC27E` | **Money in only** |
-| `income-soft` | `rgba(46,194,126,.14)` | Income badge bg |
-| `expense` | `#EE6B4D` | **Money out + destructive only** |
-| `expense-soft` | `rgba(238,107,77,.14)` | Expense badge bg |
-| `warn` | `#E0A33A` | "Needs attention" (e.g. low savings rate) |
+| `bg` | `#12110F` | App background (lamp-black, warm) |
+| `surface` | `#1B1916` | Cards, sheets |
+| `surface-2` | `#24211D` | Inputs, chips, nested surfaces, expanded rows |
+| `surface-3` | `#2E2A25` | Tracks, skeletons |
+| `hairline` | `#34302A` | Borders, row dividers |
+| `rule` | `#4D463D` | Ledger rules (subtotal/total lines), secondary-button outline |
+| `text` | `#F1ECE3` | Primary text (paper) |
+| `text-2` | `#B7AE9F` | Secondary text (≥ 7:1 on surface) |
+| `text-muted` | `#968C7D` | Placeholders, disabled (≥ 4.5:1 on surface) |
+| `brand` | `#6F8CFF` | **Actions only** (ink blue) |
+| `brand-press` | `#5A78F0` | Pressed/hover brand |
+| `brand-soft` | `rgba(111,140,255,.16)` | Selected pill / nav indicator background |
+| `on-brand` | `#0E1226` | Text on a brand fill (white fails contrast) |
+| `income` | `#52C78D` | **Money in only** |
+| `income-soft` | `rgba(82,199,141,.14)` | Income icon bg |
+| `expense` | `#F26B4F` | **Money out + destructive only** |
+| `expense-soft` | `rgba(242,107,79,.14)` | Expense icon bg |
+| `warn` | `#E8A33D` | Needs attention |
 
-> Light mode is out of scope until both platforms reach parity in dark mode. The Settings "Dark Mode" toggle **MUST** persist server-side per user, not only in local storage.
+**Chart categorical palette** (validated with the dataviz palette checker on `surface`: adjacent CVD ΔE ≥ 8.4, normal-vision ΔE ≥ 19, ≥ 3:1 contrast). Fixed order, never cycled; the 7th+ category folds into **Other** `#6E675E`. No green/red, which mean money:
+`#3987E5, #D95926, #199E70, #C98500, #D55181, #9085E9`.
+Spend-vs-earn charts use `income`/`expense` because they *are* money in/out.
+
+> Light mode is out of scope until both platforms reach parity in dark mode.
 
 ### 2.2 Typography
 
-System stack (no web-font dependency, identical metrics both platforms):
-`-apple-system, "Segoe UI", Roboto, Inter, system-ui, sans-serif`.
+Two families, both bundled (web via `@fontsource`, Android in `res/font`). There are no
+CDN requests, which the CSP's `font-src 'self'` requires.
 
-| Role | Size / Weight / Tracking | Use |
+| Family | Use |
+|---|---|
+| **Schibsted Grotesk** (variable) | All UI text, headings, payees |
+| **Space Mono** 400/700 | Every money figure and date, plus short data labels. It is monospaced, so amounts line up in columns |
+
+Both include the ₹ glyph. Labels are **sentence case**. No tracked-out ALL-CAPS eyebrows.
+
+| Role | Size / Weight | Use |
 |---|---|---|
-| Display | 26 / 700 / −0.02em | Screen titles ("Dashboard") |
-| Title | 20 / 700 | Card titles, section heads |
-| Body | 15 / 500 | Default text |
-| Body-strong | 15 / 600 | Payee names, list item titles |
-| Label | 13 / 600 / 0.08em UPPER | Eyebrows, field labels |
-| Caption | 12.5 / 500 | Dates, helper text |
+| Hero figure | 40–44 / Mono 700 / −0.02em | The dashboard net figure |
+| Display | 28 / 700 / −0.02em | Screen titles |
+| Title | 18 / 650 | Card titles |
+| Body | 15 / 400–500 | Default text, payees |
+| Small | 13.5–14 / 400–500 | Secondary text, buttons |
+| Caption | 12 / 500 | Dates, helper text. **Floor: nothing smaller than 12** |
 
-**All numeric/monetary text MUST use tabular figures** (`font-variant-numeric: tabular-nums` / `font-feature-settings:"tnum"`; on Android, a font with tabular numerals or `TextView` with monospaced digits). This is what makes amount columns line up.
+Tabular figures apply to figures and mono text only, not running prose (tabular periods read as gaps: "63 .3%").
 
 ### 2.3 Spacing, radius, motion
 
-- Spacing scale (4-pt): `4, 8, 12, 16, 20, 24, 32`. No off-scale values.
-- Radius: `sm 8`, `md 12`, `lg 16`, `pill 999`.
-- Touch target: **min 44×44 px / 48×48 dp.** Trash/delete/edit icons currently fail this.
-- Motion: 150–200 ms ease-out for state changes; respect `prefers-reduced-motion` / system "remove animations."
+- Spacing scale (4-pt): `4, 8, 12, 16, 20, 24, 32`.
+- Radius follows hierarchy: `sm 6` (small buttons, swatches), `md 10` (inputs, buttons, icon boxes), `lg 14` (panels, cards), `pill 999` (chips, filter pills). Rows inside a panel are flush (radius 0) and separated by hairlines.
+- No shadows on resting surfaces, no gradients, no glass, no hover-lift. Hierarchy comes from type and rules.
+- Touch target: **min 44×44 px / 48×48 dp.**
+- Motion: 150–200 ms ease-out for state changes only. One page-level fade on navigation. Charts do not animate on mount. Respect `prefers-reduced-motion` / system "remove animations".
 
-### 2.4 Platform mapping
+### 2.4 Ledger devices (the signature)
+
+Structure carries meaning, as in an accountant's book:
+- A **single rule** (`rule` color) closes a set of lines into a subtotal.
+- A **double rule** marks a final total (the dashboard "Saved" line).
+- A faint red **margin rule** at the left of the statement panel nods to the bahi page, and appears in the app mark.
+- Amount columns are right-aligned in Space Mono.
+
+The dashboard opens with this **statement** (Earned, Spent, a rule, Saved/Overspent, a double rule, then a one-sentence note) instead of a row of look-alike stat cards. It is the one bold element. Everything around it stays quiet.
+
+### 2.5 Platform mapping
 
 ```css
-/* Web: tokens.css */
-:root { --bg:#0E0E13; --surface:#17171F; --brand:#8479F2;
-        --income:#2EC27E; --expense:#EE6B4D; /* …full set… */ }
+/* Web: frontend/src/index.css */
+:root { --bg:#12110F; --surface:#1B1916; --brand:#6F8CFF; --on-brand:#0E1226;
+        --income:#52C78D; --expense:#F26B4F; /* …full set… */ }
 ```
 ```kotlin
-// Android: Theme.kt  (mirror the SAME values — do not improvise)
+// Android: ui/theme/Theme.kt (mirror the SAME values; do not improvise)
 object KhataColors {
-  val bg = Color(0xFF0E0E13); val surface = Color(0xFF17171F)
-  val brand = Color(0xFF8479F2)
-  val income = Color(0xFF2EC27E); val expense = Color(0xFFEE6B4D)
+  val bg = Color(0xFF12110F); val surface = Color(0xFF1B1916)
+  val brand = Color(0xFF6F8CFF); val onBrand = Color(0xFF0E1226)
+  val income = Color(0xFF52C78D); val expense = Color(0xFFF26B4F)
   // …full set…
 }
 ```
@@ -140,7 +170,7 @@ fun formatINR(paise: Long, sign: Boolean = false): String {
 - Layout: `[direction icon 36px] [payee + meta, flex] [amount, right-aligned, tabular]`.
 - **Payee MUST show in full**, wrapping to max 2 lines then ellipsis. No mid-string truncation (Android's `…@AXL-BA…` hides the meaningful part).
 - Category is an **inline dropdown chip** (edit in place), not a separate screen.
-- Amount: signed, colored (`income`/`expense`), tabular.
+- Amount: signed, colored (`income`/`expense`), Space Mono. **Transfers** (`is_transfer`) show a neutral "Transfer" tag and a muted amount, because they are excluded from totals.
 - Edit/swap actions **MUST NOT** sit in the resting layout. Use swipe (mobile) or row-hover (web). This removes Android's extra button row and roughly doubles rows-per-screen across 517 items.
 
 ### 4.2 Category-rule row
@@ -152,7 +182,7 @@ fun formatINR(paise: Long, sign: Boolean = false): String {
 Every empty list **MUST** render: an icon, one sentence of direction, and the primary action — never bare "No X" text floating in a void. Example: `🎯 · No budgets yet · Set a monthly limit per category to get alerts before you overspend. · [Set your first budget]`.
 
 ### 4.4 Buttons
-- Primary = filled `brand`. Secondary = `hairline` outline. Destructive = `expense` outline + trailing `…` + confirmation dialog (see §4.6).
+- Primary = filled `brand` with `on-brand` text. Secondary = `rule` outline. Destructive = `expense` outline + trailing `…` + confirmation dialog (see §4.6).
 - One primary action per screen.
 
 ### 4.5 Navigation / IA (convergence decision)
@@ -180,9 +210,9 @@ Account numbers, UPI IDs, full names, and IMPS reference strings are PII. The UI
 
 ## 6. Parity checklist (paste into every UI PR)
 - [ ] Uses tokens from §2 only (no ad-hoc hex / spacing).
-- [ ] Purple used for actions only; green/red for money/state only.
+- [ ] Brand used for actions only; green/red for money/state only; unsigned totals neutral.
 - [ ] All money via shared `formatINR`; dates via `dd MMM yyyy`.
-- [ ] Amounts/totals use tabular figures.
+- [ ] Amounts and dates use Space Mono; nothing below 12px/sp; sentence-case labels.
 - [ ] Touch targets ≥ 44/48.
 - [ ] Component matches its §4 contract on **both** platforms.
 - [ ] Empty/error/loading states defined.

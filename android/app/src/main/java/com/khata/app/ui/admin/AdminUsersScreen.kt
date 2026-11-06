@@ -68,13 +68,13 @@ fun AdminUsersScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        placeholder = { Text("Password", fontSize = 11.sp) },
+                        placeholder = { Text("Password", fontSize = 12.sp) },
                         singleLine = true,
                         visualTransformation = if (showPwd) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(9.dp),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 11.sp),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp),
                         trailingIcon = {
                             IconButton(onClick = { showPwd = !showPwd }) {
                                 Icon(if (showPwd) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
@@ -88,7 +88,7 @@ fun AdminUsersScreen(
                     }
                     if (success != null) {
                         Spacer(Modifier.height(8.dp))
-                        Text(success, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
+                        Text(success, fontSize = 13.sp, color = com.khata.app.ui.theme.KhataColors.income)
                     }
 
                     Spacer(Modifier.height(12.dp))

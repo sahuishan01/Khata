@@ -17,9 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MonthBucket
 
-private val NetColor = Color(0xFF8479F2)
-private val GreenColor = Color(0xFF2EC27E)
-private val RedColor = Color(0xFFEE6B4D)
+private val NetColor = com.khata.app.ui.theme.KhataColors.text2
+private val GreenColor = com.khata.app.ui.theme.KhataColors.income
+private val RedColor = com.khata.app.ui.theme.KhataColors.expense
 
 @Composable
 fun NetWorthLineChart(
@@ -108,7 +108,7 @@ fun NetWorthLineChart(
             reversed.take(6).forEachIndexed { i, month ->
                 Text(
                     month.month.takeLast(2),
-                    fontSize = 9.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

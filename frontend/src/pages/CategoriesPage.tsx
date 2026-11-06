@@ -9,7 +9,7 @@ export function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [name, setName] = useState('')
   const [type, setType] = useState('expense')
-  const [color, setColor] = useState('#8479F2')
+  const [color, setColor] = useState('#3987E5')
   const [desc, setDesc] = useState('')
   const [loading, setLoading] = useState(false)
 

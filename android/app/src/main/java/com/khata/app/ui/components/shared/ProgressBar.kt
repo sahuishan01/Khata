@@ -9,6 +9,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.khata.app.ui.theme.KhataColors
 
+/** Budget meter: fill is state — green, amber at 80%, red at 100%. */
 @Composable
 fun KhataProgressBar(pct: Double, modifier: Modifier = Modifier) {
     val barColor = when {
@@ -16,7 +17,7 @@ fun KhataProgressBar(pct: Double, modifier: Modifier = Modifier) {
         pct >= 80 -> KhataColors.warn
         else -> KhataColors.income
     }
-    Box(modifier = modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(KhataColors.hairline)) {
+    Box(modifier = modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(KhataColors.surface3)) {
         Box(modifier = Modifier.fillMaxWidth(fraction = (pct / 100.0).toFloat().coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor))
     }
 }

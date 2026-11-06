@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 interface ChipProps {
   children: ReactNode
-  color?: 'purple' | 'green' | 'red' | 'amber' | 'gray'
+  color?: 'purple' | 'brand' | 'green' | 'red' | 'amber' | 'gray'
   onClick?: () => void
   title?: string
   style?: React.CSSProperties
@@ -10,9 +10,10 @@ interface ChipProps {
 
 const chipColors = {
   purple: { bg: 'var(--brand-soft)', color: 'var(--brand)' },
+  brand: { bg: 'var(--brand-soft)', color: 'var(--brand)' },
   green: { bg: 'var(--income-soft)', color: 'var(--income)' },
   red: { bg: 'var(--expense-soft)', color: 'var(--expense)' },
-  amber: { bg: 'rgba(224,163,58,.14)', color: 'var(--warn)' },
+  amber: { bg: 'var(--warn-soft)', color: 'var(--warn)' },
   gray: { bg: 'var(--surface-2)', color: 'var(--text-2)' },
 }
 
@@ -24,10 +25,10 @@ export function Chip({ children, color = 'gray', onClick, title, style }: ChipPr
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
-        padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+        padding: '3px 10px', borderRadius: 'var(--r-pill)', fontSize: 'var(--fs-caption)', fontWeight: 600,
         lineHeight: 1.4, background: c.bg, color: c.color,
         maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        cursor: onClick ? 'pointer' : undefined, transition: 'opacity 0.12s',
+        cursor: onClick ? 'pointer' : undefined,
         ...style,
       }}
     >
@@ -36,17 +37,19 @@ export function Chip({ children, color = 'gray', onClick, title, style }: ChipPr
   )
 }
 
+/** Segmented filter pill. Selected = brand (an action state, DESIGN.md §1). */
 export function Pill({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       style={{
-        padding: '6px 11px', fontSize: 10, fontWeight: 600, borderRadius: 999,
-        border: active ? 'none' : '1px solid var(--hairline)',
-        background: active ? 'var(--brand-soft)' : 'var(--surface-2)',
-        color: active ? 'var(--brand)' : 'var(--text-2)',
-        borderColor: active ? 'transparent' : undefined,
-        cursor: 'pointer', transition: 'all 0.12s',
+        minHeight: 32, padding: '0 14px', fontSize: 'var(--fs-caption)', fontWeight: 600,
+        borderRadius: 'var(--r-pill)',
+        border: `1px solid ${active ? 'var(--brand)' : 'var(--hairline)'}`,
+        background: active ? 'var(--brand-soft)' : 'transparent',
+        color: active ? 'var(--text)' : 'var(--text-2)',
+        transition: 'var(--transition-fast)',
         whiteSpace: 'nowrap',
       }}
     >

@@ -140,7 +140,7 @@ fun LoginScreen(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Default: https://khata.algosculptor.com",
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -297,7 +297,7 @@ fun SetupScreen(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Default: https://khata.algosculptor.com",
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

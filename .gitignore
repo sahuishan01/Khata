@@ -10,3 +10,5 @@ android/app/debug.keystore
 android/app/upload.keystore
 android/keystore.properties
 backend/khata.log
+.gitnexus
+.claude/

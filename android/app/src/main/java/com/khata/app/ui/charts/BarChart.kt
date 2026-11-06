@@ -18,8 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.api.MonthBucket
 
-private val SpendColor = Color(0xFFEE6B4D)
-private val EarnColor = Color(0xFF2EC27E)
+private val SpendColor = com.khata.app.ui.theme.KhataColors.expense
+private val EarnColor = com.khata.app.ui.theme.KhataColors.income
 
 @Composable
 fun MonthlyBarChart(
@@ -44,7 +44,7 @@ fun MonthlyBarChart(
                 val earnedH = (month.earned / maxVal * size.height * 0.85f).toFloat()
                 val x = i * stepX
 
-                val cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx())
+                val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
                 drawRoundRect(
                     color = SpendColor,
                     topLeft = Offset(x + spacing, size.height - spentH),
@@ -66,7 +66,7 @@ fun MonthlyBarChart(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             reversed.forEach { month ->
-                Text(month.month.takeLast(2), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(monthAbbrev(month.month), style = com.khata.app.ui.theme.MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -77,9 +77,15 @@ fun MonthlyBarChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(SpendColor))
-            Text(" Spent  ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(" Spent   ", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(EarnColor))
-            Text(" Earned", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(" Earned", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
+
+private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+/** "2026-03" → "Mar" (matches the web chart's axis). */
+internal fun monthAbbrev(ym: String): String =
+    ym.takeLast(2).toIntOrNull()?.let { MONTHS.getOrNull(it - 1) } ?: ym

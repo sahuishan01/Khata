@@ -60,7 +60,7 @@ fun WaterfallChart(
             reversed.forEach { month ->
                 Text(
                     month.month.takeLast(2),
-                    fontSize = 9.sp,
+                    fontSize = 12.sp,
                     color = KhataColors.text2,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
@@ -72,9 +72,9 @@ fun WaterfallChart(
             horizontalArrangement = Arrangement.Center
         ) {
             Box(modifier = Modifier.size(10.dp, 10.dp).clip(RoundedCornerShape(2.dp)).background(NetPosColor))
-            Text(" Surplus  ", fontSize = 11.sp, color = KhataColors.text2)
+            Text(" Surplus  ", fontSize = 12.sp, color = KhataColors.text2)
             Box(modifier = Modifier.size(10.dp, 10.dp).clip(RoundedCornerShape(2.dp)).background(NetNegColor))
-            Text(" Deficit", fontSize = 11.sp, color = KhataColors.text2)
+            Text(" Deficit", fontSize = 12.sp, color = KhataColors.text2)
         }
     }
 }

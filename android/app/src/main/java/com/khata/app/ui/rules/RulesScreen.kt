@@ -62,7 +62,7 @@ fun RulesScreen(
                     Spacer(Modifier.width(8.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
-                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Text(r.category, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp) }
+                    Surface(shape = com.khata.app.ui.theme.KhataRadius.pill, color = com.khata.app.ui.theme.KhataColors.surface2) { Text(r.category, color = com.khata.app.ui.theme.KhataColors.text2, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp) }
                     Spacer(Modifier.weight(1f))
                     KhataButton(onClick = { onDelete(r.id) }, variant = ButtonVariant.Ghost) { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                 }
