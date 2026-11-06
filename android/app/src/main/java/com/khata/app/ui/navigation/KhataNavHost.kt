@@ -25,6 +25,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.khata.app.sms.isComplete
 import com.khata.app.ui.accounts.AccountsScreen
 import com.khata.app.ui.addtxn.AddTransactionScreen
 import com.khata.app.ui.admin.AdminUsersScreen
@@ -264,7 +265,9 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
                 TransactionsScreen(
                     txnState = txnState.txns,
                     deviceSyncStatus = {
-                        com.khata.app.ui.upload.SmsClassificationStatus(smsDecisionSummary,viewModel::retrySmsProcessing,smsProgress.running)
+                        if (!smsDecisionSummary.isComplete() || smsProgress.running) {
+                            com.khata.app.ui.upload.SmsClassificationStatus(smsDecisionSummary,viewModel::retrySmsProcessing,smsProgress.running)
+                        }
                         if (pendingSyncCount > 0 || deviceSyncState is SyncUiState.Error || deviceSyncState is SyncUiState.Conflicts) deviceSyncStatus()
                     },
                     categories = txnState.categories,

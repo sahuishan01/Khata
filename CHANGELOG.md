@@ -5,6 +5,12 @@ Format: `## [date] — Summary` → bullet list of changes.
 
 ---
 
+## [2026-11-06] — Dismiss completed SMS progress on Transactions (v0.45.33)
+
+- Only render the SMS processing status banner on the Android Transactions screen when processing is actively running, or when items remain pending or require review. Once 100% complete, the banner cleanly dismisses. Full progress breakdown remains accessible under the Upload screen.
+
+---
+
 ## [2026-11-06] — "Bahi by lamplight" design system & RLS fixes (v0.45.32)
 
 - Comprehensive "Bahi by lamplight" redesign across Web and Android: warm parchment palette, Schibsted Grotesk headings, Space Mono figures, Ledger Statement UI, and micro-interactions.
