@@ -103,7 +103,7 @@ fun ProfileScreen(
                 Text("Server URL", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 KhataField(value = serverUrl, onValueChange = onServerUrlChange, placeholder = "https://khata.algosculptor.com")
-                Text("Restart app to apply changes", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Restart app to apply changes", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -121,6 +121,6 @@ fun ProfileScreen(
             }
         }
 
-        if (msg.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(msg, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary) }
+        if (msg.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(msg, fontSize = 13.sp, color = com.khata.app.ui.theme.KhataColors.income) }
     }
 }

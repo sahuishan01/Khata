@@ -111,7 +111,7 @@ export function ChatPage() {
                 <button
                   onClick={() => setShowSql(showSql === m.id ? null : m.id)}
                   className="btn btn-ghost btn-sm"
-                  style={{ fontSize: 11, color: 'var(--text-2)', gap: 3 }}
+                  style={{ fontSize: 12, color: 'var(--text-2)', gap: 3 }}
                 >
                   {showSql === m.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                   {showSql === m.id ? 'hide SQL' : 'show SQL'}

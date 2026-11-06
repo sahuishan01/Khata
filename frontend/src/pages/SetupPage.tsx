@@ -161,7 +161,7 @@ export function SetupPage() {
                   Apply & Retry
                 </button>
               </div>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                 Leave empty for default (current host). For self-hosted, enter your server URL.
               </p>
             </div>

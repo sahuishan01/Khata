@@ -37,9 +37,9 @@ fun PortfolioScreen(
         if (snapshot != null) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    KhataCard(Modifier.weight(1f)) { KhataCardBody { Text("Assets", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); KhataAmount(snapshot.totalAssets, size = 18.sp) } }
-                    KhataCard(Modifier.weight(1f)) { KhataCardBody { Text("Liabilities", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); KhataAmount(snapshot.totalLiabilities, size = 18.sp) } }
-                    KhataCard(Modifier.weight(1f)) { KhataCardBody { Text("Net Worth", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); KhataAmount(snapshot.netWorth, size = 18.sp) } }
+                    KhataCard(Modifier.weight(1f)) { KhataCardBody { Text("Assets", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); KhataAmount(snapshot.totalAssets, size = 18.sp) } }
+                    KhataCard(Modifier.weight(1f)) { KhataCardBody { Text("Liabilities", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); KhataAmount(snapshot.totalLiabilities, size = 18.sp) } }
+                    KhataCard(Modifier.weight(1f)) { KhataCardBody { Text("Net Worth", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); KhataAmount(snapshot.netWorth, size = 18.sp) } }
                 }
             }
         }
@@ -57,7 +57,7 @@ fun PortfolioScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("bank","mutual_fund","stock","fd","cash").forEach { t -> FilterChip(selected = aType == t, onClick = { aType = t }, label = { Text(t.replace("_"," "), fontSize = 10.sp) }) }
+                        listOf("bank","mutual_fund","stock","fd","cash").forEach { t -> FilterChip(selected = aType == t, onClick = { aType = t }, label = { Text(t.replace("_"," "), fontSize = 12.sp) }) }
                     }
                 }
             }
@@ -77,9 +77,9 @@ fun PortfolioScreen(
                     item {
                         KhataCard(Modifier.fillMaxWidth()) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
+                                Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp), tint = com.khata.app.ui.theme.KhataColors.income)
                                 Spacer(Modifier.width(8.dp))
-                                Column(Modifier.weight(1f)) { Text(a.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(a.assetType, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                Column(Modifier.weight(1f)) { Text(a.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(a.assetType, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 KhataAmount(a.value, size = 14.sp)
                                 Spacer(Modifier.width(4.dp))
                                 KhataButton(onClick = { onDeleteAsset(a.id) }, variant = ButtonVariant.Ghost) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) }
@@ -103,7 +103,7 @@ fun PortfolioScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("loan","credit_card","other").forEach { t -> FilterChip(selected = lType == t, onClick = { lType = t }, label = { Text(t.replace("_"," "), fontSize = 10.sp) }) }
+                        listOf("loan","credit_card","other").forEach { t -> FilterChip(selected = lType == t, onClick = { lType = t }, label = { Text(t.replace("_"," "), fontSize = 12.sp) }) }
                     }
                 }
             }
@@ -125,7 +125,7 @@ fun PortfolioScreen(
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.TrendingDown, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                                 Spacer(Modifier.width(8.dp))
-                                Column(Modifier.weight(1f)) { Text(l.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(l.liabilityType, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                Column(Modifier.weight(1f)) { Text(l.name, fontSize = 13.sp, fontWeight = FontWeight.Medium); Text(l.liabilityType, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 KhataAmount(l.value, size = 14.sp)
                                 Spacer(Modifier.width(4.dp))
                                 KhataButton(onClick = { onDeleteLiability(l.id) }, variant = ButtonVariant.Ghost) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) }

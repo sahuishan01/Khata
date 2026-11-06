@@ -1,62 +1,68 @@
-import { Bar, BarChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatINR } from '../../utils/format'
+import { ChartTooltip, TooltipRow } from './ChartTooltip'
 
 interface MonthBucket { month: string; spent: number; earned: number }
 
-function CustomTooltip({ active, payload, label }: any) {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{
-        background: 'var(--surface-2)',
-        border: '1px solid var(--hairline)',
-        borderRadius: 8,
-        padding: '10px 14px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-        backdropFilter: 'blur(8px)',
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-          {label}
-        </div>
-        {payload.map((p: any, idx: number) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
-            <span style={{ color: 'var(--text-2)', flex: 1 }}>{p.name}:</span>
-            <span style={{ fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-              {formatINR(Number(p.value))}
-            </span>
-          </div>
-        ))}
-      </div>
-    )
-  }
-  return null
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "2026-03" → "Mar 26" */
+function monthLabel(ym: string) {
+  const [y, m] = ym.split('-')
+  const i = Number(m) - 1
+  return i >= 0 && i < 12 ? `${MONTHS[i]} ${y.slice(2)}` : ym
 }
 
+/** Compact axis ticks in Indian units: ₹1.2L, ₹3.4Cr, ₹45K. */
+function compactINR(v: number) {
+  const a = Math.abs(v)
+  if (a >= 1e7) return `₹${(v / 1e7).toFixed(1).replace(/\.0$/, '')}Cr`
+  if (a >= 1e5) return `₹${(v / 1e5).toFixed(1).replace(/\.0$/, '')}L`
+  if (a >= 1e3) return `₹${Math.round(v / 1e3)}K`
+  return `₹${v}`
+}
+
+function SpendEarnTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <ChartTooltip title={monthLabel(String(label))}>
+      {payload.map((p: any) => (
+        <TooltipRow key={p.dataKey} swatch={p.color} label={p.name} value={formatINR(Number(p.value))} />
+      ))}
+    </ChartTooltip>
+  )
+}
+
+/** Money in vs money out per month — green/red carry their app-wide meaning. */
 export function SpendEarnChart({ data }: { data: MonthBucket[] }) {
   return (
-    <ResponsiveContainer width="100%" height={270}>
-      <BarChart data={[...data].reverse()} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={[...data].reverse()} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={2}>
+        <CartesianGrid vertical={false} stroke="var(--hairline)" />
         <XAxis
           dataKey="month"
-          tick={{ fontSize: 11, fill: 'var(--text-2)' }}
-          axisLine={{ stroke: 'var(--hairline)' }}
+          tickFormatter={monthLabel}
+          tick={{ fontSize: 11, fill: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}
+          axisLine={{ stroke: 'var(--rule)' }}
           tickLine={false}
         />
         <YAxis
-          tickFormatter={(v: number) => formatINR(v)}
-          tick={{ fontSize: 11, fill: 'var(--text-2)' }}
-          width={75}
+          tickFormatter={compactINR}
+          tick={{ fontSize: 11, fill: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}
+          width={56}
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+        <Tooltip content={<SpendEarnTooltip />} cursor={{ fill: 'rgba(241, 236, 227, 0.04)' }} />
         <Legend
           verticalAlign="top"
           align="right"
+          iconType="square"
+          iconSize={8}
           wrapperStyle={{ paddingBottom: 12, fontSize: 12, color: 'var(--text-2)' }}
         />
-        <Bar dataKey="spent" fill="var(--expense)" name="Spent" radius={[6, 6, 0, 0]} maxBarSize={32} />
-        <Bar dataKey="earned" fill="var(--income)" name="Money In" radius={[6, 6, 0, 0]} maxBarSize={32} />
+        <Bar dataKey="earned" fill="var(--income)" name="Earned" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={false} />
+        <Bar dataKey="spent" fill="var(--expense)" name="Spent" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   )

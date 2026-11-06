@@ -47,7 +47,7 @@ fun AccountsScreen(
                 }
             }
         }
-        item { Text("YOUR ACCOUNTS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp) }
+        item { Text("Your accounts", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.8.sp) }
         items(accounts, key = { it.id }) { a ->
             KhataCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -74,7 +74,7 @@ fun BudgetsScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     KhataProgressBar(pct = pct)
-                    if (s != null) Text("Spent: ${formatINR(s.spent)} / ${formatINR(b.monthlyLimit)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    if (s != null) Text("Spent: ${formatINR(s.spent)} / ${formatINR(b.monthlyLimit)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }

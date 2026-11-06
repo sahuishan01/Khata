@@ -125,7 +125,7 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
             padding: 14,
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', marginBottom: 10 }}>
             Change Category
           </div>
 
@@ -165,7 +165,7 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
             {isNew ? <><ArrowLeft size={12} /> Choose existing</> : <><Plus size={12} /> Create new category</>}
           </button>
 
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', marginBottom: 7 }}>
             Apply to
           </div>
 
@@ -194,7 +194,7 @@ export function CategoryEditor({ txnId, current, description, allCategories, onU
           )}
 
           {scope !== 'single' && (
-            <p className="text-muted" style={{ fontSize: 11, marginTop: 5 }}>
+            <p className="text-muted" style={{ fontSize: 12, marginTop: 5 }}>
               {scope === 'same_description'
                 ? `Updates all: "${description.slice(0, 35)}${description.length > 35 ? '…' : ''}"`
                 : keyword ? `Updates all containing "${keyword}"` : ''}

@@ -43,6 +43,8 @@ import com.khata.app.ui.portfolio.PortfolioScreen
 import com.khata.app.ui.profile.ProfileScreen
 import com.khata.app.ui.rules.RulesScreen
 import com.khata.app.ui.theme.ThemeManager
+import com.khata.app.ui.theme.KhataColors
+import androidx.compose.material.icons.outlined.*
 import com.khata.app.ui.transactions.TransactionsScreen
 import com.khata.app.ui.upload.CombinedUploadScreen
 import com.khata.app.viewmodel.MainViewModel
@@ -62,10 +64,10 @@ import com.khata.app.shortcuts.resolveShortcutNavigation
 sealed class Screen(val route: String, val label: String = "", val icon: @Composable () -> Unit = {}) {
     data object Setup : Screen("setup")
     data object Login : Screen("login")
-    data object Dashboard : Screen("dashboard", "Dashboard", { Icon(Icons.Default.Home, contentDescription = null) })
-    data object Transactions : Screen("transactions", "Transactions", { Icon(Icons.Default.Receipt, contentDescription = null) })
+    data object Dashboard : Screen("dashboard", "Dashboard", { Icon(Icons.Outlined.Dashboard, contentDescription = null) })
+    data object Transactions : Screen("transactions", "Transactions", { Icon(Icons.Outlined.ReceiptLong, contentDescription = null) })
     data object Chat : Screen("chat", "Ask Claude", { Icon(Icons.Default.Chat, contentDescription = null) })
-    data object Upload : Screen("upload", "Add", { Icon(Icons.Default.AddCircle, contentDescription = null) })
+    data object Upload : Screen("upload", "Add", { Icon(Icons.Outlined.AddCircleOutline, contentDescription = null) })
     data object Analytics : Screen("analytics", "Analytics", { Icon(Icons.Default.Analytics, contentDescription = null) })
     data object AdminUsers : Screen("admin_users")
     data object ResetPassword : Screen("reset_password")
@@ -75,8 +77,8 @@ sealed class Screen(val route: String, val label: String = "", val icon: @Compos
     data object Portfolio : Screen("portfolio", "Net Worth", { Icon(Icons.Default.MonetizationOn, contentDescription = null) })
     data object Rules : Screen("rules")
     data object Categories : Screen("categories", "Categories", { Icon(Icons.Default.Label, contentDescription = null) })
-    data object Profile : Screen("profile", "Settings", { Icon(Icons.Default.Settings, contentDescription = null) })
-    data object More : Screen("more", "More", { Icon(Icons.Default.MoreVert, contentDescription = null) })
+    data object Profile : Screen("profile", "Settings", { Icon(Icons.Outlined.Settings, contentDescription = null) })
+    data object More : Screen("more", "More", { Icon(Icons.Outlined.Apps, contentDescription = null) })
     data object Debug : Screen("debug")
     data object Shortcuts : Screen("shortcuts")
 }
@@ -212,17 +214,28 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                Column {
+                HorizontalDivider(color = KhataColors.hairline, thickness = 1.dp)
+                NavigationBar(containerColor = KhataColors.bg, tonalElevation = 0.dp) {
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
-                            icon = screen.icon, label = { Text(screen.label, fontSize = 10.sp) },
+                            icon = screen.icon, label = { Text(screen.label, fontSize = 12.sp, maxLines = 1, softWrap = false) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = KhataColors.brand,
+                                selectedTextColor = KhataColors.text,
+                                indicatorColor = KhataColors.brandSoft,
+                                unselectedIconColor = KhataColors.textMuted,
+                                unselectedTextColor = KhataColors.textMuted,
+                            ),
                             selected = currentDestination?.route?.startsWith(screen.route) == true,
                             onClick = { navController.navigate(screen.route) { popUpTo(navController.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } }
                         )
                     }
                 }
+                }
             }
-        }
+        },
+        containerColor = KhataColors.bg,
     ) { innerPadding ->
         NavHost(navController = navController, startDestination = Screen.Setup.route, modifier = Modifier.padding(innerPadding),
             enterTransition = { fadeIn(animationSpec = tween(150)) },
@@ -352,7 +365,7 @@ fun KhataNavHost(themeManager: ThemeManager, pendingShortcut: ShortcutAction? = 
 private fun SplashScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(Modifier.size(72.dp), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 8.dp) { Box(contentAlignment = Alignment.Center) { Text("₹", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) } }
+            com.khata.app.ui.components.shared.KhataMark(size = 64.dp)
             Spacer(Modifier.height(16.dp)); Text("Khata", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(24.dp)); CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp, color = MaterialTheme.colorScheme.primary)
         }

@@ -99,7 +99,7 @@ export function SubscriptionsPage() {
           <Card>
             <CardBody>
               <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 4 }}>Active Tracked Subscriptions</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--brand)' }}>{subs.filter(s => s.active).length}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }} className="figure">{subs.filter(s => s.active).length}</div>
             </CardBody>
           </Card>
         </div>
@@ -109,7 +109,7 @@ export function SubscriptionsPage() {
         ) : subs.length === 0 ? (
           <Card>
             <CardBody style={{ textAlign: 'center', padding: '32px 16px' }}>
-              <RefreshCw size={32} style={{ color: 'var(--brand)', marginBottom: 8 }} />
+              <RefreshCw size={32} style={{ color: 'var(--text-2)', marginBottom: 8 }} />
               <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>No Subscriptions Added</div>
               <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Add your monthly recurring bills (Netflix, Rent, WiFi, SIPs) to track upcoming renewals.</div>
             </CardBody>
@@ -121,7 +121,7 @@ export function SubscriptionsPage() {
                 <ListRow
                   key={sub.id}
                   leading={
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Calendar size={18} />
                     </div>
                   }
@@ -129,7 +129,7 @@ export function SubscriptionsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>₹{sub.amount.toLocaleString('en-IN')}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>due {sub.next_due_date}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>due {sub.next_due_date}</div>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(sub.id)}>
                         <Trash2 size={15} style={{ color: 'var(--expense)' }} />

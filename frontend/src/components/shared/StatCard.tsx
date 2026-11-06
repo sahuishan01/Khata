@@ -1,30 +1,30 @@
 import type { ReactNode } from 'react'
 
 interface StatCardProps {
-  icon: ReactNode
+  icon?: ReactNode
   label: string
   value: ReactNode
+  /** Tints the icon only; the value color comes from the value itself. */
   color?: 'brand' | 'income' | 'expense' | 'amber'
+  hint?: string
 }
 
-const colors = {
-  brand: { bg: 'var(--brand-soft)', color: 'var(--brand)' },
-  income: { bg: 'var(--income-soft)', color: 'var(--income)' },
-  expense: { bg: 'var(--expense-soft)', color: 'var(--expense)' },
-  amber: { bg: 'rgba(224,163,58,.14)', color: 'var(--warn)' },
+const tints = {
+  brand: 'var(--text-2)',
+  income: 'var(--income)',
+  expense: 'var(--expense)',
+  amber: 'var(--warn)',
 }
 
-export function StatCard({ icon, label, value, color = 'brand' }: StatCardProps) {
-  const c = colors[color]
+export function StatCard({ icon, label, value, color = 'brand', hint }: StatCardProps) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 12, padding: 11, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 9.5, color: 'var(--text-2)' }}>{label}</div>
-        {icon && <div style={{ background: c.bg, color: c.color, borderRadius: 6, padding: 3, display: 'flex' }}>{icon}</div>}
+    <div className="stat-card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: tints[color] }}>
+        {icon}
+        <span className="stat-label">{label}</span>
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: c.color, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum" 1' }}>
-        {value}
-      </div>
+      <div className="stat-value">{value}</div>
+      {hint && <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-2)' }}>{hint}</div>}
     </div>
   )
 }

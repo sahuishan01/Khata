@@ -63,7 +63,7 @@ export function ProfilePage() {
           <Card>
             <CardBody>
               <ListRow
-                leading={<div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></div>}
+                leading={<div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={16} /></div>}
                 trailing={<Button variant="secondary" size="sm" onClick={() => { setNewEmail(user?.email || ''); setEmailPassword(''); setShowEmailDialog(true) }}>Change</Button>}
               >
                 <ListRowText primary={user?.email || 'Unknown'} secondary={user?.role} />
@@ -89,7 +89,7 @@ export function ProfilePage() {
           <Card>
             <CardBody>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Server size={16} style={{ color: 'var(--brand)' }} />
+                <Server size={16} style={{ color: 'var(--text-2)' }} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>Server</span>
               </div>
               <Field
@@ -98,7 +98,7 @@ export function ProfilePage() {
                 placeholder="https://khata.algosculptor.com"
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Leave empty for default</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Leave empty for default</span>
                 <Button variant="secondary" size="sm" onClick={saveServerUrl}>Save</Button>
               </div>
             </CardBody>

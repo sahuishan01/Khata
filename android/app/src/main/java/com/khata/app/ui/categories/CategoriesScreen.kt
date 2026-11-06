@@ -51,7 +51,7 @@ fun CategoriesScreen(
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(cat.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        if (cat.description.isNotBlank()) Text(cat.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (cat.description.isNotBlank()) Text(cat.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     KhataChip(
                         text = if (cat.txnType == "income") "Income" else "Expense",
@@ -77,9 +77,9 @@ fun CategoriesScreen(
         var name by remember { mutableStateOf("") }
         var description by remember { mutableStateOf("") }
         var txnType by remember { mutableStateOf("expense") }
-        var color by remember { mutableStateOf("#6C5CE7") }
+        var color by remember { mutableStateOf("#3987E5") }
         val colors = listOf(
-            "#6C5CE7", "#00B894", "#E17055", "#FDCB6E", "#74B9FF", "#00CEC9", "#FD79A8", "#636E72",
+            "#3987E5", "#D95926", "#199E70", "#C98500", "#D55181", "#9085E9", "#6E675E",
             "#FF6B6B", "#48DBFB", "#FF9FF3", "#54A0FF", "#5F27CD", "#01A3A4", "#F368E0", "#EE5A24",
             "#0ABDE3", "#10AC84", "#222F3E", "#ED4C67", "#12CBC4", "#B71540", "#5758BB", "#FFC312"
         )
@@ -95,7 +95,7 @@ fun CategoriesScreen(
                         FilterChip(selected = txnType == "expense", onClick = { txnType = "expense" }, label = { Text("Expense", fontSize = 12.sp) })
                         FilterChip(selected = txnType == "income", onClick = { txnType = "income" }, label = { Text("Income", fontSize = 12.sp) })
                     }
-                    Text("Color", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Color", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val rows = colors.chunked(6)
                     rows.forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -121,7 +121,7 @@ fun CategoriesScreen(
                             if (newColor.startsWith("#") && newColor.length in 4..7) color = newColor
                         }, placeholder = "Hex", modifier = Modifier.weight(1f))
                         Box(Modifier.size(28.dp).clip(CircleShape).background(try { Color(android.graphics.Color.parseColor(color)) } catch (_: Exception) { Color.Gray }))
-                        Text("Custom hex color", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Custom hex color", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },

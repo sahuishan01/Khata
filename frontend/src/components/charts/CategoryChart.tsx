@@ -1,13 +1,9 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { formatINR } from '../../utils/format'
+import { ChartTooltip, TooltipRow } from './ChartTooltip'
+import { colorFor, foldToOther } from './palette'
 
 interface CategoryBucket { category: string; amount: number; pct: number }
-
-const CURATED_PALETTE = [
-  '#8479F2', '#2EC27E', '#EE6B4D', '#E0A33A', '#74b9ff',
-  '#a29bfe', '#00F0FF', '#05FFB0', '#FF2A6D', '#F59E0B',
-  '#10b981', '#3b82f6', '#8b5cf6', '#ec4899',
-]
 
 interface Props {
   data: CategoryBucket[]
@@ -15,102 +11,84 @@ interface Props {
 }
 
 function CategoryTooltip({ active, payload }: any) {
-  if (active && payload && payload.length) {
-    const data: CategoryBucket = payload[0].payload
-    return (
-      <div style={{
-        background: 'var(--surface-2)',
-        border: '1px solid var(--hairline)',
-        borderRadius: 8,
-        padding: '8px 12px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-        backdropFilter: 'blur(8px)',
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{data.category}</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
-          {formatINR(data.amount)} ({data.pct.toFixed(1)}%)
-        </div>
-      </div>
-    )
-  }
-  return null
+  if (!active || !payload?.length) return null
+  const d: CategoryBucket & { fill?: string } = payload[0].payload
+  return (
+    <ChartTooltip>
+      <TooltipRow swatch={payload[0].payload.fill ?? 'var(--text-2)'} label={d.category} value={formatINR(d.amount)} />
+      <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4, textAlign: 'right' }}>{d.pct.toFixed(1)}% of spend</div>
+    </ChartTooltip>
+  )
 }
 
 export function CategoryChart({ data, onCategoryClick }: Props) {
-  const totalAmount = data.reduce((acc, curr) => acc + curr.amount, 0)
+  const folded = foldToOther(data).map((d, i) => ({ ...d, fill: colorFor(d.category, i) }))
+  const total = data.reduce((acc, d) => acc + d.amount, 0)
+  const clickable = (c: string) => onCategoryClick && c !== 'Other'
 
   return (
-    <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-      <div style={{ position: 'relative', width: 190, height: 190, flexShrink: 0 }}>
+    <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ position: 'relative', width: 180, height: 180, flexShrink: 0, margin: '0 auto' }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={folded}
               dataKey="amount"
-              cx="50%" cy="50%"
-              innerRadius={58} outerRadius={86} paddingAngle={3}
               nameKey="category"
-              onClick={onCategoryClick ? (entry) => onCategoryClick((entry as unknown as CategoryBucket).category) : undefined}
+              cx="50%" cy="50%"
+              innerRadius={60} outerRadius={86}
+              paddingAngle={1}
+              isAnimationActive={false}
+              stroke="var(--surface)" strokeWidth={2}
+              onClick={onCategoryClick ? (entry) => {
+                const c = (entry as unknown as CategoryBucket).category
+                if (clickable(c)) onCategoryClick(c)
+              } : undefined}
               style={onCategoryClick ? { cursor: 'pointer' } : undefined}
-              stroke="none"
             >
-              {data.map((_, i) => (
-                <Cell key={i} fill={CURATED_PALETTE[i % CURATED_PALETTE.length]} />
-              ))}
+              {folded.map(d => <Cell key={d.category} fill={d.fill} />)}
             </Pie>
             <Tooltip content={<CategoryTooltip />} />
           </PieChart>
         </ResponsiveContainer>
-
         <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          pointerEvents: 'none', textAlign: 'center', padding: 8
+          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', textAlign: 'center',
         }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Total
-          </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
-            {formatINR(totalAmount)}
-          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-2)' }}>Spent</span>
+          <span className="figure" style={{ fontSize: 15, color: 'var(--text)', marginTop: 2 }}>{formatINR(total)}</span>
         </div>
       </div>
 
-      <div style={{ flex: 1, minWidth: 160 }}>
-        {data.map((d, i) => (
-          <div
-            key={d.category}
-            onClick={() => onCategoryClick?.(d.category)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              cursor: onCategoryClick ? 'pointer' : 'default',
-              borderRadius: 8, padding: '5px 8px', margin: '0 -8px 4px',
-              transition: 'all 0.15s ease',
-              border: '1px solid transparent'
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.background = 'var(--surface-2)'
-              el.style.borderColor = 'var(--hairline)'
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.background = ''
-              el.style.borderColor = 'transparent'
-            }}
-          >
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: CURATED_PALETTE[i % CURATED_PALETTE.length], flexShrink: 0 }} />
-            <div style={{ flex: 1, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {d.category}
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-              {formatINR(d.amount)}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-2)', width: 42, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-              {d.pct.toFixed(1)}%
-            </div>
-          </div>
-        ))}
+      {/* Legend doubles as the table view: name, amount, share. */}
+      <div style={{ flex: 1, minWidth: 200 }}>
+        {folded.map(d => {
+          const canClick = clickable(d.category)
+          const Row = canClick ? 'button' : 'div'
+          return (
+            <Row
+              key={d.category}
+              className={canClick ? 'list-row' : undefined}
+              onClick={canClick ? () => onCategoryClick!(d.category) : undefined}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                minHeight: 36, padding: '0 8px', margin: 0,
+                background: 'transparent', border: 'none', borderRadius: 'var(--r-sm)',
+                color: 'inherit', font: 'inherit', textAlign: 'left',
+                cursor: canClick ? 'pointer' : 'default',
+              }}
+            >
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 14, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {d.category}
+              </span>
+              <span className="figure" style={{ fontSize: 13, color: 'var(--text)' }}>{formatINR(d.amount)}</span>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', width: 48, textAlign: 'right' }}>
+                {d.pct.toFixed(1)}%
+              </span>
+            </Row>
+          )
+        })}
       </div>
     </div>
   )

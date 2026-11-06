@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api, getServerUrl } from '../api/client'
 import { Download, Shield, FileSpreadsheet } from 'lucide-react'
 import { Screen, Card, CardBody, ListRow, ListRowText, Button } from '../components/shared'
+import { formatINR } from '../utils/format'
 
 interface TaxItem {
   section: string
@@ -71,25 +72,25 @@ export function ReportsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
               <Card>
                 <CardBody>
-                  <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Section 80C (ELSS/PPF)</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--brand)', marginTop: 2 }}>₹{taxData.total_80c_eligible.toLocaleString('en-IN')}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Max ₹1,50,000</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Section 80C (ELSS/PPF)</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginTop: 2 }} className="figure">{formatINR(taxData.total_80c_eligible)}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Max ₹1,50,000</div>
                 </CardBody>
               </Card>
 
               <Card>
                 <CardBody>
-                  <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Section 80D (Health Ins)</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Section 80D (Health Ins)</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--income)', marginTop: 2 }}>₹{taxData.total_80d_medical.toLocaleString('en-IN')}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Medical & Insurance</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Medical & Insurance</div>
                 </CardBody>
               </Card>
 
               <Card>
                 <CardBody>
-                  <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Section 80G (Donations)</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Section 80G (Donations)</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warn)', marginTop: 2 }}>₹{taxData.total_charity_80g.toLocaleString('en-IN')}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Charity</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Charity</div>
                 </CardBody>
               </Card>
             </div>
@@ -103,7 +104,7 @@ export function ReportsPage() {
                   taxData.breakdown.map((item, idx) => (
                     <ListRow
                       key={idx}
-                      leading={<Shield size={16} style={{ color: 'var(--brand)' }} />}
+                      leading={<Shield size={16} style={{ color: 'var(--text-2)' }} />}
                       trailing={<span style={{ fontWeight: 600, fontSize: 13 }}>₹{item.amount.toLocaleString('en-IN')}</span>}
                     >
                       <ListRowText primary={item.description} secondary={`${item.section} • ${item.txn_date}`} />

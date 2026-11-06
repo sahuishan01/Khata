@@ -40,15 +40,15 @@ export function DetailViewPage() {
           {/* Totals */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
             <Card><CardBody>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Total spent</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Total spent</div>
               <Amount paise={data.total_spent} size="lg" />
             </CardBody></Card>
             <Card><CardBody>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Total earned</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Total earned</div>
               <Amount paise={data.total_earned} size="lg" />
             </CardBody></Card>
             <Card><CardBody>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Transactions</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Transactions</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{data.txn_count}</div>
             </CardBody></Card>
           </div>
@@ -56,7 +56,7 @@ export function DetailViewPage() {
           {/* Trend */}
           {data.trend?.length > 0 && (
             <Card style={{ marginBottom: 16 }}>
-              <CardHeader title="TREND" />
+              <CardHeader title="Trend" />
               <CardBody><SpendEarnChart data={data.trend} /></CardBody>
             </Card>
           )}
@@ -64,7 +64,7 @@ export function DetailViewPage() {
           {/* Top payees */}
           {data.top_payees?.length > 0 && (
             <Card style={{ marginBottom: 16 }}>
-              <CardHeader title="TOP PAYEES" />
+              <CardHeader title="Top payees" />
               <CardBody>
                 {data.top_payees.map((p: any, i: number) => (
                   <div key={p.description} onClick={() => navigate(`/analytics/detail?payee=${encodeURIComponent(p.description)}`)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < data.top_payees.length - 1 ? '1px solid var(--hairline)' : 'none', cursor: 'pointer' }}>

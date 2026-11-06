@@ -8,31 +8,33 @@ interface ListRowProps {
 }
 
 export function ListRow({ leading, children, trailing, onClick }: ListRowProps) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div
+    <Tag
       onClick={onClick}
+      className="list-row"
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 16px', borderBottom: '1px solid var(--hairline)',
-        cursor: onClick ? 'pointer' : undefined, transition: 'background 0.1s',
+        display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+        minHeight: 52, padding: '12px 20px',
+        background: 'transparent', border: 'none', borderBottom: '1px solid var(--hairline)',
+        color: 'inherit', textAlign: 'left', font: 'inherit',
+        cursor: onClick ? 'pointer' : undefined,
       }}
-      onMouseEnter={e => onClick && (e.currentTarget.style.background = 'var(--surface-2)')}
-      onMouseLeave={e => onClick && (e.currentTarget.style.background = '')}
     >
       {leading}
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
       {trailing}
-    </div>
+    </Tag>
   )
 }
 
 export function ListRowText({ primary, secondary }: { primary: string; secondary?: string }) {
   return (
     <>
-      <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
+      <div style={{ fontWeight: 550, fontSize: 'var(--fs-body)', color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word', lineHeight: 1.35 }}>
         {primary}
       </div>
-      {secondary && <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{secondary}</div>}
+      {secondary && <div className="mono" style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-2)', marginTop: 2 }}>{secondary}</div>}
     </>
   )
 }

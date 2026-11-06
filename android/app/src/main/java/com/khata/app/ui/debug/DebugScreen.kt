@@ -98,7 +98,7 @@ fun DebugScreen(onBack: () -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(12.dp)
             ) {
-                Text(selectedLog!!, fontSize = 11.sp, fontFamily = FontFamily.Monospace, lineHeight = 16.sp)
+                Text(selectedLog!!, fontSize = 12.sp, fontFamily = FontFamily.Monospace, lineHeight = 16.sp)
             }
         }
         return
@@ -232,13 +232,13 @@ fun DebugScreen(onBack: () -> Unit) {
                             Text(file.name, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
                             Text(
                                 SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(file.lastModified())),
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
                             formatFileSize(file.length()),
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

@@ -69,7 +69,7 @@ export function BudgetsPage() {
               <CardBody>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div>
-                    <Chip color="purple">{b.category}</Chip>
+                    <Chip color="gray">{b.category}</Chip>
                     <span style={{ fontSize: 12, color: 'var(--text-2)', marginLeft: 8 }}>
                       <Amount paise={b.monthly_limit} size="sm" /> / month
                     </span>
@@ -81,7 +81,7 @@ export function BudgetsPage() {
                   </div>
                 </div>
                 <ProgressBar pct={pct} />
-                {s && <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>Spent: <Amount paise={s.spent} size="sm" /> / <Amount paise={b.monthly_limit} size="sm" /></div>}
+                {s && <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>Spent: <Amount paise={s.spent} size="sm" /> / <Amount paise={b.monthly_limit} size="sm" /></div>}
               </CardBody>
             </Card>
           </div>

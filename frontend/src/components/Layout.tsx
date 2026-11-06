@@ -2,6 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Receipt, PlusCircle, Grid3X3, Settings, LogOut, KeyRound } from 'lucide-react'
 import { useAuth } from '../store/auth'
 
+// DESIGN.md §4.5 — same five tabs and labels on web and Android.
 const PRIMARY_NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: Receipt },
@@ -9,6 +10,19 @@ const PRIMARY_NAV = [
   { to: '/more', label: 'More', icon: Grid3X3 },
   { to: '/profile', label: 'Settings', icon: Settings },
 ]
+
+// Pages reached from the More hub keep "More" highlighted.
+const MORE_ROUTES = ['/more', '/analytics', '/chat', '/accounts', '/rules', '/budgets', '/portfolio',
+  '/categories', '/admin', '/goals', '/subscriptions', '/reports', '/detail']
+
+export function Wordmark({ compact = false }: { compact?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 12 }}>
+      <div className="sidebar-logo" aria-hidden style={compact ? { width: 28, height: 28, fontSize: 12 } : undefined}>₹</div>
+      <span className="sidebar-brand-name" style={compact ? { fontSize: 18 } : undefined}>Khata</span>
+    </div>
+  )
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const logout = useAuth(s => s.logout)
@@ -19,78 +33,60 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isActive = (to: string) => {
     if (to === '/') return location.pathname === '/'
-    if (to === '/more') return location.pathname.startsWith('/more')
+    if (to === '/more') return MORE_ROUTES.some(r => location.pathname.startsWith(r))
     return location.pathname.startsWith(to)
   }
 
   return (
     <div className="app-shell">
-      {/* Desktop sidebar */}
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">₹</div>
-          <span className="sidebar-brand-name">Khata</span>
-        </div>
-        <nav className="sidebar-nav">
+        <div className="sidebar-brand"><Wordmark /></div>
+        <nav className="sidebar-nav" aria-label="Main">
           {PRIMARY_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
-              className={({ isActive: act }) => `sidebar-nav-item${act || isActive(to) ? ' active' : ''}`}
+              className={() => `sidebar-nav-item${isActive(to) ? ' active' : ''}`}
             >
-              <Icon size={16} />
+              <Icon size={18} strokeWidth={1.75} />
               {label}
             </NavLink>
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button
-            className="btn btn-ghost btn-full"
-            style={{ justifyContent: 'flex-start', gap: 10 }}
-            onClick={() => navigate('/reset-password')}
-          >
-            <KeyRound size={15} />
-            Reset Password
+          <button className="btn btn-ghost btn-full" style={{ justifyContent: 'flex-start', gap: 12, minHeight: 40 }} onClick={() => navigate('/reset-password')}>
+            <KeyRound size={16} strokeWidth={1.75} />
+            Change password
           </button>
-          <button
-            className="btn btn-ghost btn-full"
-            style={{ justifyContent: 'flex-start', gap: 10 }}
-            onClick={doLogout}
-          >
-            <LogOut size={15} />
-            Logout
+          <button className="btn btn-ghost btn-full" style={{ justifyContent: 'flex-start', gap: 12, minHeight: 40 }} onClick={doLogout}>
+            <LogOut size={16} strokeWidth={1.75} />
+            Log out
           </button>
         </div>
       </aside>
 
-      {/* Content area */}
       <div className="main-content">
-        {/* Mobile top bar */}
         <header className="mobile-topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="sidebar-logo" style={{ width: 28, height: 28, fontSize: 13 }}>₹</div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>Khata</span>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={doLogout} title="Logout">
-            <LogOut size={16} />
+          <Wordmark compact />
+          <button className="btn btn-ghost btn-sm" style={{ minWidth: 44, minHeight: 44 }} onClick={doLogout} aria-label="Log out" title="Log out">
+            <LogOut size={18} />
           </button>
         </header>
 
-        <div className="page-content page-enter">
+        <main className="page-content page-enter" key={location.pathname}>
           {children}
-        </div>
+        </main>
 
-        {/* Mobile bottom nav */}
-        <nav className="bottom-nav">
+        <nav className="bottom-nav" aria-label="Main">
           {PRIMARY_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
-              className={({ isActive: act }) => `bottom-nav-item${act || isActive(to) ? ' active' : ''}`}
+              className={() => `bottom-nav-item${isActive(to) ? ' active' : ''}`}
             >
-              <Icon size={21} />
+              <Icon size={20} strokeWidth={1.75} />
               <span>{label}</span>
             </NavLink>
           ))}
