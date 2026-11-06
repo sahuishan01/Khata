@@ -29,7 +29,13 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.32` (verified).
+Current release version: `v0.45.33` (verified).
+
+`v0.45.33` automatically hides the persistent SMS sync status banner on the Android
+Transactions screen once SMS scan and queue processing are 100% complete (with no
+pending items or unreviewed decisions remaining). The detailed status breakdown
+remains fully accessible at any time on the Upload screen. Android release unit
+tests (31 tasks) and release lint (29 tasks) passed cleanly with zero errors.
 
 `v0.45.32` brings the complete "Bahi by lamplight" design system to Web and Android
 alongside critical backend RLS context fixes. Warm parchment aesthetic, Schibsted
