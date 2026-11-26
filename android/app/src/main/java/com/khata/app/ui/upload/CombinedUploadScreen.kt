@@ -1,5 +1,6 @@
 package com.khata.app.ui.upload
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -51,7 +53,19 @@ fun CombinedUploadScreen(
     deviceSyncStatus: @Composable () -> Unit = {},
     smsDecisionStatus: @Composable () -> Unit = {},
 ) {
-    var tab by remember { mutableStateOf(2) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("khata_ui", Context.MODE_PRIVATE) }
+    var tab by remember { mutableStateOf(prefs.getInt("upload_tab", 0)) }
+    val selectTab: (Int) -> Unit = { next ->
+        tab = next
+        prefs.edit().putInt("upload_tab", next).apply()
+    }
+    LaunchedEffect(resultMessage, tab) {
+        if (!resultMessage.isNullOrBlank()) {
+            kotlinx.coroutines.delay(3000)
+            onClearResult()
+        }
+    }
     var showClearDialog by remember { mutableStateOf(false) }
     var clearConfirmText by remember { mutableStateOf("") }
     val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -351,16 +365,16 @@ fun CombinedUploadScreen(
         // Tab selector at bottom
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
-                onClick = { tab = 2 },
+                onClick = { selectTab(2) },
                 shape = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp),
                 color = if (tab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             ) { Text("Gmail Sync", modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), color = if (tab == 2) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
             Surface(
-                onClick = { tab = 0 },
+                onClick = { selectTab(0) },
                 color = if (tab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             ) { Text("Upload", modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), color = if (tab == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
             Surface(
-                onClick = { tab = 1 },
+                onClick = { selectTab(1) },
                 shape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp),
                 color = if (tab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             ) { Text("Manual", modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), color = if (tab == 1) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) }
