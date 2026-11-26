@@ -3,6 +3,7 @@ pub mod generic;
 pub mod generic_cc;
 pub mod hdfc;
 pub mod icici;
+pub mod kotak;
 pub mod sbi;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +58,7 @@ pub fn registry() -> Vec<BankProfile> {
     vec![
         hdfc::profile(),
         icici::profile(),
+        kotak::profile(),
         sbi::profile(),
         axis::profile(),
         generic_cc::profile(), // credit-card fallback — before generic
