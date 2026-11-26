@@ -21,6 +21,7 @@ pub struct NormalizedTxn {
 
 #[derive(Debug, Serialize)]
 pub struct ParsedTxnPreview {
+    pub id: Option<String>,
     pub txn_date: String,
     pub description: String,
     pub amount: f64,

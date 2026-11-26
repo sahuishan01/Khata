@@ -34,6 +34,7 @@ interface ImportResult {
   rows_parsed?: number
   warnings?: string[]
   transactions?: {
+    id?: string | null
     txn_date: string
     description: string
     amount: number
@@ -68,6 +69,8 @@ export function UploadPage() {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [lastPdfUrl, setLastPdfUrl] = useState<string | null>(null)
   const [showCompare, setShowCompare] = useState(false)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState<{ txn_date: string; description: string; amount: string; direction: string }>({ txn_date: '', description: '', amount: '', direction: 'debit' })
 
   useEffect(() => {
     if (!result) return
@@ -341,25 +344,90 @@ export function UploadPage() {
                           <th style={{ padding: '6px 8px' }}>Date</th>
                           <th style={{ padding: '6px 8px' }}>Description</th>
                           <th style={{ padding: '6px 8px', textAlign: 'right' }}>Amount</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {result.transactions.map((t, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid var(--hairline)' }}>
                             <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{idx + 1}</td>
-                            <td className="mono" style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{t.txn_date}</td>
-                            <td style={{ padding: '6px 8px' }}>{t.description}</td>
-                            <td
-                              className="mono"
-                              style={{
-                                padding: '6px 8px',
-                                textAlign: 'right',
-                                whiteSpace: 'nowrap',
-                                color: t.direction === 'credit' ? 'var(--income)' : 'var(--expense)',
-                              }}
-                            >
-                              {t.direction === 'credit' ? '+' : '−'}₹{t.amount.toFixed(2)}
-                            </td>
+                            {editingIdx === idx ? (
+                              <>
+                                <td style={{ padding: '4px' }}>
+                                  <input value={editDraft.txn_date} onChange={e => setEditDraft(d => ({ ...d, txn_date: e.target.value }))} style={{ width: 92, fontSize: 12, padding: 4 }} />
+                                </td>
+                                <td style={{ padding: '4px' }}>
+                                  <input value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} style={{ width: '100%', fontSize: 12, padding: 4 }} />
+                                </td>
+                                <td style={{ padding: '4px', textAlign: 'right' }}>
+                                  <select value={editDraft.direction} onChange={e => setEditDraft(d => ({ ...d, direction: e.target.value }))} style={{ fontSize: 12, marginRight: 4 }}>
+                                    <option value="debit">Dr</option>
+                                    <option value="credit">Cr</option>
+                                  </select>
+                                  <input type="number" step="0.01" value={editDraft.amount} onChange={e => setEditDraft(d => ({ ...d, amount: e.target.value }))} style={{ width: 76, fontSize: 12, padding: 4, textAlign: 'right' }} />
+                                </td>
+                                <td style={{ padding: '4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const amt = parseFloat(editDraft.amount)
+                                      if (Number.isNaN(amt)) return
+                                      if (t.id) {
+                                        await api.put(`/txns/${t.id}`, {
+                                          txn_date: editDraft.txn_date,
+                                          description: editDraft.description,
+                                          amount: amt,
+                                          direction: editDraft.direction,
+                                        }).catch(() => {})
+                                      }
+                                      setResult(r => r ? {
+                                        ...r,
+                                        transactions: r.transactions?.map((row, i) => i === idx ? { ...row, txn_date: editDraft.txn_date, description: editDraft.description, amount: amt, direction: editDraft.direction } : row)
+                                      } : r)
+                                      setEditingIdx(null)
+                                    }}
+                                    style={{ fontSize: 11, marginRight: 4, cursor: 'pointer' }}
+                                  >Save</button>
+                                  <button type="button" onClick={() => setEditingIdx(null)} style={{ fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="mono" style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{t.txn_date}</td>
+                                <td style={{ padding: '6px 8px' }}>{t.description}</td>
+                                <td
+                                  className="mono"
+                                  style={{
+                                    padding: '6px 8px',
+                                    textAlign: 'right',
+                                    whiteSpace: 'nowrap',
+                                    color: t.direction === 'credit' ? 'var(--income)' : 'var(--expense)',
+                                  }}
+                                >
+                                  {t.direction === 'credit' ? '+' : '−'}₹{t.amount.toFixed(2)}
+                                </td>
+                                <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingIdx(idx)
+                                      setEditDraft({ txn_date: t.txn_date, description: t.description, amount: String(t.amount), direction: t.direction })
+                                    }}
+                                    style={{ fontSize: 11, marginRight: 6, cursor: 'pointer' }}
+                                  >Edit</button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (t.id) {
+                                        await api.post(`/txns/${t.id}/duplicate`, { reason: 'removed_in_compare' }).catch(() => {})
+                                      }
+                                      setResult(r => r ? { ...r, transactions: r.transactions?.filter((_, i) => i !== idx) } : r)
+                                    }}
+                                    style={{ fontSize: 11, color: 'var(--expense)', cursor: 'pointer' }}
+                                  >Delete</button>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </tbody>

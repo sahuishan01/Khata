@@ -254,6 +254,7 @@ pub async fn upload_handler(
             transactions: txns
                 .iter()
                 .map(|t| super::models::ParsedTxnPreview {
+                    id: None,
                     txn_date: t.txn_date.to_string(),
                     description: t.description.clone(),
                     amount: t.amount.to_string().parse::<f64>().unwrap_or(0.0),
