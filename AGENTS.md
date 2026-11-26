@@ -30,9 +30,12 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.36` (pending CI).
+Current release version: `v0.45.38` (pending CI).
 
-`v0.45.36` removes `REQUEST_INSTALL_PACKAGES` from `AndroidManifest.xml` for clean
+`v0.45.38` implements reactive Light Mode ("Bahi by daylight") & working Dark Mode
+toggle in `Theme.kt`, plus hairline-bordered `StatCard` polish.
+
+`v0.45.37` opens the GitHub release APK in the system browser (`Intent.ACTION_VIEW`).
 installation compatibility.
 
 `v0.45.35` adds an in-app GitHub Releases update checker and APK installer

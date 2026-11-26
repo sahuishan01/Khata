@@ -3,6 +3,9 @@ package com.khata.app.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
@@ -14,27 +17,71 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.khata.app.R
 
-// DESIGN.md §2.1 — "Bahi by lamplight". Same hex values as frontend/src/index.css.
+// DESIGN.md §2.1 — "Bahi by lamplight" (dark) & "Bahi by daylight" (light).
 object KhataColors {
-    val bg = Color(0xFF12110F)
-    val surface = Color(0xFF1B1916)
-    val surface2 = Color(0xFF24211D)
-    val surface3 = Color(0xFF2E2A25)
-    val hairline = Color(0xFF34302A)
-    val rule = Color(0xFF4D463D)
-    val text = Color(0xFFF1ECE3)
-    val text2 = Color(0xFFB7AE9F)
-    val textMuted = Color(0xFF968C7D)
-    val brand = Color(0xFF6F8CFF)        // actions only
-    val brandPress = Color(0xFF5A78F0)
-    val brandSoft = Color(0x296F8CFF)    // rgba(111,140,255,.16)
-    val onBrand = Color(0xFF0E1226)
-    val income = Color(0xFF52C78D)       // money in only
-    val incomeSoft = Color(0x2452C78D)
-    val expense = Color(0xFFF26B4F)      // money out + destructive only
-    val expenseSoft = Color(0x24F26B4F)
-    val warn = Color(0xFFE8A33D)         // needs attention
-    val warnSoft = Color(0x24E8A33D)
+    var bg by mutableStateOf(Color(0xFF12110F))
+    var surface by mutableStateOf(Color(0xFF1B1916))
+    var surface2 by mutableStateOf(Color(0xFF24211D))
+    var surface3 by mutableStateOf(Color(0xFF2E2A25))
+    var hairline by mutableStateOf(Color(0xFF34302A))
+    var rule by mutableStateOf(Color(0xFF4D463D))
+    var text by mutableStateOf(Color(0xFFF1ECE3))
+    var text2 by mutableStateOf(Color(0xFFB7AE9F))
+    var textMuted by mutableStateOf(Color(0xFF968C7D))
+    var brand by mutableStateOf(Color(0xFF6F8CFF))        // actions only
+    var brandPress by mutableStateOf(Color(0xFF5A78F0))
+    var brandSoft by mutableStateOf(Color(0x296F8CFF))    // rgba(111,140,255,.16)
+    var onBrand by mutableStateOf(Color(0xFF0E1226))
+    var income by mutableStateOf(Color(0xFF52C78D))       // money in only
+    var incomeSoft by mutableStateOf(Color(0x2452C78D))
+    var expense by mutableStateOf(Color(0xFFF26B4F))      // money out + destructive only
+    var expenseSoft by mutableStateOf(Color(0x24F26B4F))
+    var warn by mutableStateOf(Color(0xFFE8A33D))         // needs attention
+    var warnSoft by mutableStateOf(Color(0x24E8A33D))
+
+    internal fun apply(dark: Boolean) {
+        if (dark) {
+            bg = Color(0xFF12110F)
+            surface = Color(0xFF1B1916)
+            surface2 = Color(0xFF24211D)
+            surface3 = Color(0xFF2E2A25)
+            hairline = Color(0xFF34302A)
+            rule = Color(0xFF4D463D)
+            text = Color(0xFFF1ECE3)
+            text2 = Color(0xFFB7AE9F)
+            textMuted = Color(0xFF968C7D)
+            brand = Color(0xFF6F8CFF)
+            brandPress = Color(0xFF5A78F0)
+            brandSoft = Color(0x296F8CFF)
+            onBrand = Color(0xFF0E1226)
+            income = Color(0xFF52C78D)
+            incomeSoft = Color(0x2452C78D)
+            expense = Color(0xFFF26B4F)
+            expenseSoft = Color(0x24F26B4F)
+            warn = Color(0xFFE8A33D)
+            warnSoft = Color(0x24E8A33D)
+        } else {
+            bg = Color(0xFFFAF7F2)
+            surface = Color(0xFFFFFFFF)
+            surface2 = Color(0xFFF2EDE4)
+            surface3 = Color(0xFFE6DFD3)
+            hairline = Color(0xFFDDD5C7)
+            rule = Color(0xFFBFB5A4)
+            text = Color(0xFF1A1714)
+            text2 = Color(0xFF5C544B)
+            textMuted = Color(0xFF7E7468)
+            brand = Color(0xFF4361EE)
+            brandPress = Color(0xFF3451D1)
+            brandSoft = Color(0x1F4361EE)
+            onBrand = Color(0xFFFFFFFF)
+            income = Color(0xFF1E8E5A)
+            incomeSoft = Color(0x1F1E8E5A)
+            expense = Color(0xFFD94426)
+            expenseSoft = Color(0x1FD94426)
+            warn = Color(0xFFC97A10)
+            warnSoft = Color(0x1FC97A10)
+        }
+    }
 }
 
 /**
@@ -168,9 +215,84 @@ fun KhataTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    // Dark only until light reaches parity on both platforms (DESIGN.md §2.1).
+    KhataColors.apply(darkTheme)
+    val scheme = if (darkTheme) {
+        darkColorScheme(
+            primary = KhataColors.brand,
+            onPrimary = KhataColors.onBrand,
+            primaryContainer = KhataColors.brandSoft,
+            onPrimaryContainer = KhataColors.text,
+            inversePrimary = KhataColors.brandPress,
+            secondary = KhataColors.text2,
+            onSecondary = KhataColors.bg,
+            secondaryContainer = KhataColors.brandSoft,
+            onSecondaryContainer = KhataColors.text,
+            tertiary = KhataColors.warn,
+            onTertiary = KhataColors.bg,
+            tertiaryContainer = KhataColors.surface3,
+            onTertiaryContainer = KhataColors.text,
+            error = KhataColors.expense,
+            onError = KhataColors.bg,
+            errorContainer = KhataColors.expenseSoft,
+            onErrorContainer = KhataColors.expense,
+            background = KhataColors.bg,
+            onBackground = KhataColors.text,
+            surface = KhataColors.surface,
+            onSurface = KhataColors.text,
+            surfaceVariant = KhataColors.surface2,
+            onSurfaceVariant = KhataColors.text2,
+            surfaceTint = Color.Transparent,
+            surfaceContainerLowest = KhataColors.bg,
+            surfaceContainerLow = KhataColors.surface,
+            surfaceContainer = KhataColors.surface,
+            surfaceContainerHigh = KhataColors.surface2,
+            surfaceContainerHighest = KhataColors.surface3,
+            inverseSurface = KhataColors.text,
+            inverseOnSurface = KhataColors.bg,
+            outline = KhataColors.rule,
+            outlineVariant = KhataColors.hairline,
+            scrim = Color(0xB3080706),
+        )
+    } else {
+        lightColorScheme(
+            primary = KhataColors.brand,
+            onPrimary = KhataColors.onBrand,
+            primaryContainer = KhataColors.brandSoft,
+            onPrimaryContainer = KhataColors.text,
+            inversePrimary = KhataColors.brandPress,
+            secondary = KhataColors.text2,
+            onSecondary = KhataColors.bg,
+            secondaryContainer = KhataColors.brandSoft,
+            onSecondaryContainer = KhataColors.text,
+            tertiary = KhataColors.warn,
+            onTertiary = KhataColors.bg,
+            tertiaryContainer = KhataColors.surface3,
+            onTertiaryContainer = KhataColors.text,
+            error = KhataColors.expense,
+            onError = KhataColors.bg,
+            errorContainer = KhataColors.expenseSoft,
+            onErrorContainer = KhataColors.expense,
+            background = KhataColors.bg,
+            onBackground = KhataColors.text,
+            surface = KhataColors.surface,
+            onSurface = KhataColors.text,
+            surfaceVariant = KhataColors.surface2,
+            onSurfaceVariant = KhataColors.text2,
+            surfaceTint = Color.Transparent,
+            surfaceContainerLowest = KhataColors.bg,
+            surfaceContainerLow = KhataColors.surface,
+            surfaceContainer = KhataColors.surface,
+            surfaceContainerHigh = KhataColors.surface2,
+            surfaceContainerHighest = KhataColors.surface3,
+            inverseSurface = KhataColors.text,
+            inverseOnSurface = KhataColors.bg,
+            outline = KhataColors.rule,
+            outlineVariant = KhataColors.hairline,
+            scrim = Color(0x66000000),
+        )
+    }
     MaterialTheme(
-        colorScheme = DarkColors,
+        colorScheme = scheme,
         typography = KhataTypography,
         shapes = KhataShapes,
         content = content

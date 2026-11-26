@@ -1,5 +1,6 @@
 package com.khata.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -22,13 +23,13 @@ fun StatCard(
     subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
-    KhataCard(modifier = modifier) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }
+    KhataCard(modifier = modifier, border = BorderStroke(1.dp, KhataColors.hairline)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (icon != null) { icon() }
                 Text(label, style = MaterialTheme.typography.bodyMedium, color = KhataColors.text2)
             }
-            Text(value, style = FigureStyle.copy(fontSize = 20.sp), color = if (accentColor == KhataColors.brand) KhataColors.text else accentColor, maxLines = 1)
+            Text(value, style = FigureStyle.copy(fontSize = 22.sp), color = if (accentColor == KhataColors.brand) KhataColors.text else accentColor, maxLines = 1)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = KhataColors.text2)
         }
     }
