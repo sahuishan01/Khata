@@ -198,6 +198,9 @@ The web's 7 flat tabs overflow and clip "Budgets"; Android's 5-tab + "More" hub 
 ### 4.7 PII on screen (links to SECURITY.md §2.3)
 Account numbers, UPI IDs, full names, and IMPS reference strings are PII. The UI **MUST** offer a privacy/blur mode and **MUST** mask account numbers by default (`••••5914`). Do not render full IMPS reference strings in headline cards (Dashboard "Largest Expense" currently does).
 
+### 4.8 App Updates (Android)
+Settings/Profile **MUST** include an **App Updates** card showing the current version in `MonoStyle` (`vX.Y.Z`) and a secondary **Check for updates** action that queries GitHub Releases. When a newer release is available, surface a clear status message and a primary **Download & Install** action (using `FileProvider` for APK installation).
+
 ---
 
 ## 5. Accessibility floor (non-negotiable)

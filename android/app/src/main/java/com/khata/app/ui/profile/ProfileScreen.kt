@@ -10,15 +10,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.khata.app.BuildConfig
 import com.khata.app.api.MeResponse
 import com.khata.app.ui.components.shared.ButtonVariant
 import com.khata.app.ui.components.shared.KhataButton
 import com.khata.app.ui.components.shared.KhataCard
 import com.khata.app.ui.components.shared.KhataCardBody
 import com.khata.app.ui.components.shared.KhataField
+import com.khata.app.ui.theme.KhataColors
+import com.khata.app.ui.theme.MonoStyle
+import com.khata.app.util.AppUpdater
+import com.khata.app.util.ReleaseInfo
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -104,6 +111,79 @@ fun ProfileScreen(
                 Spacer(Modifier.height(4.dp))
                 KhataField(value = serverUrl, onValueChange = onServerUrlChange, placeholder = "https://khata.algosculptor.com")
                 Text("Restart app to apply changes", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        // App Updates
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var checkingUpdate by remember { mutableStateOf(false) }
+        var downloadingUpdate by remember { mutableStateOf(false) }
+        var releaseInfo by remember { mutableStateOf<ReleaseInfo?>(null) }
+        var updateStatus by remember { mutableStateOf<String?>(null) }
+
+        KhataCard(Modifier.fillMaxWidth()) {
+            KhataCardBody {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("App Updates", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("v${BuildConfig.VERSION_NAME.removePrefix("v")}", style = MonoStyle, color = KhataColors.text2)
+                }
+                Spacer(Modifier.height(10.dp))
+                KhataButton(
+                    onClick = {
+                        checkingUpdate = true
+                        updateStatus = null
+                        scope.launch {
+                            AppUpdater.checkLatestRelease()
+                                .onSuccess { info ->
+                                    releaseInfo = info
+                                    updateStatus = if (info.isNewer) "Update available: v${info.version}" else "You're on the latest version"
+                                }
+                                .onFailure { err ->
+                                    updateStatus = "Update check failed: ${err.message}"
+                                }
+                            checkingUpdate = false
+                        }
+                    },
+                    variant = ButtonVariant.Secondary,
+                    enabled = !checkingUpdate && !downloadingUpdate,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (checkingUpdate) "Checking…" else "Check for updates")
+                }
+                val available = releaseInfo
+                if (available != null && available.isNewer && available.apkUrl != null) {
+                    Spacer(Modifier.height(8.dp))
+                    KhataButton(
+                        onClick = {
+                            downloadingUpdate = true
+                            updateStatus = "Downloading v${available.version}…"
+                            scope.launch {
+                                AppUpdater.downloadAndInstall(context, available.apkUrl)
+                                    .onFailure { err -> updateStatus = "Install failed: ${err.message}" }
+                                downloadingUpdate = false
+                            }
+                        },
+                        variant = ButtonVariant.Primary,
+                        enabled = !downloadingUpdate,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (downloadingUpdate) "Downloading…" else "Download & Install v${available.version}")
+                    }
+                }
+                if (updateStatus != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        updateStatus!!,
+                        fontSize = 12.sp,
+                        color = if (releaseInfo?.isNewer == true) KhataColors.income else KhataColors.text2
+                    )
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
