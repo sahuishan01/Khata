@@ -23,11 +23,12 @@ pub async fn store_transactions(
 
     for t in txns {
         let fp = compute_fingerprint(t);
+        let is_transfer = is_cc_bill_settlement(&t.direction, &t.description);
         let result = sqlx::query(
             r#"INSERT INTO transactions
                (user_id, statement_id, bank, account_label, txn_date, value_date,
-                description, raw_description, amount, direction, balance, bank_ref, fingerprint, category)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                description, raw_description, amount, direction, balance, bank_ref, fingerprint, category, is_transfer)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
                ON CONFLICT (user_id, fingerprint) DO NOTHING"#,
         )
         .bind(t.user_id)
@@ -44,6 +45,7 @@ pub async fn store_transactions(
         .bind(&t.bank_ref)
         .bind(&fp)
         .bind(&t.category)
+        .bind(is_transfer)
         .execute(&mut *tx)
         .await?;
 
@@ -56,6 +58,38 @@ pub async fn store_transactions(
 
     tx.commit().await?;
     Ok((inserted, skipped))
+}
+
+fn is_cc_bill_settlement(direction: &str, description: &str) -> bool {
+    if direction != "credit" {
+        return false;
+    }
+    let d = description.to_lowercase();
+    if ["refund", "cashback", "reversal", "reward", "waiver", "credit adjustment"]
+        .iter()
+        .any(|k| d.contains(k))
+    {
+        return false;
+    }
+    [
+        "payment received",
+        "payment - thank you",
+        "bbps",
+        "billdesk",
+        "cred",
+        "neft",
+        "imps",
+        "rtgs",
+        "upi",
+        "auto debit",
+        "nach",
+        "ecs",
+        "cheque",
+        "internet banking",
+        "mobile banking",
+    ]
+    .iter()
+    .any(|k| d.contains(k))
 }
 
 /// Insert a statement record with RLS context set
