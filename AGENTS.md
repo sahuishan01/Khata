@@ -30,7 +30,11 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.39` (pending CI).
+Current release version: `v0.45.41` (pending CI).
+
+`v0.45.41` removes the typed `DELETE` confirmation on Clear All Data (single dialog
+on Web & Android), remembers the last Add/Upload tab, and auto-dismisses the upload
+banner 3s after viewing its tab.
 
 `v0.45.39` fixes `StatCard` hairline border compilation and includes reactive
 Light Mode ("Bahi by daylight") & working Dark Mode toggle in `Theme.kt`.
