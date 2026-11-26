@@ -69,10 +69,20 @@ val SpaceMono = FontFamily(
 )
 
 /** Monetary figures: Space Mono bold, digits line up in columns. */
-val FigureStyle = TextStyle(fontFamily = SpaceMono, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).sp)
+val FigureStyle = TextStyle(
+    fontFamily = SpaceMono,
+    fontWeight = FontWeight.Bold,
+    letterSpacing = (-0.02).sp,
+    fontFeatureSettings = "tnum",
+)
 
 /** Dates and other short data labels. */
-val MonoStyle = TextStyle(fontFamily = SpaceMono, fontWeight = FontWeight.Normal, fontSize = 12.sp)
+val MonoStyle = TextStyle(
+    fontFamily = SpaceMono,
+    fontWeight = FontWeight.Normal,
+    fontSize = 12.sp,
+    fontFeatureSettings = "tnum",
+)
 
 private fun ui(size: Int, weight: FontWeight, tracking: Double = 0.0, lineHeight: Int? = null) = TextStyle(
     fontFamily = SchibstedGrotesk,

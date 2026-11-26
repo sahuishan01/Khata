@@ -29,7 +29,12 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.33` (verified).
+Current release version: `v0.45.34` (verified).
+
+`v0.45.34` upgrades Android UI/UX polish: tabular figures (`tnum`) on `FigureStyle` and
+`MonoStyle`, merged TalkBack semantics on `KhataListRow`, haptic feedback on primary
+`KhataButton` actions, and 48dp minimum interactive touch targets on clickable
+`KhataChip`s.
 
 `v0.45.33` automatically hides the persistent SMS sync status banner on the Android
 Transactions screen once SMS scan and queue processing are 100% complete (with no

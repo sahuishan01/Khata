@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.khata.app.ui.theme.KhataColors
 import com.khata.app.ui.theme.KhataRadius
@@ -25,9 +27,13 @@ fun KhataButton(
 ) {
     val m = modifier.height(48.dp)
     val pad = PaddingValues(horizontal = 20.dp)
+    val haptic = LocalHapticFeedback.current
     when (variant) {
         ButtonVariant.Primary -> Button(
-            onClick = onClick, enabled = enabled, modifier = m, shape = KhataRadius.md, contentPadding = pad,
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }, enabled = enabled, modifier = m, shape = KhataRadius.md, contentPadding = pad,
             colors = ButtonDefaults.buttonColors(
                 containerColor = KhataColors.brand, contentColor = KhataColors.onBrand,
                 disabledContainerColor = KhataColors.surface3, disabledContentColor = KhataColors.textMuted,

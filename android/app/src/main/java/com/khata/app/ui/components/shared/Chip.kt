@@ -3,6 +3,7 @@ package com.khata.app.ui.components.shared
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +32,8 @@ fun KhataChip(
     }
     Surface(
         onClick = onClick ?: {}, shape = KhataRadius.pill,
-        color = bg, modifier = modifier,
+        color = bg,
+        modifier = if (onClick != null) modifier.minimumInteractiveComponentSize() else modifier,
         enabled = onClick != null
     ) {
         Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = fg,
