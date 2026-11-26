@@ -69,7 +69,8 @@ fn credit_card(rows: &[RawRow], full_text: &str) -> Confidence {
             .iter()
             .map(|r| r.debit.unwrap_or(0.0) - r.credit.unwrap_or(0.0))
             .sum();
-        if (net - total).abs() > CC_TOL {
+        let prev = find_previous_dues(full_text).unwrap_or(0.0);
+        if (net - total).abs() > CC_TOL && (prev + net - total).abs() > CC_TOL {
             return Confidence::Low(format!(
                 "transaction total {net:.2} does not match statement total {total:.2}"
             ));
@@ -78,9 +79,17 @@ fn credit_card(rows: &[RawRow], full_text: &str) -> Confidence {
     Confidence::Ok
 }
 
+fn find_previous_dues(text: &str) -> Option<f64> {
+    find_anchored_amount(text, &["previous statement dues", "previous balance", "opening balance"])
+}
+
 fn find_total_due(text: &str) -> Option<f64> {
+    find_anchored_amount(text, &["total amount due", "total dues", "total payment due"])
+}
+
+fn find_anchored_amount(text: &str, anchors: &[&str]) -> Option<f64> {
     let t = text.to_lowercase();
-    for anchor in ["total amount due", "total dues", "total payment due"] {
+    for anchor in anchors {
         if let Some(i) = t.find(anchor) {
             let tail = &t[i + anchor.len()..];
             let num: String = tail
