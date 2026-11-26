@@ -1,6 +1,6 @@
 package com.khata.app.ui.components
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.sp
 import com.khata.app.ui.components.shared.KhataCard
 import com.khata.app.ui.theme.FigureStyle
 import com.khata.app.ui.theme.KhataColors
+import com.khata.app.ui.theme.KhataRadius
 
 /** Secondary metric. [accentColor] colors the value — pass text for neutral totals. */
 @Composable
@@ -23,7 +24,7 @@ fun StatCard(
     subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
-    KhataCard(modifier = modifier, border = BorderStroke(1.dp, KhataColors.hairline)) {
+    KhataCard(modifier = modifier.border(1.dp, KhataColors.hairline, KhataRadius.lg)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (icon != null) { icon() }
