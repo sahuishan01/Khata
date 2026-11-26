@@ -50,13 +50,13 @@ object SmsParser {
         val money = "$CURRENCY\\s*$AMOUNT"
         // Generate both orders together so a verb cannot be supported in only one.
         return listOf(
-            "\\b(?:${vocabulary(verbs + leadingMarkers)})\\b\\s*(?:by|for|of|with)?\\s*$money",
+            "\\b(?:${vocabulary(verbs + leadingMarkers)})\\b\\s*(?:[!,:;-]\\s*)?(?:by|for|of|with)?\\s*$money",
             "$money\\s*(?:has\\s+been\\s+|is\\s+)?\\b(?:${vocabulary(verbs)})\\b",
         ).map { Pattern.compile(it, Pattern.CASE_INSENSITIVE) }
     }
 
     private val DEBIT_PATTERNS = wordPostings(
-        listOf("debited", "sent", "paid", "spent", "withdrawn", "transferred"),
+        listOf("debited", "deducted", "sent", "paid", "spent", "withdrawn", "transferred"),
         leadingMarkers = listOf("txn of", "vpa"),
     ) + accountPostings("dr")
 
