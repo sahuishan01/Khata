@@ -29,7 +29,10 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.35` (pending CI).
+Current release version: `v0.45.36` (pending CI).
+
+`v0.45.36` removes `REQUEST_INSTALL_PACKAGES` from `AndroidManifest.xml` for clean
+installation compatibility.
 
 `v0.45.35` adds an in-app GitHub Releases update checker and APK installer
 (`AppUpdater.kt`, `FileProvider`, `ProfileScreen.kt`) and documents §4.8 App Updates
