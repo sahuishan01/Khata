@@ -50,8 +50,23 @@ const runSummary = (r: EmailSyncRun) =>
     .join('\n')
 
 export function UploadPage() {
-  const [tab, setTab] = useState<'upload' | 'email' | 'manual'>('email')
+  const [tab, setTabState] = useState<'upload' | 'email' | 'manual'>(() => {
+    const saved = localStorage.getItem('khata_upload_tab')
+    return saved === 'upload' || saved === 'email' || saved === 'manual' ? saved : 'upload'
+  })
+  const setTab = (next: 'upload' | 'email' | 'manual') => {
+    localStorage.setItem('khata_upload_tab', next)
+    setTabState(next)
+  }
   const [result, setResult] = useState<ImportResult | null>(null)
+
+  useEffect(() => {
+    if (!result) return
+    const targetTab = result.type === 'email' ? 'email' : result.type === 'manual' ? 'manual' : 'upload'
+    if (tab !== targetTab) return
+    const timer = window.setTimeout(() => setResult(null), 3000)
+    return () => window.clearTimeout(timer)
+  }, [result, tab])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [dragOver, setDragOver] = useState(false)

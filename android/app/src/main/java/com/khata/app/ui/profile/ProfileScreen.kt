@@ -48,21 +48,15 @@ fun ProfileScreen(
     var msg by remember { mutableStateOf("") }
 
     if (showClearDialog) {
-        AlertDialog(onDismissRequest = { showClearDialog = false; clearConfirmText = "" },
+        AlertDialog(onDismissRequest = { showClearDialog = false },
             title = { Text("Clear All Data", color = MaterialTheme.colorScheme.error) },
             text = {
-                Column {
-                    Text("This will permanently delete server transactions, statements, chat history, and this device's saved and queued transactions. Your SMS inbox is kept and can be scanned again.", fontSize = 13.sp)
-                    Spacer(Modifier.height(12.dp))
-                    Text("Type DELETE to confirm:", fontSize = 13.sp)
-                    Spacer(Modifier.height(6.dp))
-                    KhataField(value = clearConfirmText, onValueChange = { clearConfirmText = it }, placeholder = "DELETE")
-                }
+                Text("This will permanently delete server transactions, statements, chat history, and this device's saved and queued transactions. Your SMS inbox is kept and can be scanned again.", fontSize = 13.sp)
             },
             confirmButton = {
-                KhataButton(onClick = { showClearDialog = false; clearConfirmText = ""; onClearAllData() }, variant = ButtonVariant.Ghost, enabled = clearConfirmText == "DELETE") { Text("Clear Everything", color = MaterialTheme.colorScheme.error) }
+                KhataButton(onClick = { showClearDialog = false; onClearAllData() }, variant = ButtonVariant.Ghost) { Text("Clear Everything", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { KhataButton(onClick = { showClearDialog = false; clearConfirmText = "" }, variant = ButtonVariant.Ghost) { Text("Cancel") } })
+            dismissButton = { KhataButton(onClick = { showClearDialog = false }, variant = ButtonVariant.Ghost) { Text("Cancel") } })
     }
 
     if (showEmailDialog) {

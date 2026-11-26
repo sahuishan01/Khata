@@ -10,7 +10,6 @@ export function ProfilePage() {
   const { user, logout } = useAuth()
   const [isDark, setIsDark] = useState(false)
   const [showClearDialog, setShowClearDialog] = useState(false)
-  const [clearConfirmText, setClearConfirmText] = useState('')
   const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [emailPassword, setEmailPassword] = useState('')
@@ -132,11 +131,9 @@ export function ProfilePage() {
                   <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--expense)' }}>Clear All Data</h3>
                 </div>
                 <p style={{ color: 'var(--text-2)', marginBottom: 12, fontSize: 13 }}>This will permanently delete all transactions, statements, and chat history. This action cannot be undone.</p>
-                <p style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>Type <strong>DELETE</strong> to confirm:</p>
-                <Field value={clearConfirmText} onChange={e => setClearConfirmText(e.target.value)} placeholder="Type DELETE" autoFocus />
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-                  <Button variant="secondary" onClick={() => { setShowClearDialog(false); setClearConfirmText('') }}>Cancel</Button>
-                  <Button variant="danger" disabled={clearConfirmText !== 'DELETE'} onClick={() => { clearAllData(); setClearConfirmText('') }}>Clear Everything</Button>
+                  <Button variant="secondary" onClick={() => setShowClearDialog(false)}>Cancel</Button>
+                  <Button variant="danger" onClick={() => clearAllData()}>Clear Everything</Button>
                 </div>
               </CardBody>
             </Card>
