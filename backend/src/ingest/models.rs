@@ -20,6 +20,15 @@ pub struct NormalizedTxn {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ParsedTxnPreview {
+    pub txn_date: String,
+    pub description: String,
+    pub amount: f64,
+    pub direction: String,
+    pub bank_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct UploadResponse {
     pub bank_detected: String,
     pub rows_parsed: usize,
@@ -27,6 +36,7 @@ pub struct UploadResponse {
     pub inserted: usize,
     pub skipped_duplicates: usize,
     pub warnings: Vec<String>,
+    pub transactions: Vec<ParsedTxnPreview>,
 }
 
 #[derive(Debug, Default, Clone)]

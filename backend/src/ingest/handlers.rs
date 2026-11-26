@@ -237,6 +237,7 @@ pub async fn upload_handler(
                 inserted: 0,
                 skipped_duplicates: 0,
                 warnings: warnings.clone(),
+                transactions: Vec::new(),
             }));
         }
 
@@ -250,6 +251,16 @@ pub async fn upload_handler(
             inserted,
             skipped_duplicates,
             warnings,
+            transactions: txns
+                .iter()
+                .map(|t| super::models::ParsedTxnPreview {
+                    txn_date: t.txn_date.to_string(),
+                    description: t.description.clone(),
+                    amount: t.amount.to_string().parse::<f64>().unwrap_or(0.0),
+                    direction: t.direction.clone(),
+                    bank_ref: t.bank_ref.clone(),
+                })
+                .collect(),
         }))
     }
 }

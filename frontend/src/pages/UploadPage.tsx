@@ -33,6 +33,13 @@ interface ImportResult {
   normalized?: number
   rows_parsed?: number
   warnings?: string[]
+  transactions?: {
+    txn_date: string
+    description: string
+    amount: number
+    direction: string
+    bank_ref?: string | null
+  }[]
 }
 
 const runSummary = (r: EmailSyncRun) =>
@@ -59,6 +66,8 @@ export function UploadPage() {
     setTabState(next)
   }
   const [result, setResult] = useState<ImportResult | null>(null)
+  const [lastPdfUrl, setLastPdfUrl] = useState<string | null>(null)
+  const [showCompare, setShowCompare] = useState(false)
 
   useEffect(() => {
     if (!result) return
@@ -88,7 +97,12 @@ export function UploadPage() {
   const [savePw, setSavePw] = useState(true)
 
   const upload = async (file: File, password?: string) => {
-    setLoading(true); setError(''); setResult(null)
+    setLoading(true); setError(''); setResult(null); setShowCompare(false)
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      setLastPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file) })
+    } else {
+      setLastPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    }
     const fd = new FormData()
     fd.append('file', file)
     if (password) { fd.append('password', password); fd.append('save_password', savePw ? 'true' : 'false') }
@@ -183,7 +197,12 @@ export function UploadPage() {
   const saveEmailConfig = async () => {
     if (!emailInput) return
     if (!appPasswordInput && !hasExistingKey) return
-    setLoading(true); setError(''); setResult(null)
+    setLoading(true); setError(''); setResult(null); setShowCompare(false)
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      setLastPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file) })
+    } else {
+      setLastPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    }
     try {
       const { data } = await api.put('/ingest/email/config', {
         email_address: emailInput,
@@ -260,6 +279,98 @@ export function UploadPage() {
               <div className="mt-2 text-[13px] flex items-start gap-2" style={{ color: 'var(--expense, #b45309)' }}>
                 <AlertTriangle size={15} />
                 <span>{result.warnings.join(' ')}</span>
+              </div>
+            ) : null}
+            {lastPdfUrl && result?.transactions?.length ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCompare(true)}
+                  style={{
+                    background: 'var(--brand)',
+                    color: 'var(--on-brand)',
+                    border: 'none',
+                    borderRadius: 'var(--r-md)',
+                    padding: '8px 14px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Compare PDF &amp; Transactions ({result.transactions.length})
+                </button>
+              </div>
+            ) : null}
+            {showCompare && lastPdfUrl && result?.transactions?.length ? (
+              <div
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(0,0,0,0.75)',
+                  zIndex: 200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: 16,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <strong style={{ color: 'var(--text)', fontSize: 16 }}>
+                    Side-by-Side Comparison — {result.bank_detected} ({result.transactions.length} rows)
+                  </strong>
+                  <button
+                    type="button"
+                    onClick={() => setShowCompare(false)}
+                    style={{
+                      background: 'var(--surface-2)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--hairline)',
+                      borderRadius: 'var(--r-md)',
+                      padding: '6px 12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: 1, minHeight: 0 }}>
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-lg)', overflow: 'auto', padding: 12 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--hairline)', color: 'var(--text-2)', textAlign: 'left' }}>
+                          <th style={{ padding: '6px 8px' }}>#</th>
+                          <th style={{ padding: '6px 8px' }}>Date</th>
+                          <th style={{ padding: '6px 8px' }}>Description</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right' }}>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.transactions.map((t, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid var(--hairline)' }}>
+                            <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{idx + 1}</td>
+                            <td className="mono" style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{t.txn_date}</td>
+                            <td style={{ padding: '6px 8px' }}>{t.description}</td>
+                            <td
+                              className="mono"
+                              style={{
+                                padding: '6px 8px',
+                                textAlign: 'right',
+                                whiteSpace: 'nowrap',
+                                color: t.direction === 'credit' ? 'var(--income)' : 'var(--expense)',
+                              }}
+                            >
+                              {t.direction === 'credit' ? '+' : '−'}₹{t.amount.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <iframe
+                    src={lastPdfUrl}
+                    title="PDF Preview"
+                    style={{ width: '100%', height: '100%', border: '1px solid var(--hairline)', borderRadius: 'var(--r-lg)', background: '#fff' }}
+                  />
+                </div>
               </div>
             ) : null}
             {parseFailed && (
