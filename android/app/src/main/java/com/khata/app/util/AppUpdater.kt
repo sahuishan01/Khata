@@ -57,24 +57,10 @@ object AppUpdater {
         }
     }
 
-    suspend fun downloadAndInstall(context: Context, apkUrl: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun downloadAndInstall(context: Context, apkUrl: String): Result<Unit> = withContext(Dispatchers.Main) {
         runCatching {
-            val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
-            val apkFile = File(updatesDir, "khata_latest.apk")
-            val req = Request.Builder().url(apkUrl).build()
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) error("Download failed (${resp.code})")
-                val body = resp.body ?: error("Empty APK response")
-                apkFile.outputStream().use { out -> body.byteStream().copyTo(out) }
-            }
-            val uri: Uri = FileProvider.getUriForFile(
-                context,
-                "${BuildConfig.APPLICATION_ID}.fileprovider",
-                apkFile,
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
         }
