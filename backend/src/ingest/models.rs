@@ -19,13 +19,14 @@ pub struct NormalizedTxn {
     pub category: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ParsedTxnPreview {
     pub id: Option<String>,
     pub txn_date: String,
     pub description: String,
     pub amount: f64,
     pub direction: String,
+    pub is_transfer: bool,
     pub bank_ref: Option<String>,
 }
 

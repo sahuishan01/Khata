@@ -53,10 +53,19 @@ pub fn parse_pdf(
             }
 
             let description = desc_parts.join(" ");
+            let is_payment_or_cr = super::rows::is_card_payment_narration(&description)
+                || description.to_uppercase().contains(" CR")
+                || description.to_uppercase().ends_with("CR");
             let (debit, credit, balance) = match num_parts.as_slice() {
                 [d, b] => (Some(*d), None, Some(*b)),
                 [d, c, b] => (Some(*d), Some(*c), Some(*b)),
-                [amt] => (Some(*amt), None, None),
+                [amt] => {
+                    if is_payment_or_cr {
+                        (None, Some(*amt), None)
+                    } else {
+                        (Some(*amt), None, None)
+                    }
+                }
                 _ => (None, None, None),
             };
 

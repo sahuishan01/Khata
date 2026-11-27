@@ -30,7 +30,14 @@ Before changing the version number, verify the previous build through GitHub CLI
 
 After verifying the previous build succeeded, auto-update the version number stored here and create the next release tag. The current version is defined by the latest git tag matching `v*`.
 
-Current release version: `v0.45.42` (pending CI).
+Current release version: `v0.45.43` (pending CI).
+
+`v0.45.43` fixes credit card statement detection (`strong_cc`) when closing balance
+summary text exists, parses negative/parenthesized amounts and card payment narrations
+as credits, recognizes bank-side credit card bill repayments (CRED, BBPS CC, BillDesk,
+AutoDebit) as transfers in `store.rs`, returns database IDs and `is_transfer` in
+the upload response, and overhauls import review with Spend/Income/Repayment badges,
+1-click repayment toggle, and working inline Edit/Delete actions.
 
 `v0.45.42` persists the selected Add/Upload tab on Android (`CombinedUploadScreen.kt`),
 auto-dismisses the upload banner after 3s, and adds Side-by-Side PDF & Transactions

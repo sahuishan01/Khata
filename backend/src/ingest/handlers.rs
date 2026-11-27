@@ -241,10 +241,10 @@ pub async fn upload_handler(
             }));
         }
 
-        let (inserted, skipped_duplicates) =
+        let (inserted, skipped_duplicates, stored_infos) =
             store_transactions(&state.db, user_id, &txns).await?;
 
-        return Ok(Json(UploadResponse {
+        Ok(Json(UploadResponse {
             bank_detected: profile.name.to_string(),
             rows_parsed,
             normalized,
@@ -253,12 +253,14 @@ pub async fn upload_handler(
             warnings,
             transactions: txns
                 .iter()
-                .map(|t| super::models::ParsedTxnPreview {
-                    id: None,
+                .zip(stored_infos.iter())
+                .map(|(t, s)| super::models::ParsedTxnPreview {
+                    id: Some(s.id.to_string()),
                     txn_date: t.txn_date.to_string(),
                     description: t.description.clone(),
                     amount: t.amount.to_string().parse::<f64>().unwrap_or(0.0),
                     direction: t.direction.clone(),
+                    is_transfer: s.is_transfer,
                     bank_ref: t.bank_ref.clone(),
                 })
                 .collect(),

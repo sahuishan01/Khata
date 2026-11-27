@@ -353,7 +353,7 @@ async fn process_attachment(
         counters.attachments_parsed += 1;
         return Ok(());
     }
-    let (inserted, skipped) = store_transactions(&state.db, user_id, &txns).await?;
+    let (inserted, skipped, _) = store_transactions(&state.db, user_id, &txns).await?;
     counters.attachments_parsed += 1;
     counters.txns_imported += inserted as i32;
     counters.txns_skipped += skipped as i32;
@@ -461,7 +461,7 @@ async fn process_body_txn(
         category: categorize(&bt.description, &bt.direction).to_string(),
     };
 
-    let (inserted, skipped) = store_transactions(&state.db, user_id, &[txn]).await?;
+    let (inserted, skipped, _) = store_transactions(&state.db, user_id, &[txn]).await?;
     counters.txns_imported += inserted as i32;
     counters.txns_skipped += skipped as i32;
     Ok(())

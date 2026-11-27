@@ -334,8 +334,11 @@ class MainViewModel @Inject constructor(
         } else null
         val res = repository.uploadStatement(part, pwPart, savePart)
         lastUploadUri = null
+        val bank = (res["bank_detected"] as? String)?.takeIf { it.isNotBlank() } ?: "Statement"
+        val inserted = (res["inserted"] as? Number)?.toInt() ?: 0
         val warnings = (res["warnings"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
-        onResult(if (warnings.isNotEmpty()) "Uploaded! ${warnings.joinToString(" ")}" else "Uploaded!")
+        val summary = "$bank: $inserted new transactions imported" + if (warnings.isNotEmpty()) " (${warnings.joinToString(" ")})" else ""
+        onResult(summary)
     } catch (e: retrofit2.HttpException) {
         val body = e.response()?.errorBody()?.string().orEmpty()
         val code = Regex("\"code\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)

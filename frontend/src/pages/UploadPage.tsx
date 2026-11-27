@@ -39,6 +39,7 @@ interface ImportResult {
     description: string
     amount: number
     direction: string
+    is_transfer?: boolean
     bank_ref?: string | null
   }[]
 }
@@ -74,11 +75,57 @@ export function UploadPage() {
 
   useEffect(() => {
     if (!result) return
-    const targetTab = result.type === 'email' ? 'email' : result.type === 'manual' ? 'manual' : 'upload'
-    if (tab !== targetTab) return
-    const timer = window.setTimeout(() => setResult(null), 3000)
-    return () => window.clearTimeout(timer)
+    // Only auto-dismiss simple flash alerts (e.g. manual add or email sync trigger)
+    // Never auto-dismiss parsed statement transactions while user is reviewing them!
+    if (!result.transactions || result.transactions.length === 0) {
+      const targetTab = result.type === 'email' ? 'email' : result.type === 'manual' ? 'manual' : 'upload'
+      if (tab !== targetTab) return
+      const timer = window.setTimeout(() => setResult(null), 3500)
+      return () => window.clearTimeout(timer)
+    }
   }, [result, tab])
+
+  const toggleTransfer = async (idx: number, id?: string | null, isTransfer: boolean = true) => {
+    if (id) {
+      await api.patch(`/txns/${id}/transfer`, { is_transfer: isTransfer }).catch(() => {})
+    }
+    setResult(r => r ? {
+      ...r,
+      transactions: r.transactions?.map((row, i) => i === idx ? { ...row, is_transfer: isTransfer } : row)
+    } : r)
+  }
+
+  const onSaveEdit = async (idx: number, id?: string | null) => {
+    const amt = parseFloat(editDraft.amount)
+    if (Number.isNaN(amt) || amt <= 0) return
+    if (id) {
+      try {
+        const { data: curr } = await api.get(`/txns/${id}`)
+        await api.put(`/txns/${id}`, {
+          ...curr,
+          base_rev: curr.rev ?? 0,
+          txn_date: editDraft.txn_date,
+          value_date: editDraft.txn_date,
+          description: editDraft.description,
+          amount: amt,
+          direction: editDraft.direction,
+        })
+      } catch {
+        await api.patch(`/txns/${id}/description`, { description: editDraft.description }).catch(() => {})
+      }
+    }
+    setResult(r => r ? {
+      ...r,
+      transactions: r.transactions?.map((row, i) => i === idx ? {
+        ...row,
+        txn_date: editDraft.txn_date,
+        description: editDraft.description,
+        amount: amt,
+        direction: editDraft.direction,
+      } : row)
+    } : r)
+    setEditingIdx(null)
+  }
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -201,11 +248,6 @@ export function UploadPage() {
     if (!emailInput) return
     if (!appPasswordInput && !hasExistingKey) return
     setLoading(true); setError(''); setResult(null); setShowCompare(false)
-    if (file.name.toLowerCase().endsWith('.pdf')) {
-      setLastPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file) })
-    } else {
-      setLastPdfUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
-    }
     try {
       const { data } = await api.put('/ingest/email/config', {
         email_address: emailInput,
@@ -276,32 +318,39 @@ export function UploadPage() {
               <p className="text-muted" style={{ fontSize: 12 }}>{loading ? 'Please wait…' : 'PDF, CSV or Excel · drag & drop or click'}</p>
             </div>
             {result && !parseFailed && !result.type && (
-              <div className="flex items-center gap-2 mt-3" style={{ color: 'var(--income)', fontSize: 13 }}><CheckCircle size={15} /><span><strong>{result.bank_detected}</strong> — {result.rows_parsed} rows, <strong>{result.inserted} new</strong>, {result.skipped_duplicates} duplicates</span></div>
+              <div style={{ marginTop: 14, padding: '12px 16px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
+                <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 8 }}>
+                  <div className="flex items-center gap-2" style={{ color: 'var(--income)', fontSize: 13 }}>
+                    <CheckCircle size={16} />
+                    <span><strong>{result.bank_detected}</strong> — {result.rows_parsed} rows parsed (<strong>{result.inserted} new</strong>, {result.skipped_duplicates} duplicates)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {lastPdfUrl && result?.transactions && result.transactions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCompare(true)}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 12, padding: '5px 12px' }}
+                      >
+                        Compare PDF &amp; Transactions ({result.transactions.length})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setResult(null)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 12, padding: '5px 8px' }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
             {result?.warnings?.length ? (
               <div className="mt-2 text-[13px] flex items-start gap-2" style={{ color: 'var(--expense, #b45309)' }}>
                 <AlertTriangle size={15} />
                 <span>{result.warnings.join(' ')}</span>
-              </div>
-            ) : null}
-            {lastPdfUrl && result?.transactions?.length ? (
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCompare(true)}
-                  style={{
-                    background: 'var(--brand)',
-                    color: 'var(--on-brand)',
-                    border: 'none',
-                    borderRadius: 'var(--r-md)',
-                    padding: '8px 14px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Compare PDF &amp; Transactions ({result.transactions.length})
-                </button>
               </div>
             ) : null}
             {showCompare && lastPdfUrl && result?.transactions?.length ? (
@@ -343,6 +392,7 @@ export function UploadPage() {
                           <th style={{ padding: '6px 8px' }}>#</th>
                           <th style={{ padding: '6px 8px' }}>Date</th>
                           <th style={{ padding: '6px 8px' }}>Description</th>
+                          <th style={{ padding: '6px 8px' }}>Type</th>
                           <th style={{ padding: '6px 8px', textAlign: 'right' }}>Amount</th>
                           <th style={{ padding: '6px 8px', textAlign: 'right' }}>Actions</th>
                         </tr>
@@ -359,6 +409,11 @@ export function UploadPage() {
                                 <td style={{ padding: '4px' }}>
                                   <input value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} style={{ width: '100%', fontSize: 12, padding: 4 }} />
                                 </td>
+                                <td style={{ padding: '4px' }}>
+                                  <span style={{ fontSize: 11, color: 'var(--text-2)' }}>
+                                    {t.is_transfer ? 'Repayment' : editDraft.direction === 'debit' ? 'Spend' : 'Income'}
+                                  </span>
+                                </td>
                                 <td style={{ padding: '4px', textAlign: 'right' }}>
                                   <select value={editDraft.direction} onChange={e => setEditDraft(d => ({ ...d, direction: e.target.value }))} style={{ fontSize: 12, marginRight: 4 }}>
                                     <option value="debit">Dr</option>
@@ -369,23 +424,7 @@ export function UploadPage() {
                                 <td style={{ padding: '4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                   <button
                                     type="button"
-                                    onClick={async () => {
-                                      const amt = parseFloat(editDraft.amount)
-                                      if (Number.isNaN(amt)) return
-                                      if (t.id) {
-                                        await api.put(`/txns/${t.id}`, {
-                                          txn_date: editDraft.txn_date,
-                                          description: editDraft.description,
-                                          amount: amt,
-                                          direction: editDraft.direction,
-                                        }).catch(() => {})
-                                      }
-                                      setResult(r => r ? {
-                                        ...r,
-                                        transactions: r.transactions?.map((row, i) => i === idx ? { ...row, txn_date: editDraft.txn_date, description: editDraft.description, amount: amt, direction: editDraft.direction } : row)
-                                      } : r)
-                                      setEditingIdx(null)
-                                    }}
+                                    onClick={() => onSaveEdit(idx, t.id)}
                                     style={{ fontSize: 11, marginRight: 4, cursor: 'pointer' }}
                                   >Save</button>
                                   <button type="button" onClick={() => setEditingIdx(null)} style={{ fontSize: 11, cursor: 'pointer' }}>Cancel</button>
@@ -395,6 +434,21 @@ export function UploadPage() {
                               <>
                                 <td className="mono" style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{t.txn_date}</td>
                                 <td style={{ padding: '6px 8px' }}>{t.description}</td>
+                                <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                                  {t.is_transfer ? (
+                                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(234, 179, 8, 0.15)', color: '#ca8a04', fontWeight: 600 }}>
+                                      Repayment / Transfer
+                                    </span>
+                                  ) : t.direction === 'debit' ? (
+                                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.1)', color: 'var(--expense)', fontWeight: 600 }}>
+                                      Spend
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(34, 197, 94, 0.1)', color: 'var(--income)', fontWeight: 600 }}>
+                                      Income
+                                    </span>
+                                  )}
+                                </td>
                                 <td
                                   className="mono"
                                   style={{
@@ -407,6 +461,23 @@ export function UploadPage() {
                                   {t.direction === 'credit' ? '+' : '−'}₹{t.amount.toFixed(2)}
                                 </td>
                                 <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleTransfer(idx, t.id, !t.is_transfer)}
+                                    title={t.is_transfer ? "Mark as normal Spend/Income" : "Mark as Credit Card Repayment / Transfer (not spend)"}
+                                    style={{
+                                      fontSize: 10,
+                                      marginRight: 6,
+                                      padding: '2px 6px',
+                                      borderRadius: 'var(--r-sm, 4px)',
+                                      border: '1px solid var(--hairline)',
+                                      background: 'var(--surface-2)',
+                                      color: t.is_transfer ? 'var(--text-2)' : '#ca8a04',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {t.is_transfer ? "Mark Spend" : "Mark Repayment"}
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => {

@@ -21,14 +21,16 @@ pub fn detect_file_kind(filename: &str) -> FileKind {
 /// Detect the bank profile from the full file hint (sheet name + all preamble + header row text).
 /// `file_hint` is already lowercased.
 pub fn detect_bank<'a>(profiles: &'a [BankProfile], file_hint: &str) -> &'a BankProfile {
-    // Credit-card statements: strong CC wording + no running-balance column.
-    let looks_cc = ["credit card", "minimum amount due", "total amount due"]
+    // Credit-card statements: strong CC wording (minimum / total amount due, or credit card statement).
+    let strong_cc = file_hint.contains("minimum amount due")
+        || file_hint.contains("total amount due")
+        || file_hint.contains("credit card statement")
+        || file_hint.contains("credit card account");
+    let has_balance_col = ["running balance", "available balance"]
         .iter()
         .any(|k| file_hint.contains(k));
-    let has_balance_header = ["closing balance", "running balance", "available balance"]
-        .iter()
-        .any(|k| file_hint.contains(k));
-    if looks_cc && !has_balance_header {
+    let looks_cc = strong_cc || (file_hint.contains("credit card") && !has_balance_col);
+    if looks_cc {
         if let Some(p) = profiles.iter().find(|p| p.name == "GENERIC_CC") {
             return p;
         }
@@ -72,6 +74,13 @@ mod tests {
     fn detects_generic_cc_from_credit_card_hint() {
         let profiles = registry();
         let hint = "hdfc bank credit card statement ... total amount due 5,000 transaction date amount";
+        assert_eq!(detect_bank(&profiles, hint).name, "GENERIC_CC");
+    }
+
+    #[test]
+    fn detects_generic_cc_even_with_closing_balance_in_summary() {
+        let profiles = registry();
+        let hint = "hdfc bank credit card statement ... opening balance 0.00 closing balance 5,000.00 total amount due 5,000 transaction date amount";
         assert_eq!(detect_bank(&profiles, hint).name, "GENERIC_CC");
     }
 

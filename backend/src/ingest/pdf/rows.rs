@@ -15,6 +15,7 @@ pub enum Sign {
 pub struct Signed {
     pub value: f64,
     pub sign: Option<Sign>,
+    pub is_negative: bool,
 }
 
 /// Parse one money cell. Handles Indian digit grouping ("1,23,456.78"),
@@ -72,6 +73,7 @@ pub fn amount(cell: &str) -> Option<Signed> {
         .unwrap_or(&no_currency)
         .trim();
     let leading_minus = no_currency.starts_with('-');
+    let is_negative = paren || trailing_minus || leading_minus;
 
     let core: String = no_currency.chars().filter(|c| *c != '-').collect();
     let core = core
@@ -101,11 +103,11 @@ pub fn amount(cell: &str) -> Option<Signed> {
     let cleaned = cleaned.trim_matches('.');
     let value: f64 = cleaned.parse().ok()?;
 
-    if sign.is_none() && (paren || trailing_minus || leading_minus) {
+    if sign.is_none() && is_negative {
         sign = Some(Sign::Dr);
     }
 
-    Some(Signed { value, sign })
+    Some(Signed { value, sign, is_negative })
 }
 
 fn parse_date(s: &str, profile: &BankProfile) -> Option<NaiveDate> {
@@ -188,10 +190,24 @@ fn build_row(c: &BTreeMap<ColKind, String>, profile: &BankProfile) -> RawRow {
     let (mut debit, mut credit) = (None, None);
     match profile.statement_kind {
         StatementKind::CreditCard => {
+            let desc = get(c, ColKind::Description);
+            let is_payment_desc = is_card_payment_narration(desc);
             if let Some(a) = amount(get(c, ColKind::Amount)) {
-                match a.sign {
-                    Some(Sign::Cr) => credit = Some(a.value),
-                    _ => debit = Some(a.value),
+                // In credit cards:
+                // - Explicit Cr marker -> credit
+                // - Negative / parenthesized number -> credit (payments/refunds reduce statement balance)
+                // - Narration describing payment / settlement -> credit
+                // - Explicit Dr marker without negative -> debit
+                // - Otherwise -> debit (normal charge/spend)
+                let is_credit = match a.sign {
+                    Some(Sign::Cr) => true,
+                    Some(Sign::Dr) => a.is_negative || is_payment_desc,
+                    None => a.is_negative || is_payment_desc,
+                };
+                if is_credit {
+                    credit = Some(a.value);
+                } else {
+                    debit = Some(a.value);
                 }
             }
         }
@@ -246,6 +262,37 @@ fn merge_continuation(row: &mut RawRow, c: &BTreeMap<ColKind, String>) {
     if row.balance.is_none() {
         row.balance = amount(get(c, ColKind::Balance)).map(|a| a.value);
     }
+}
+
+pub(crate) fn is_card_payment_narration(desc: &str) -> bool {
+    let d = desc.to_lowercase();
+    if ["fee", "interest", "charge", "failed", "declined"]
+        .iter()
+        .any(|k| d.contains(k))
+    {
+        return false;
+    }
+    [
+        "payment received",
+        "payment - thank you",
+        "payment thank you",
+        "autopay",
+        "auto debit",
+        "cred club",
+        "cred payment",
+        "billdesk",
+        "bbps",
+        "cheque received",
+        "neft payment",
+        "imps payment",
+        "upi payment",
+        "internet banking",
+        "mobile banking",
+        "payment credited",
+        "payment settlement",
+    ]
+    .iter()
+    .any(|k| d.contains(k))
 }
 
 #[cfg(test)]
@@ -343,5 +390,41 @@ mod tests {
         assert_eq!(out[0].credit, None);
         assert_eq!(out[1].credit, Some(500.0));
         assert_eq!(out[1].debit, None);
+    }
+
+    #[test]
+    fn assemble_credit_card_repayments_and_negative_amounts() {
+        let rows = vec![
+            cell(&[
+                (ColKind::TxnDate, "05/02/2024"),
+                (ColKind::Description, "SWIGGY"),
+                (ColKind::Amount, "350.00"),
+            ]),
+            cell(&[
+                (ColKind::TxnDate, "07/02/2024"),
+                (ColKind::Description, "PAYMENT RECEIVED - THANK YOU"),
+                (ColKind::Amount, "5,000.00"),
+            ]),
+            cell(&[
+                (ColKind::TxnDate, "08/02/2024"),
+                (ColKind::Description, "AUTOPAY DEBIT"),
+                (ColKind::Amount, "(2,500.00)"),
+            ]),
+            cell(&[
+                (ColKind::TxnDate, "09/02/2024"),
+                (ColKind::Description, "CRED PAYMENT"),
+                (ColKind::Amount, "-1,000.00"),
+            ]),
+        ];
+        let out = assemble(rows, &generic_cc::profile());
+        assert_eq!(out.len(), 4);
+        assert_eq!(out[0].debit, Some(350.0), "SWIGGY is normal spend");
+        assert_eq!(out[0].credit, None);
+        assert_eq!(out[1].credit, Some(5000.0), "Payment Received is credit");
+        assert_eq!(out[1].debit, None);
+        assert_eq!(out[2].credit, Some(2500.0), "Parenthesized payment is credit");
+        assert_eq!(out[2].debit, None);
+        assert_eq!(out[3].credit, Some(1000.0), "Negative amount is credit");
+        assert_eq!(out[3].debit, None);
     }
 }
